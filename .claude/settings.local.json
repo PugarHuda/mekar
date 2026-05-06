@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.0g.ai)",
+      "WebSearch",
+      "WebFetch(domain:0g.ai)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:wchl25.worldcomputer.com)",
+      "WebFetch(domain:hidorahacks.medium.com)",
+      "WebFetch(domain:dorahacks.io)",
+      "Bash(curl -sL -o \"F:/Hackathons/Hackathon 0g V2/0g-whitepaper.pdf\" \"https://cdn.jsdelivr.net/gh/0glabs/0g-doc/static/whitepaper.pdf\")",
+      "Bash(pnpm --version)",
+      "Bash(forge --version)",
+      "Bash(forge install *)",
+      "Bash(forge build *)",
+      "Bash(forge test *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter @mekar/frontend type-check)",
+      "Bash(pnpm --filter @mekar/frontend build)",
+      "Bash(cast balance *)",
+      "Bash(mkdir -p deployments)",
+      "Bash(forge script *)",
+      "Bash(forge clean *)",
+      "Bash(bash scripts/seed-galileo.sh)",
+      "Bash(pnpm --filter @mekar/frontend dev)",
+      "Bash(npm install *)",
+      "Bash(vercel *)",
+      "Bash(rm -rf .vercel)",
+      "Bash(rm vercel.json)",
+      "Bash(curl -sI https://mekar.vercel.app)",
+      "Bash(npm run *)",
+      "Bash(curl -s https://mekar.vercel.app)",
+      "Bash(curl -s https://mekar.vercel.app/og.svg)",
+      "Bash(curl -s https://mekar.vercel.app/sitemap.xml)",
+      "Bash(curl -sI \"https://mekar.vercel.app/api/bloom/4.svg\")",
+      "Bash(curl -s \"https://mekar.vercel.app/api/bloom/4.svg\")",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git add *)"
+    ]
+  }
+}

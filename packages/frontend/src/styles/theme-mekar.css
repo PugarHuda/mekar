@@ -1,0 +1,81 @@
+/**
+ * MEKAR — Indonesian Garden theme
+ *
+ * Toggle on by setting `data-theme="mekar"` on <html>. Default theme stays
+ * intact; this layer only overrides CSS variables when the attribute is set.
+ *
+ * Will be activated once Stitch designs are integrated. Until then we keep
+ * the existing dark-emerald look so the live demo URL stays consistent.
+ */
+
+[data-theme="mekar"] {
+    /* Surfaces */
+    --background: 38 38% 94%;          /* #f7f1e6 cream */
+    --card: 0 0% 100%;
+    --whisper: 38 50% 98%;             /* #fdfbf6 mist cream */
+
+    /* Ink (text colors) */
+    --foreground: 25 41% 17%;          /* #3d2817 cocoa */
+    --muted-foreground: 25 25% 35%;
+    --card-foreground: var(--foreground);
+
+    /* Brand */
+    --primary: 41 64% 53%;             /* #d4a437 warm gold */
+    --primary-foreground: 25 41% 13%;
+
+    --accent: 16 80% 80%;              /* #f5b7a0 frangipani pink */
+    --accent-foreground: 25 41% 13%;
+
+    --secondary: 156 41% 17%;          /* #1c3b2f deep forest */
+    --secondary-foreground: 38 38% 94%;
+
+    /* Signal colors */
+    --signal-green: 87 31% 42%;        /* #6b8a4b tea leaf */
+    --destructive: 9 56% 53%;          /* #c25a4a soft coral */
+    --destructive-foreground: 38 38% 94%;
+
+    /* Borders */
+    --border: 38 22% 84%;
+    --input: 38 22% 84%;
+    --ring: 41 64% 53%;
+
+    /* Radii */
+    --radius: 0.625rem;
+}
+
+[data-theme="mekar"].dark {
+    /* Espresso variant */
+    --background: 25 35% 8%;           /* #1a140e */
+    --card: 25 30% 12%;
+    --foreground: 38 38% 94%;
+    --muted-foreground: 38 18% 60%;
+    --primary: 41 70% 60%;
+    --accent: 16 65% 70%;
+    --secondary: 156 30% 22%;
+    --border: 25 18% 22%;
+}
+
+/* Botanical typography hooks — apply via class names from components */
+[data-theme="mekar"] .font-display {
+    font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+[data-theme="mekar"] .font-display-italic {
+    font-family: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+    font-style: italic;
+}
+
+[data-theme="mekar"] .font-editorial {
+    font-family: "Manrope", system-ui, sans-serif;
+    letter-spacing: 0.005em;
+}
+
+/* Hand-drawn divider used between sections */
+[data-theme="mekar"] .divider-botanical {
+    height: 24px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' fill='none' stroke='%231c3b2f' stroke-width='1.2' stroke-linecap='round'><path d='M10 12 q40 -10 80 0 t80 0' opacity='.6'/><circle cx='95' cy='8' r='2' fill='%23d4a437' stroke='none'/><circle cx='105' cy='8' r='2' fill='%23d4a437' stroke='none'/></svg>");
+    background-repeat: repeat-x;
+    background-size: contain;
+}

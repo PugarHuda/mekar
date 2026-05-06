@@ -1,0 +1,28 @@
+{
+  "name": "mekar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MEKAR — AI Genealogy & Royalty Protocol on 0G",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "contracts:compile": "pnpm --filter @mekar/contracts compile",
+    "contracts:test": "pnpm --filter @mekar/contracts test",
+    "contracts:deploy": "pnpm --filter @mekar/contracts deploy",
+    "frontend:dev": "pnpm --filter @mekar/frontend dev",
+    "frontend:build": "pnpm --filter @mekar/frontend build",
+    "backend:dev": "pnpm --filter @mekar/backend dev",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

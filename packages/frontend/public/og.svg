@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0e0c"/>
+      <stop offset="100%" stop-color="#064e3b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.7" cy="0.3" r="0.5">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Grid pattern subtle -->
+  <g stroke="#1a2e25" stroke-width="1" opacity="0.4">
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="200" x2="1200" y2="200"/>
+    <line x1="0" y1="300" x2="1200" y2="300"/>
+    <line x1="0" y1="400" x2="1200" y2="400"/>
+    <line x1="0" y1="500" x2="1200" y2="500"/>
+  </g>
+
+  <!-- Lineage tree visualization on right side -->
+  <g transform="translate(880, 80)">
+    <!-- Genesis node -->
+    <circle cx="120" cy="80" r="32" fill="#10b981"/>
+    <text x="120" y="86" text-anchor="middle" fill="white" font-family="monospace" font-size="18" font-weight="bold">#1</text>
+
+    <!-- Branches from genesis -->
+    <line x1="120" y1="112" x2="60" y2="200" stroke="#10b981" stroke-width="3" opacity="0.7"/>
+    <line x1="120" y1="112" x2="180" y2="200" stroke="#10b981" stroke-width="3" opacity="0.7"/>
+
+    <!-- Fork nodes -->
+    <circle cx="60" cy="220" r="26" fill="#059669"/>
+    <text x="60" y="226" text-anchor="middle" fill="white" font-family="monospace" font-size="14" font-weight="bold">#2</text>
+
+    <circle cx="180" cy="220" r="26" fill="#059669"/>
+    <text x="180" y="226" text-anchor="middle" fill="white" font-family="monospace" font-size="14" font-weight="bold">#3</text>
+
+    <!-- Composed node -->
+    <line x1="60" y1="246" x2="120" y2="320" stroke="#f59e0b" stroke-width="3" opacity="0.7"/>
+    <line x1="180" y1="246" x2="120" y2="320" stroke="#f59e0b" stroke-width="3" opacity="0.7"/>
+
+    <circle cx="120" cy="340" r="32" fill="#f59e0b"/>
+    <text x="120" y="346" text-anchor="middle" fill="white" font-family="monospace" font-size="18" font-weight="bold">#4</text>
+
+    <!-- Royalty stream lines -->
+    <g opacity="0.5">
+      <line x1="120" y1="372" x2="60" y2="450" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
+      <line x1="120" y1="372" x2="180" y2="450" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
+      <line x1="120" y1="372" x2="120" y2="480" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
+    </g>
+
+    <!-- $0G coin icons at endpoints -->
+    <g fill="#10b981">
+      <circle cx="60" cy="465" r="10"/>
+      <circle cx="180" cy="465" r="10"/>
+      <circle cx="120" cy="495" r="10"/>
+    </g>
+  </g>
+
+  <!-- Logo + brand on left -->
+  <g transform="translate(80, 80)">
+    <!-- Tree icon -->
+    <rect x="0" y="0" width="64" height="64" rx="14" fill="#10b981"/>
+    <g transform="translate(0, 0)">
+      <rect x="29" y="38" width="6" height="16" rx="2" fill="#064e3b"/>
+      <circle cx="32" cy="20" r="8" fill="#064e3b"/>
+      <circle cx="20" cy="30" r="6" fill="#064e3b"/>
+      <circle cx="44" cy="30" r="6" fill="#064e3b"/>
+    </g>
+    <text x="80" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="bold" fill="white">MEKAR</text>
+  </g>
+
+  <!-- Main headline -->
+  <text x="80" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="white">
+    Every AI has
+  </text>
+  <text x="80" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="url(#title)">
+    a lineage.
+  </text>
+  <text x="80" y="440" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="500" fill="#a7f3d0" opacity="0.85">
+    Every inference pays
+  </text>
+  <text x="80" y="490" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="500" fill="#a7f3d0" opacity="0.85">
+    its ancestors.
+  </text>
+
+  <!-- Bottom badge -->
+  <g transform="translate(80, 540)">
+    <rect x="0" y="0" width="220" height="40" rx="20" fill="#10b981" opacity="0.15" stroke="#10b981" stroke-width="1"/>
+    <text x="110" y="26" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#10b981">
+      BUILT ON 0G — TRACK 3
+    </text>
+  </g>
+
+  <text x="320" y="566" font-family="monospace" font-size="14" fill="#64748b">
+    mekar.vercel.app · #0GHackathon · #BuildOn0G
+  </text>
+</svg>

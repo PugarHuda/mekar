@@ -1,0 +1,28 @@
+{
+  "name": "@mekar/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MEKAR smart contracts — AI Genealogy & Royalty Protocol",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "test:gas": "forge test --gas-report",
+    "test:fuzz": "FOUNDRY_PROFILE=ci forge test",
+    "coverage": "forge coverage --report summary",
+    "snapshot": "forge snapshot",
+    "fmt": "forge fmt",
+    "deploy:galileo": "forge script script/Deploy.s.sol:Deploy --rpc-url zg_galileo --broadcast --legacy",
+    "deploy:mainnet": "forge script script/Deploy.s.sol:Deploy --rpc-url zg_mainnet --broadcast --legacy",
+    "deploy:local": "forge script script/Deploy.s.sol:Deploy --rpc-url localhost --broadcast",
+    "seed:galileo": "forge script script/SeedDemo.s.sol:SeedDemo --rpc-url zg_galileo --broadcast --legacy",
+    "seed:mainnet": "forge script script/SeedDemo.s.sol:SeedDemo --rpc-url zg_mainnet --broadcast --legacy",
+    "seed:local": "forge script script/SeedDemo.s.sol:SeedDemo --rpc-url localhost --broadcast",
+    "anvil": "anvil",
+    "install:deps": "forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 --no-commit && forge install foundry-rs/forge-std --no-commit",
+    "clean": "forge clean"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2"
+  }
+}
