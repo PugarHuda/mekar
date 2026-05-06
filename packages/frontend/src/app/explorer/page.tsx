@@ -21,41 +21,116 @@ export default function ExplorerPage() {
     const [selected, setSelected] = useState<LineageNode | null>(null);
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [isDragging, setIsDragging] = useState(false);
-    const dragStartRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
+    const [isCanvasDragging, setIsCanvasDragging] = useState(false);
+    const [draggingNodeId, setDraggingNodeId] = useState<number | null>(null);
+    const [posOverrides, setPosOverrides] = useState<Map<number, { x: number; y: number }>>(
+        new Map()
+    );
+
+    const canvasRef = useRef<HTMLDivElement>(null);
+    const canvasDragRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
+    const nodeDragRef = useRef<{
+        id: number;
+        startX: number;
+        startY: number;
+        startPosX: number;
+        startPosY: number;
+        moved: boolean;
+    } | null>(null);
 
     function resetView() {
         setZoom(1);
         setPan({ x: 0, y: 0 });
+        setPosOverrides(new Map());
     }
 
+    /* ─── canvas pan (drag empty space) ─── */
+
     function onCanvasPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-        if ((e.target as HTMLElement).closest(".tree-node")) return; // don't pan when clicking a bloom
+        if ((e.target as HTMLElement).closest(".tree-node")) return;
         e.currentTarget.setPointerCapture(e.pointerId);
-        dragStartRef.current = { px: e.clientX, py: e.clientY, sx: pan.x, sy: pan.y };
-        setIsDragging(true);
+        canvasDragRef.current = { px: e.clientX, py: e.clientY, sx: pan.x, sy: pan.y };
+        setIsCanvasDragging(true);
     }
 
     function onCanvasPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-        if (!dragStartRef.current) return;
-        const { px, py, sx, sy } = dragStartRef.current;
+        if (!canvasDragRef.current) return;
+        const { px, py, sx, sy } = canvasDragRef.current;
         setPan({ x: sx + (e.clientX - px), y: sy + (e.clientY - py) });
     }
 
     function onCanvasPointerUp(e: React.PointerEvent<HTMLDivElement>) {
         e.currentTarget.releasePointerCapture(e.pointerId);
-        dragStartRef.current = null;
-        setIsDragging(false);
+        canvasDragRef.current = null;
+        setIsCanvasDragging(false);
     }
 
     function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
-        if (!e.ctrlKey && !e.metaKey) return; // only zoom on Ctrl/Cmd+wheel; otherwise let page scroll
+        if (!e.ctrlKey && !e.metaKey) return;
         e.preventDefault();
         const delta = -e.deltaY * 0.0015;
         setZoom((z) => Math.max(0.4, Math.min(2, +(z + delta).toFixed(2))));
     }
 
-    const positioned = useMemo(() => layoutGarden(nodes, edges), [nodes, edges]);
+    /* ─── per-node drag ─── */
+
+    function onNodePointerDown(
+        e: React.PointerEvent<HTMLButtonElement>,
+        node: { id: number; x: number; y: number }
+    ) {
+        e.stopPropagation();
+        e.currentTarget.setPointerCapture(e.pointerId);
+        nodeDragRef.current = {
+            id: node.id,
+            startX: e.clientX,
+            startY: e.clientY,
+            startPosX: node.x,
+            startPosY: node.y,
+            moved: false,
+        };
+        setDraggingNodeId(node.id);
+    }
+
+    function onNodePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+        const drag = nodeDragRef.current;
+        if (!drag || !canvasRef.current) return;
+        const dxPx = e.clientX - drag.startX;
+        const dyPx = e.clientY - drag.startY;
+        if (!drag.moved && Math.abs(dxPx) + Math.abs(dyPx) > 4) drag.moved = true;
+        if (!drag.moved) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const dxPct = (dxPx / rect.width / zoom) * 100;
+        const dyPct = (dyPx / rect.height / zoom) * 100;
+        setPosOverrides((prev) => {
+            const next = new Map(prev);
+            next.set(drag.id, {
+                x: Math.max(2, Math.min(98, drag.startPosX + dxPct)),
+                y: Math.max(4, Math.min(96, drag.startPosY + dyPct)),
+            });
+            return next;
+        });
+    }
+
+    function onNodePointerUp(
+        e: React.PointerEvent<HTMLButtonElement>,
+        node: LineageNode
+    ) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        const drag = nodeDragRef.current;
+        nodeDragRef.current = null;
+        setDraggingNodeId(null);
+        if (drag && !drag.moved) setSelected(node);
+    }
+
+    const positionedRaw = useMemo(() => layoutGarden(nodes, edges), [nodes, edges]);
+    const positioned = useMemo(
+        () =>
+            positionedRaw.map((n) => {
+                const o = posOverrides.get(n.id);
+                return o ? { ...n, x: o.x, y: o.y } : n;
+            }),
+        [positionedRaw, posOverrides]
+    );
 
     const visible = positioned.filter((n) => {
         if (filter === "Genesis" && n.parents.length !== 0) return false;
@@ -283,11 +358,13 @@ export default function ExplorerPage() {
                                             color: "var(--ink-soft)",
                                         }}
                                     >
-                                        <Hand size={12} /> drag to pan · ⌘/ctrl+scroll to zoom
+                                        <Hand size={12} /> drag a bloom to move · drag empty
+                                        space to pan · ⌘/ctrl+scroll to zoom
                                     </span>
                                 </div>
 
                                 <div
+                                    ref={canvasRef}
                                     className="explorer-canvas"
                                     onPointerDown={onCanvasPointerDown}
                                     onPointerMove={onCanvasPointerMove}
@@ -298,9 +375,9 @@ export default function ExplorerPage() {
                                         height: 600,
                                         position: "relative",
                                         overflow: "hidden",
-                                        cursor: isDragging ? "grabbing" : "grab",
+                                        cursor: isCanvasDragging ? "grabbing" : "grab",
                                         touchAction: "none",
-                                        userSelect: isDragging ? "none" : "auto",
+                                        userSelect: isCanvasDragging ? "none" : "auto",
                                     }}
                                 >
                                     {isLoading ? (
@@ -347,7 +424,7 @@ export default function ExplorerPage() {
                                                 height: "100%",
                                                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                                                 transformOrigin: "top left",
-                                                transition: isDragging
+                                                transition: isCanvasDragging
                                                     ? "none"
                                                     : "transform 180ms ease",
                                                 willChange: "transform",
@@ -401,6 +478,9 @@ export default function ExplorerPage() {
                                                         : n.parents.length === 1
                                                           ? "fork"
                                                           : "compose";
+                                                const isDraggingThis =
+                                                    draggingNodeId === n.id;
+                                                const isMoved = posOverrides.has(n.id);
                                                 return (
                                                     <button
                                                         key={n.id}
@@ -412,8 +492,24 @@ export default function ExplorerPage() {
                                                             background: "transparent",
                                                             border: "none",
                                                             padding: 0,
+                                                            cursor: isDraggingThis
+                                                                ? "grabbing"
+                                                                : "grab",
+                                                            transition: isDraggingThis
+                                                                ? "none"
+                                                                : "left 180ms ease, top 180ms ease",
+                                                            zIndex: isDraggingThis ? 20 : isMoved ? 10 : 1,
+                                                            touchAction: "none",
+                                                            filter: isDraggingThis
+                                                                ? "drop-shadow(0 14px 18px rgba(61,40,23,0.25))"
+                                                                : "none",
                                                         }}
-                                                        onClick={() => setSelected(n)}
+                                                        onPointerDown={(e) => onNodePointerDown(e, n)}
+                                                        onPointerMove={onNodePointerMove}
+                                                        onPointerUp={(e) => onNodePointerUp(e, n)}
+                                                        onPointerCancel={(e) =>
+                                                            onNodePointerUp(e, n)
+                                                        }
                                                     >
                                                         <Bloom
                                                             kind={kind}
