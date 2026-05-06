@@ -24,6 +24,53 @@ export default function Home() {
     );
 }
 
+/* ─────────────── Petal (scatter falling petals) ─────────────── */
+
+/**
+ * A single woodcut petal — straight port of `Petal` from flowers.jsx.
+ * Used as the falling/floating scatter inside the hero, separate from
+ * the big CodeBloom centerpiece.
+ */
+function Petal({
+    size = 40,
+    rotate = 0,
+    color = "#f5b7a0",
+    stroke = "#3d2817",
+}: {
+    size?: number;
+    rotate?: number;
+    color?: string;
+    stroke?: string;
+}) {
+    const half = size / 2;
+    // Match flowers.jsx::petalLine(rng, size*0.42, size*0.16, bend=0.6)
+    const length = size * 0.42;
+    const width = size * 0.16;
+    // Replace per-render rng with a deterministic offset seeded by rotate so
+    // each scatter petal has a slightly different curve without re-renders.
+    const offset = Math.sin(rotate * 0.137) * 0.5;
+    const tipX = 0.6 * offset * length * 0.3;
+    const tipY = -length;
+    const d = `M 0 0 C ${-width} ${-length * 0.35} ${-width * 0.6} ${-length * 0.85} ${tipX} ${tipY} C ${width * 0.6} ${-length * 0.85} ${width} ${-length * 0.35} 0 0 Z`;
+    return (
+        <svg
+            viewBox={`-${half} -${half} ${size} ${size}`}
+            width={size}
+            height={size}
+            aria-hidden="true"
+        >
+            <path
+                d={d}
+                transform={`rotate(${rotate})`}
+                fill={color}
+                stroke={stroke}
+                strokeWidth="0.8"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
 /* ─────────────── Hero ─────────────── */
 
 function Hero() {
@@ -105,7 +152,7 @@ function Hero() {
                                     } as React.CSSProperties
                                 }
                             >
-                                <Bloom kind="genesis" seed={`petal-${p.id}`} size={p.size} />
+                                <Petal size={p.size} rotate={p.rotate} color={p.color} />
                             </div>
                         ))}
                         <div className="hero__bloom">
