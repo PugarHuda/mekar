@@ -44,7 +44,12 @@
       "Bash(grep -E \"\\\\.env$\")",
       "Bash(git commit -m ' *)",
       "Bash(gh repo *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Read(//c/Users/ASUS/.local/share/com.vercel.cli/**)",
+      "Read(//c/Users/ASUS/AppData/Roaming/com.vercel.cli/**)",
+      "Bash(awk 'NR>=5 && NR<=5 {print $7}')",
+      "Bash(mkdir -p \"F:/Hackathons/Hackathon 0g V2/.stitch-design\")",
+      "Bash(unzip -q -o \"/c/Users/ASUS/Downloads/Mekar.zip\")"
     ]
   }
 }

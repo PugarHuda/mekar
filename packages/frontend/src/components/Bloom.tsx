@@ -1,56 +1,45 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  renderBloomSvg,
-  svgToDataUri,
-  variantFromLineage,
-  type BloomVariant,
-} from "@/lib/bloom";
+import { renderBloomSvg, svgToDataUri, variantFromLineage, type BloomKind } from "@/lib/bloom";
 
 type Props = {
-  tokenId: number;
-  parentCount: number;
-  size?: number;
-  alignmentHealth?: number;
-  showLeaves?: boolean;
-  className?: string;
-  alt?: string;
+    /** Override the bloom variant directly (else derived from `parentCount`). */
+    kind?: BloomKind;
+    /** Lineage shape: 0 → genesis, 1 → fork, 2+ → compose. Ignored if `kind` is set. */
+    parentCount?: number;
+    /** Token id or any string used to seed the procedural variation. */
+    seed: number | string;
+    size?: number;
+    /** Stroke weight modifier; 1.2 default, 1.6 for emphasis. */
+    sw?: number;
+    className?: string;
+    alt?: string;
 };
 
 /**
- * Render a procedural bloom for an agent.
+ * Render a procedural Mekar bloom as an inline `<img>` driven by a data URI.
  *
- * The bloom shape is derived from the agent's lineage type:
- *   • 0 parents → lotus (genesis)
- *   • 1 parent  → jasmine (fork)
- *   • 2+ parents → marigold (compose)
- *
- * Variation within an archetype is seeded by the tokenId, so each
- * agent gets a unique bloom that stays consistent across renders.
- *
- * The SVG is built locally from numeric inputs only (no user-provided
- * strings end up inside the markup), then served as a data: URI to
- * avoid any inline-HTML XSS surface.
+ * The SVG is generated locally from numeric inputs only; nothing
+ * user-supplied ends up inside the markup, so there is no XSS surface.
  */
-export function Bloom({
-  tokenId,
-  parentCount,
-  size = 120,
-  alignmentHealth,
-  showLeaves = true,
-  className,
-  alt = "Agent bloom",
-}: Props) {
-  const dataUri = useMemo(() => {
-    const variant: BloomVariant = variantFromLineage(parentCount);
-    const svg = renderBloomSvg(tokenId, variant, { size, alignmentHealth, showLeaves });
-    return svgToDataUri(svg);
-  }, [tokenId, parentCount, size, alignmentHealth, showLeaves]);
+export function Bloom({ kind, parentCount = 0, seed, size = 120, sw, className, alt = "Agent bloom" }: Props) {
+    const dataUri = useMemo(() => {
+        const resolved: BloomKind = kind ?? variantFromLineage(parentCount);
+        const svg = renderBloomSvg(resolved, seed, { size, sw });
+        return svgToDataUri(svg);
+    }, [kind, parentCount, seed, size, sw]);
 
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={dataUri} width={size} height={size} alt={alt} className={className} />;
+    return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={dataUri} width={size} height={size} alt={alt} className={className} />
+    );
 }
 
-// Backwards-compat alias for callers that imported the old name.
-export const BloomImage = Bloom;
+/**
+ * The lotus mark — used in nav, footer, favicons. Always woodcut, always seeded
+ * with "logo" so it stays consistent across renders.
+ */
+export function BloomLogo({ size = 36, sw = 1.6, className }: { size?: number; sw?: number; className?: string }) {
+    return <Bloom kind="logo" seed="logo" size={size} sw={sw} className={className} alt="Mekar logo" />;
+}

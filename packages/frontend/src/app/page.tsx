@@ -1,244 +1,614 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
-import {
-  ArrowRight,
-  Coins,
-  Shield,
-  Sparkles,
-  TreePine,
-  Network,
-} from "lucide-react";
-// Note: framer-motion is loaded only on the landing page
-import { motion } from "framer-motion";
+import { Footer } from "@/components/Footer";
+import { Bloom, BloomLogo } from "@/components/Bloom";
 
 export default function Home() {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-mekar-deep/20">
-      <Header />
-
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_-20%,rgba(16,185,129,0.15),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_30%,rgba(245,158,11,0.08),transparent_40%)]" />
+    return (
+        <div>
+            <Header />
+            <Hero />
+            <Problem />
+            <How />
+            <StatsStrip />
+            <ExplorerPreview />
+            <StackChart />
+            <FAQ />
+            <CTA />
+            <Footer />
         </div>
+    );
+}
 
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-24 md:py-32">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-4xl"
-          >
-            <div className="inline-flex items-center gap-2 rounded-full border border-mekar-green/30 bg-mekar-green/10 px-4 py-1.5 text-xs font-medium text-mekar-green mb-6">
-              <Sparkles className="h-3.5 w-3.5" />
-              Built on 0G • Track 3 — Agentic Economy
+/* ─────────────── Hero ─────────────── */
+
+function Hero() {
+    const petals = useMemo(() => {
+        const out = [];
+        for (let i = 0; i < 14; i++) {
+            out.push({
+                id: i,
+                left: `${5 + Math.random() * 90}%`,
+                top: `-30px`,
+                size: 18 + Math.random() * 18,
+                rotate: Math.random() * 180,
+                color:
+                    i % 3 === 0 ? "#d4a437" : i % 3 === 1 ? "#f5b7a0" : "#e8957c",
+                dur: `${10 + Math.random() * 14}s`,
+                delay: `${-Math.random() * 14}s`,
+                dx: `${(Math.random() - 0.5) * 200}px`,
+            });
+        }
+        return out;
+    }, []);
+
+    return (
+        <section className="hero">
+            <div className="container">
+                <div className="hero__inner">
+                    <div className="hero__text">
+                        <span className="eyebrow">Provenance Protocol · 0G Network</span>
+                        <h1 className="hero__title">
+                            Every AI
+                            <br />
+                            has a <em>lineage.</em>
+                            <br />
+                            Every inference
+                            <br />
+                            pays its <em>ancestors.</em>
+                        </h1>
+                        <p className="hero__sub">
+                            Mekar — to bloom, in Indonesian — is a public ledger of AI parentage.
+                            Register an agent, fine-tune it, compose new ones, and royalties flow
+                            automatically up the family tree to every contributor below you.
+                        </p>
+                        <div className="hero__cta">
+                            <Link href="/mint" className="btn">
+                                Bloom your first agent ↗
+                            </Link>
+                            <a href="#explorer" className="btn btn--ghost">
+                                Wander the garden
+                            </a>
+                        </div>
+                        <div className="hero__meta">
+                            <div className="hero__meta-item">
+                                <span className="num">4</span>
+                                <span className="label">Agents bloomed</span>
+                            </div>
+                            <div className="hero__meta-item">
+                                <span className="num">3</span>
+                                <span className="label">Royalty events</span>
+                            </div>
+                            <div className="hero__meta-item">
+                                <span className="num">ERC-7857</span>
+                                <span className="label">INFT Standard</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="hero__art">
+                        {petals.map((p) => (
+                            <div
+                                key={p.id}
+                                className="petal-float"
+                                style={
+                                    {
+                                        left: p.left,
+                                        top: p.top,
+                                        "--dur": p.dur,
+                                        "--delay": p.delay,
+                                        "--dx": p.dx,
+                                    } as React.CSSProperties
+                                }
+                            >
+                                <Bloom kind="genesis" seed={`petal-${p.id}`} size={p.size} />
+                            </div>
+                        ))}
+                        <div className="hero__bloom">
+                            <Bloom
+                                kind="genesis"
+                                seed="mekar-hero-v2"
+                                size={560}
+                                sw={1.4}
+                            />
+                        </div>
+                        <div className="hero__caption">
+                            Fig. 01 — A bloom of code,
+                            <br />
+                            the genesis seed of the protocol
+                        </div>
+                    </div>
+                </div>
             </div>
+        </section>
+    );
+}
 
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-              Every AI has a{" "}
-              <span className="bg-gradient-to-r from-mekar-green via-emerald-400 to-mekar-gold bg-clip-text text-transparent">
-                lineage.
-              </span>
-              <br />
-              Every inference
-              <br />
-              pays its ancestors.
-            </h1>
+/* ─────────────── Problem ─────────────── */
 
-            <p className="mt-8 text-xl text-muted-foreground max-w-2xl leading-relaxed">
-              MEKAR is <strong className="text-foreground">Spotify-style royalty for AI agents</strong> —
-              every inference automatically distributes royalty to parents,
-              grandparents, and training data contributors. Native to 0G&apos;s
-              ERC-7857 INFT primitive.
-            </p>
-
-            <div className="mt-10 flex flex-wrap gap-4">
-              <Link
-                href="/explorer"
-                className="group inline-flex items-center gap-2 rounded-lg bg-mekar-green px-6 py-3 text-sm font-semibold text-background hover:bg-emerald-400 transition-colors animate-pulse-glow"
-              >
-                Explore Lineage Tree
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <Link
-                href="/mint"
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground hover:bg-secondary transition-colors"
-              >
-                Mint an Agent
-              </Link>
+function Problem() {
+    const cases = [
+        {
+            year: "'23",
+            title: "NYT v. OpenAI",
+            body: "The Times sued OpenAI and Microsoft for training on millions of copyrighted articles without licensing. The lawsuit hinges on a question with no clean answer: what was in the training data, and what's owed?",
+        },
+        {
+            year: "'23",
+            title: "Getty v. Stability AI",
+            body: "Getty alleges that Stable Diffusion ingested 12 million of its photographs. Even Getty watermarks appeared in the model's outputs — the lineage was visible, but unprovable on-chain.",
+        },
+        {
+            year: "'26",
+            title: "EU AI Act takes effect",
+            body: "Article 53 requires general-purpose AI providers to publish a 'sufficiently detailed summary' of training content. Compliance is on the honor system. Verification is on the courts.",
+        },
+    ];
+    return (
+        <section className="problem" id="problem">
+            <div className="container">
+                <div className="problem__inner">
+                    <div className="problem__lead">
+                        <span className="eyebrow">The Provenance Crisis</span>
+                        <h2>
+                            Three lawsuits.
+                            <br />
+                            One missing <em>ledger.</em>
+                        </h2>
+                        <p className="problem__quote">
+                            &ldquo;We can&apos;t prove what we trained on. We can&apos;t pay who
+                            we owe. And we can&apos;t build the next generation without knowing
+                            the last.&rdquo;
+                        </p>
+                    </div>
+                    <div className="problem__cases">
+                        {cases.map((c) => (
+                            <article key={c.title} className="problem__case">
+                                <div className="year">{c.year}</div>
+                                <div>
+                                    <h3>{c.title}</h3>
+                                    <p>{c.body}</p>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
             </div>
-          </motion.div>
-        </div>
-      </section>
+        </section>
+    );
+}
 
-      {/* Why MEKAR */}
-      <section className="border-t border-border/40">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-20">
-          <div className="grid md:grid-cols-2 gap-12 mb-16">
-            <div>
-              <p className="text-sm font-mono text-mekar-green mb-2">{"// THE PROBLEM"}</p>
-              <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-                AI today looks like the music industry in 1999.
-              </h2>
+/* ─────────────── How it works ─────────────── */
+
+function How() {
+    const steps = [
+        {
+            n: "I",
+            kind: "bud" as const,
+            title: "Plant a seed",
+            emWord: "seed",
+            body: "Register a model as an INFT. Hash the weights, declare your training corpus, set the royalty schema.",
+        },
+        {
+            n: "II",
+            kind: "opening" as const,
+            title: "Fork or compose",
+            emWord: "compose",
+            body: "Anyone can fine-tune your agent or merge it with another. Lineage is recorded, immutably, by the protocol.",
+        },
+        {
+            n: "III",
+            kind: "genesis" as const,
+            title: "Bloom in use",
+            emWord: "use",
+            body: "Inferences settle on-chain. Your agent earns from every call — the same way a song earns from every play.",
+        },
+        {
+            n: "IV",
+            kind: "scatter" as const,
+            title: "Scatter the royalties",
+            emWord: "royalties",
+            body: "A single payment splits across the entire ancestry — parents, grandparents, training-data contributors. Automatic, recursive, public.",
+        },
+    ];
+    return (
+        <section className="how" id="how">
+            <div className="container">
+                <div className="how__head">
+                    <div>
+                        <span className="eyebrow">The Protocol</span>
+                        <h2>
+                            From seed to <em>scatter</em>, in four stages.
+                        </h2>
+                    </div>
+                    <p>
+                        Mekar borrows the structure of plant life — and the economics of music
+                        royalties. Every agent passes through the same four stages, regardless
+                        of whether it&apos;s a frontier base model or a weekend fine-tune.
+                    </p>
+                </div>
+                <div className="how__timeline">
+                    {steps.map((s) => (
+                        <div key={s.n} className="how__step">
+                            <div className="how__step-art">
+                                <span className="num">{s.n}</span>
+                                <Bloom
+                                    kind={s.kind}
+                                    seed={`how-${s.n}`}
+                                    size={s.kind === "genesis" ? 110 : 90}
+                                    sw={1.3}
+                                />
+                            </div>
+                            <h3>
+                                {s.title.split(" ").map((w, j, arr) =>
+                                    j === arr.length - 1 ? (
+                                        <em key={j}>{w}</em>
+                                    ) : (
+                                        <span key={j}>{w} </span>
+                                    )
+                                )}
+                            </h3>
+                            <p>{s.body}</p>
+                        </div>
+                    ))}
+                </div>
             </div>
-            <div className="space-y-4 text-muted-foreground text-lg">
-              <p>NYT vs OpenAI: <span className="text-rose-400">$7.5B claim</span></p>
-              <p>Getty vs Stability: <span className="text-rose-400">$1.7B</span></p>
-              <p>EU AI Act enforcement: <span className="text-mekar-gold">May 2026</span></p>
-              <p>Stability AI: <span className="text-rose-400">bankrupt</span> without a royalty rail</p>
+        </section>
+    );
+}
+
+/* ─────────────── Live stats strip ─────────────── */
+
+function StatsStrip() {
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setTick((t) => t + 1), 2400);
+        return () => clearInterval(id);
+    }, []);
+
+    const stats = [
+        { num: "4", unit: "agents", label: "Bloomed to date", live: false },
+        {
+            num: (12 + tick).toLocaleString(),
+            unit: "calls/min",
+            label: "Inferences settling",
+            live: true,
+        },
+        { num: "0.0036", unit: "0G", label: "Royalties scattered", live: false },
+        { num: "0.04¢", unit: "median", label: "Per-call gas", live: false },
+    ];
+
+    return (
+        <section className="stats">
+            <div className="container">
+                <div className="stats__inner">
+                    <div>
+                        <div className="stats__label">A garden, in numbers</div>
+                        <h3 className="stats__title">
+                            Lineages bloom faster <br />
+                            than databases can keep up.
+                        </h3>
+                    </div>
+                    {stats.map((s) => (
+                        <div key={s.label} className="stat">
+                            <div className="stat__num">
+                                {s.live && <span className="stat__pulse" />}
+                                {s.num}
+                                <span className="unit">{s.unit}</span>
+                            </div>
+                            <div className="stat__label">{s.label}</div>
+                        </div>
+                    ))}
+                </div>
             </div>
-          </div>
+        </section>
+    );
+}
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={<TreePine className="h-6 w-6" />}
-              title="Lineage"
-              description="Every agent is an INFT (ERC-7857) with provable parents on-chain. Nobody can fake their genealogy."
-            />
-            <FeatureCard
-              icon={<Coins className="h-6 w-6" />}
-              title="Royalty"
-              description="Inference fees automatically split across the ancestor tree. Owner 50%, parents 25%, grandparents 15%, training contributors 3%."
-            />
-            <FeatureCard
-              icon={<Shield className="h-6 w-6" />}
-              title="Alignment"
-              description="0G Alignment Nodes audit lineage health (bias drift, hallucination). Misaligned lineages are punished economically."
-            />
-          </div>
-        </div>
-      </section>
+/* ─────────────── Mini explorer preview ─────────────── */
 
-      {/* How it works */}
-      <section className="border-t border-border/40 bg-card/30">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-20">
-          <p className="text-sm font-mono text-mekar-green mb-2">{"// HOW IT WORKS"}</p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-12">
-            Four steps from training to royalty.
-          </h2>
+function ExplorerPreview() {
+    return (
+        <section className="explorer-preview" id="explorer">
+            <div className="container">
+                <div className="explorer-preview__head">
+                    <div>
+                        <span className="eyebrow">The Garden</span>
+                        <h2>
+                            Wander the lineage.
+                            <br />
+                            Click any <em>bloom.</em>
+                        </h2>
+                    </div>
+                    <p>
+                        Every flower is an INFT — a model whose parentage is engraved on 0G.
+                        Genesis blooms anchor the canopy; forks branch; composed agents weave
+                        across the tree.
+                    </p>
+                </div>
 
-          <div className="space-y-6">
-            <Step
-              n={1}
-              title="Genesis Mint"
-              description="Creator trains the AI, encrypts weights to 0G Storage, registers the training data Merkle root, then mints a Genesis INFT with a royalty schema."
-            />
-            <Step
-              n={2}
-              title="Fork (single-parent)"
-              description="A fine-tuner picks a parent, submits new training data, runs training inside 0G Compute TEE, then mints a child INFT with the parent link recorded on-chain."
-            />
-            <Step
-              n={3}
-              title="Compose (multi-parent)"
-              description="Merge multiple agents (LoRA, distillation, ensemble) into a composed INFT. Royalty obligations are inherited from every parent."
-            />
-            <Step
-              n={4}
-              title="Inference & Royalty"
-              description="A user pays $0G to use the agent. RoyaltyVault.sol distributes atomically across the ancestor tree in a single transaction."
-            />
-          </div>
-        </div>
-      </section>
+                <div className="explorer-frame">
+                    <div className="explorer-frame__top">
+                        <div className="explorer-search">
+                            <span style={{ opacity: 0.5 }}>⌕</span>
+                            <input
+                                placeholder="Search agents, hashes, or owners…"
+                                disabled
+                                style={{ pointerEvents: "none" }}
+                            />
+                        </div>
+                        <div className="explorer-pills">
+                            <span className="pill active">All</span>
+                            <span className="pill">Genesis</span>
+                            <span className="pill">Forks</span>
+                            <span className="pill">Composed</span>
+                        </div>
+                    </div>
 
-      {/* 0G Stack */}
-      <section className="border-t border-border/40">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-20">
-          <p className="text-sm font-mono text-mekar-green mb-2">{"// 0G INTEGRATION"}</p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            Native integration across 6 0G modules
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mb-12">
-            MEKAR exploits 0G primitives that no other chain provides — INFT
-            (ERC-7857), Specialized Flow storage, Alignment Nodes, and the Data
-            Serving Network.
-          </p>
+                    <div
+                        className="explorer-canvas"
+                        style={{ height: 420, position: "relative" }}
+                    >
+                        {/* Connector vines */}
+                        <svg className="connectors" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <path
+                                d="M 50,18 Q 35,40 36,60"
+                                stroke="rgba(61,40,23,0.35)"
+                                strokeWidth="0.3"
+                                fill="none"
+                            />
+                            <path
+                                d="M 50,18 Q 65,40 60,60"
+                                stroke="rgba(61,40,23,0.35)"
+                                strokeWidth="0.3"
+                                fill="none"
+                            />
+                            <path
+                                d="M 36,60 Q 42,75 48,86"
+                                stroke="rgba(61,40,23,0.35)"
+                                strokeWidth="0.3"
+                                fill="none"
+                            />
+                            <path
+                                d="M 60,60 Q 54,75 48,86"
+                                stroke="rgba(61,40,23,0.35)"
+                                strokeWidth="0.3"
+                                fill="none"
+                            />
+                        </svg>
 
-          <div className="grid md:grid-cols-3 gap-4 text-sm">
-            <ZGTag>0G Chain (16602)</ZGTag>
-            <ZGTag>0G Storage Log</ZGTag>
-            <ZGTag>0G Specialized Flow</ZGTag>
-            <ZGTag>0G Compute (TEE)</ZGTag>
-            <ZGTag>INFT (ERC-7857)</ZGTag>
-            <ZGTag>Alignment Nodes</ZGTag>
-            <ZGTag>Data Serving Network</ZGTag>
-            <ZGTag>0G KV Store</ZGTag>
-          </div>
-        </div>
-      </section>
+                        {[
+                            { x: 50, y: 18, kind: "genesis" as const, id: "0xa3f1", name: "Llama-3-70B" },
+                            { x: 36, y: 56, kind: "fork" as const, id: "0xd118", name: "Jasmine-Indo-7B" },
+                            { x: 60, y: 58, kind: "fork" as const, id: "0xe22a", name: "Frangipani-Coder" },
+                            { x: 48, y: 86, kind: "compose" as const, id: "0x9d3f", name: "Marigold-Compose" },
+                        ].map((n) => (
+                            <Link
+                                key={n.id}
+                                href="/explorer"
+                                className="tree-node"
+                                style={{ left: `${n.x}%`, top: `${n.y}%` }}
+                            >
+                                <Bloom
+                                    kind={n.kind}
+                                    seed={n.id}
+                                    size={n.kind === "compose" ? 100 : 90}
+                                    sw={1.4}
+                                />
+                                <div className="tree-node__label">
+                                    {n.name}
+                                    <span className="tree-node__hash">{n.id}</span>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
 
-      {/* Footer */}
-      <footer className="border-t border-border/40 py-8">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <TreePine className="h-4 w-4 text-mekar-green" />
-            <span>MEKAR — AI Genealogy Protocol</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="https://github.com/PugarHuda/mekar"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-foreground"
+/* ─────────────── 0G Stack chart ─────────────── */
+
+function StackChart() {
+    const layers = [
+        {
+            label: "ERC-7857",
+            lat: "INFT semina",
+            title: "Identity",
+            body: "Each agent is an INFT carrying encrypted weights, parents, training data Merkle root, and TEE attestation.",
+        },
+        {
+            label: "0G Storage",
+            lat: "specialis flos",
+            title: "Storage",
+            body: "Encrypted weights live on Specialized Flow with premium permanence. Genealogy events stream into the Log Layer.",
+        },
+        {
+            label: "0G Compute",
+            lat: "tee securus",
+            title: "Compute",
+            body: "Sealed inference inside hardware enclaves. Every result carries an attestation hash settled on-chain.",
+        },
+        {
+            label: "0G Chain",
+            lat: "ramus chain",
+            title: "Chain",
+            body: "Galileo testnet (16602) runs the Mekar contracts: Registry, AgentINFT, RoyaltyVault, TrainingDataRegistry.",
+        },
+        {
+            label: "Alignment",
+            lat: "custos veritas",
+            title: "Alignment",
+            body: "Alignment Nodes audit lineage health — bias drift, hallucination, training-data forgery.",
+        },
+        {
+            label: "Data Serving",
+            lat: "via mercatus",
+            title: "Settlement",
+            body: "Pay-per-inference auto-billing flows directly into the royalty cascade. No middleman, no middle ledger.",
+        },
+    ];
+
+    return (
+        <section className="stack">
+            <div className="container">
+                <div className="stack__head">
+                    <span className="eyebrow">Built on 0G</span>
+                    <h2>
+                        Six modules. <em>One garden.</em>
+                    </h2>
+                    <p style={{ color: "var(--ink-soft)" }}>
+                        Mekar is the only chain where every primitive — INFT identity, sealed
+                        compute, alignment audit, royalty settlement — lives natively in one
+                        ecosystem.
+                    </p>
+                </div>
+                <div className="stack__chart">
+                    {layers.map((l) => (
+                        <div key={l.label} className="stack__layer">
+                            <div>
+                                <div className="stack__layer-label">
+                                    <span>{l.label}</span>
+                                    <span className="lat">{l.lat}</span>
+                                </div>
+                                <h3>{l.title}</h3>
+                                <p>{l.body}</p>
+                            </div>
+                            <div className="stack__layer-art">
+                                <BloomLogo size={36} sw={1.4} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/* ─────────────── FAQ ─────────────── */
+
+function FAQ() {
+    const items = [
+        {
+            q: "How is this different from a generic NFT marketplace?",
+            a: "Mekar's INFTs carry verifiable lineage and trigger an automatic royalty cascade on every inference — not just on resale. The royalty rail is the protocol, not an afterthought.",
+        },
+        {
+            q: "What happens if an agent has a thousand ancestors?",
+            a: "Distribution is bounded by generation depth (default 10) and gas-aware. Beyond that, royalties accrue at the genesis level. The cascade always settles atomically in a single transaction.",
+        },
+        {
+            q: "Do I have to expose model weights?",
+            a: "No. Weights are encrypted on 0G Specialized Flow. The chain stores only hashes, attestations, and lineage references. Owners control decryption keys.",
+        },
+        {
+            q: "Can I revoke a fork I disapprove of?",
+            a: "Mekar is provenance, not gating. Forks are public by design. Misaligned descendants are flagged via Alignment Node audits and lose share of inference revenue.",
+        },
+        {
+            q: "What if my parent agent is offline or burned?",
+            a: "The lineage record is immutable. Royalty owed to a burned address routes to the protocol treasury, which funds alignment audits and security bounties.",
+        },
+    ];
+
+    return (
+        <section
+            id="faq"
+            style={{
+                padding: "var(--pad-section) 0",
+                borderTop: "1px solid var(--rule)",
+            }}
+        >
+            <div className="container">
+                <div style={{ maxWidth: 720 }}>
+                    <span className="eyebrow">FAQ</span>
+                    <h2 style={{ marginTop: 16 }}>
+                        Slow questions, <em>careful answers.</em>
+                    </h2>
+                </div>
+                <div
+                    style={{
+                        marginTop: 56,
+                        borderTop: "1px solid var(--rule)",
+                    }}
+                >
+                    {items.map((it) => (
+                        <details
+                            key={it.q}
+                            style={{
+                                borderBottom: "1px solid var(--rule)",
+                                padding: "20px 0",
+                            }}
+                        >
+                            <summary
+                                style={{
+                                    fontFamily: "var(--display)",
+                                    fontStyle: "italic",
+                                    fontSize: 24,
+                                    color: "var(--ink)",
+                                    cursor: "pointer",
+                                    listStyle: "none",
+                                }}
+                            >
+                                {it.q}
+                            </summary>
+                            <p
+                                style={{
+                                    marginTop: 12,
+                                    color: "var(--ink-soft)",
+                                    maxWidth: "60ch",
+                                }}
+                            >
+                                {it.a}
+                            </p>
+                        </details>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/* ─────────────── Final CTA ─────────────── */
+
+function CTA() {
+    return (
+        <section
+            style={{
+                padding: "var(--pad-section) 0",
+                background: "var(--bg-alt)",
+                borderTop: "1px solid var(--rule)",
+                textAlign: "center",
+            }}
+        >
+            <div
+                className="container"
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}
             >
-              GitHub
-            </Link>
-            <Link href="https://docs.0g.ai" className="hover:text-foreground">
-              0G Docs
-            </Link>
-            <span>#0GHackathon #BuildOn0G</span>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 hover:border-mekar-green/50 hover:bg-card/80 transition-all">
-      <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-mekar-green/10 text-mekar-green mb-4">
-        {icon}
-      </div>
-      <h3 className="text-xl font-bold mb-2">{title}</h3>
-      <p className="text-muted-foreground leading-relaxed">{description}</p>
-    </div>
-  );
-}
-
-function Step({ n, title, description }: { n: number; title: string; description: string }) {
-  return (
-    <div className="flex gap-6 rounded-2xl border border-border bg-card p-6 hover:border-mekar-green/30 transition-colors">
-      <div className="flex-shrink-0">
-        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-mekar-green/10 border border-mekar-green/30 text-mekar-green font-mono font-bold">
-          {n}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-xl font-bold mb-2">{title}</h3>
-        <p className="text-muted-foreground leading-relaxed">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-function ZGTag({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-4 py-3 font-mono text-foreground hover:border-mekar-green/50 transition-colors flex items-center gap-2">
-      <Network className="h-4 w-4 text-mekar-green" />
-      {children}
-    </div>
-  );
+                <BloomLogo size={64} sw={1.6} />
+                <h2 style={{ maxWidth: "16ch" }}>
+                    The garden grows when <em>you</em> plant.
+                </h2>
+                <p
+                    className="lede"
+                    style={{ maxWidth: 560 }}
+                >
+                    Bloom your first agent in minutes. Pin its weights to 0G Storage. Watch the
+                    cascade flow.
+                </p>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+                    <Link href="/mint" className="btn">
+                        Bloom your first agent ↗
+                    </Link>
+                    <Link href="/explorer" className="btn btn--ghost">
+                        Wander the garden
+                    </Link>
+                </div>
+            </div>
+        </section>
+    );
 }

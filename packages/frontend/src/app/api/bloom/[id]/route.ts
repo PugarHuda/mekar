@@ -24,7 +24,7 @@ export async function GET(
   const tokenId = parseInt(cleanId, 10);
 
   if (!Number.isFinite(tokenId) || tokenId < 1) {
-    return svgResponse(renderBloomSvg(0, "lotus", { size: 600 }));
+    return svgResponse(renderBloomSvg("genesis", "default", { size: 600 }));
   }
 
   let parentCount = 0;
@@ -54,10 +54,9 @@ export async function GET(
   }
 
   const variant = variantFromLineage(parentCount);
-  const svg = renderBloomSvg(tokenId, variant, {
-    size: 600,
-    alignmentHealth,
-  });
+  // alignmentHealth is captured but not yet wired to the woodcut renderer; reserved for later wilt support.
+  void alignmentHealth;
+  const svg = renderBloomSvg(variant, String(tokenId), { size: 600 });
 
   return svgResponse(svg);
 }

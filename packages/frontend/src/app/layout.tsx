@@ -1,17 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Cormorant_Garamond, JetBrains_Mono, Manrope } from "next/font/google";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const inter = Inter({
+const display = Cormorant_Garamond({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-display",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const body = Manrope({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-body",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 const SITE_URL = "https://mekar.vercel.app";
@@ -19,11 +31,11 @@ const SITE_URL = "https://mekar.vercel.app";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "MEKAR — AI Genealogy & Royalty Protocol",
-    template: "%s · MEKAR",
+    default: "Mekar — Every AI has a lineage",
+    template: "%s · Mekar",
   },
   description:
-    "Spotify-style royalty for AI agents on 0G. Every AI has a verifiable on-chain lineage. Every inference automatically pays its ancestors. Built on 0G's INFT (ERC-7857) primitive.",
+    "Mekar is a public ledger of AI parentage on the 0G network. Every agent has a lineage; every inference pays its ancestors.",
   keywords: [
     "AI",
     "blockchain",
@@ -36,18 +48,13 @@ export const metadata: Metadata = {
     "AI agents",
     "agentic economy",
   ],
-  authors: [{ name: "MEKAR Team" }],
-  creator: "MEKAR",
-  publisher: "MEKAR",
-  alternates: {
-    canonical: "/",
-  },
+  alternates: { canonical: "/" },
   openGraph: {
-    title: "MEKAR — AI Genealogy & Royalty Protocol",
+    title: "Mekar — Every AI has a lineage",
     description:
-      "Spotify-style royalty for AI agents on 0G. Every AI has a verifiable lineage; every inference pays its ancestors.",
+      "A public ledger of AI parentage on the 0G network. Every inference pays its ancestors.",
     url: SITE_URL,
-    siteName: "MEKAR",
+    siteName: "Mekar",
     type: "website",
     locale: "en_US",
     images: [
@@ -55,35 +62,25 @@ export const metadata: Metadata = {
         url: "/og.svg",
         width: 1200,
         height: 630,
-        alt: "MEKAR — Spotify royalty for AI agents on 0G",
+        alt: "Mekar — every AI has a lineage",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MEKAR — AI Genealogy & Royalty Protocol",
-    description:
-      "Every AI has a lineage. Every inference pays its ancestors. Built on 0G.",
+    title: "Mekar — Every AI has a lineage",
+    description: "A public ledger of AI parentage on the 0G network.",
     images: ["/og.svg"],
   },
   icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     apple: "/icon.svg",
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-    },
-  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#10b981",
+  themeColor: "#f7f1e6",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -93,10 +90,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen`}
-      >
+    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
+      <body className="font-sans antialiased min-h-screen">
         <Providers>
           {children}
           <Toaster richColors position="top-right" />

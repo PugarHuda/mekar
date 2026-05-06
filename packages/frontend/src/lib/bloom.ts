@@ -1,205 +1,288 @@
 /**
- * Procedural flower SVG generator for MEKAR agents.
+ * Mekar — Procedural woodcut bloom renderer.
  *
- * Each agent's lineage type maps to a flower archetype:
- *   - Genesis (no parents)        → lotus (5 wide petals, stately)
- *   - Fork (1 parent)             → jasmine (5 narrow petals, side-blossom)
- *   - Compose (multi-parent)      → marigold (double-petal, layered)
+ * Three archetypes mapped from lineage shape:
+ *   • genesis  (0 parents)         — gold lotus, 6 petals + 6 inner petals
+ *   • fork     (1 parent)          — pink jasmine, 6 petals
+ *   • compose  (≥2 parents)        — gold + coral marigold, double-row
  *
- * Within each archetype, the agent's tokenId / hash seeds:
- *   - Petal angle offset
- *   - Petal width variance
- *   - Stamen size
- *   - Hue rotation within the brand palette
+ * Each bloom is seeded by tokenId/string so the same agent always renders
+ * the same flower. Style is locked to "woodcut" per the Stitch handoff.
  *
- * Output: a self-contained SVG string suitable for inline rendering
- * (lineage tree node, agent detail hero, NFT metadata image).
+ * Ported from .stitch-design/handoff/flowers.jsx (woodcut variant).
  */
 
-export type BloomVariant = "lotus" | "jasmine" | "marigold";
+export type BloomKind = "genesis" | "fork" | "compose" | "logo" | "bud" | "opening" | "scatter";
 
-export type BloomColors = {
-  petalFill: string;
-  petalStroke: string;
-  centerFill: string;
-  leafStroke: string;
+export type BloomPalette = {
+    stroke: string;
+    gold: string;
+    pink: string;
+    coral: string;
+    forest: string;
+    green: string;
+    sw: number;
 };
 
-export const BLOOM_PALETTES: Record<BloomVariant, BloomColors> = {
-  lotus: {
-    // Genesis — gold lotus
-    petalFill: "#f1c95b",
-    petalStroke: "#a87f1f",
-    centerFill: "#fdf3d0",
-    leafStroke: "#1c3b2f",
-  },
-  jasmine: {
-    // Fork — pink jasmine
-    petalFill: "#f5b7a0",
-    petalStroke: "#a8533f",
-    centerFill: "#fdf3d0",
-    leafStroke: "#1c3b2f",
-  },
-  marigold: {
-    // Compose — orange-gold marigold
-    petalFill: "#e8884f",
-    petalStroke: "#8a3815",
-    centerFill: "#f1c95b",
-    leafStroke: "#1c3b2f",
-  },
+const DEFAULT_PALETTE: BloomPalette = {
+    stroke: "#3d2817",
+    gold: "#d4a437",
+    pink: "#f5b7a0",
+    coral: "#c25a4a",
+    forest: "#1c3b2f",
+    green: "#6b8a4b",
+    sw: 1.2,
 };
 
-/**
- * Determine bloom variant from lineage shape.
- */
-export function variantFromLineage(parentCount: number): BloomVariant {
-  if (parentCount === 0) return "lotus";
-  if (parentCount === 1) return "jasmine";
-  return "marigold";
+/* ─────────────── Hash → seeded RNG ─────────────── */
+
+function hashSeed(str: string): () => number {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+        h = (h << 13) | (h >>> 19);
+    }
+    return () => {
+        h = Math.imul(h ^ (h >>> 16), 2246822507);
+        h = Math.imul(h ^ (h >>> 13), 3266489909);
+        h ^= h >>> 16;
+        return ((h >>> 0) % 100000) / 100000;
+    };
 }
 
-/**
- * Deterministic pseudo-random based on a 32-byte hash or tokenId.
- * Returns a value in [0, 1).
- */
-function seedRandom(seed: string | number, salt: number = 0): () => number {
-  let state =
-    typeof seed === "number"
-      ? seed * 2654435761
-      : Number(BigInt("0x" + seed.replace(/^0x/, "").slice(0, 8)) ?? 1);
-  state = (state + salt * 16777619) >>> 0;
+/* ─────────────── Woodcut petal + hatching ─────────────── */
 
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
+function woodPetal(length: number, width: number): string {
+    return `M 0 0 C ${-width} ${-length * 0.4} ${-width * 0.4} ${-length} 0 ${-length} C ${width * 0.4} ${-length} ${width} ${-length * 0.4} 0 0 Z`;
 }
 
-type RenderOptions = {
-  size?: number;             // pixel size of the viewBox (square)
-  alignmentHealth?: number;  // 0–10000 bp; affects petal wilt
-  showLeaves?: boolean;
-  className?: string;
+function woodHatch(length: number, width: number, rng: () => number): string {
+    let h = "";
+    const lines = 3 + Math.floor(rng() * 2);
+    for (let i = 1; i <= lines; i++) {
+        const y = -length * (0.2 + i * 0.15);
+        const x = width * (0.5 - i * 0.08);
+        h += `<line x1="${-x}" y1="${y}" x2="${x}" y2="${y}" stroke="${DEFAULT_PALETTE.stroke}" stroke-width="0.6" stroke-linecap="round" opacity="0.5" />`;
+    }
+    return h;
+}
+
+/* ─────────────── Genesis — gold lotus ─────────────── */
+
+function genesis(seed: string, o: BloomPalette): string {
+    const rng = hashSeed(seed);
+    let p = "";
+    const sw = o.sw * 1.6;
+    for (let i = 0; i < 6; i++) {
+        const a = (360 / 6) * i;
+        p += `<g transform="rotate(${a})" color="${o.stroke}">`;
+        p += `<path d="${woodPetal(40, 14)}" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" />`;
+        p += woodHatch(40, 14, rng);
+        p += `</g>`;
+    }
+    for (let i = 0; i < 6; i++) {
+        const a = (360 / 6) * i + 30;
+        p += `<path d="${woodPetal(22, 9)}" transform="rotate(${a})" fill="${o.pink}" stroke="${o.stroke}" stroke-width="${sw * 0.8}" stroke-linejoin="round" />`;
+    }
+    p += `<circle r="10" fill="${o.forest}" stroke="${o.stroke}" stroke-width="${sw}" />`;
+    p += `<circle r="6" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw * 0.6}" />`;
+    for (let i = 0; i < 8; i++) {
+        const a = (Math.PI * 2 * i) / 8;
+        p += `<line x1="${Math.cos(a) * 6}" y1="${Math.sin(a) * 6}" x2="${Math.cos(a) * 9.5}" y2="${Math.sin(a) * 9.5}" stroke="${o.stroke}" stroke-width="${sw * 0.5}" />`;
+    }
+    return p;
+}
+
+/* ─────────────── Fork — pink jasmine ─────────────── */
+
+function fork(seed: string, o: BloomPalette): string {
+    const rng = hashSeed(seed);
+    let p = "";
+    const sw = o.sw * 1.4;
+    for (let i = 0; i < 6; i++) {
+        const a = (360 / 6) * i;
+        p += `<g transform="rotate(${a})" color="${o.stroke}">`;
+        p += `<path d="${woodPetal(26, 10)}" fill="${o.pink}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" />`;
+        p += woodHatch(26, 10, rng);
+        p += `</g>`;
+    }
+    p += `<circle r="6" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw}" />`;
+    for (let i = 0; i < 6; i++) {
+        const a = (Math.PI * 2 * i) / 6;
+        p += `<line x1="${Math.cos(a) * 3}" y1="${Math.sin(a) * 3}" x2="${Math.cos(a) * 5.5}" y2="${Math.sin(a) * 5.5}" stroke="${o.stroke}" stroke-width="${sw * 0.5}" />`;
+    }
+    return p;
+}
+
+/* ─────────────── Compose — marigold double-bloom ─────────────── */
+
+function compose(seed: string, o: BloomPalette): string {
+    const rng = hashSeed(seed);
+    let p = "";
+    const sw = o.sw * 1.4;
+    for (let i = 0; i < 8; i++) {
+        const a = (360 / 8) * i;
+        p += `<g transform="rotate(${a})" color="${o.stroke}">`;
+        p += `<path d="${woodPetal(28, 8)}" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" />`;
+        p += woodHatch(28, 8, rng);
+        p += `</g>`;
+    }
+    for (let i = 0; i < 8; i++) {
+        const a = (360 / 8) * i + 22.5;
+        p += `<g transform="rotate(${a})" color="${o.stroke}">`;
+        p += `<path d="${woodPetal(18, 6)}" fill="${o.coral}" stroke="${o.stroke}" stroke-width="${sw * 0.8}" stroke-linejoin="round" />`;
+        p += woodHatch(18, 6, rng);
+        p += `</g>`;
+    }
+    p += `<circle r="6" fill="${o.forest}" stroke="${o.stroke}" stroke-width="${sw}" />`;
+    p += `<circle r="3" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw * 0.6}" />`;
+    return p;
+}
+
+/* ─────────────── Logo — clean scalloped lotus mark ─────────────── */
+
+function logoMark(o: BloomPalette): string {
+    const sw = o.sw * 0.6;
+    let p = "";
+
+    const N = 5;
+    const peakR = 16;
+    const valleyR = 8;
+    const pt = (angle: number, r: number): [number, number] => {
+        const rad = ((angle - 90) * Math.PI) / 180;
+        return [Math.cos(rad) * r, Math.sin(rad) * r];
+    };
+
+    let outerD = "";
+    for (let i = 0; i < N; i++) {
+        const aPeak = (360 / N) * i;
+        const aValley = aPeak + 360 / N / 2;
+        const aValleyPrev = aPeak - 360 / N / 2;
+        const [vx, vy] = pt(aValley, valleyR);
+        const [vxp, vyp] = pt(aValleyPrev, valleyR);
+        const [cp1x, cp1y] = pt(aPeak - 14, peakR * 0.95);
+        const [cp2x, cp2y] = pt(aPeak + 14, peakR * 0.95);
+        if (i === 0) outerD += `M ${vxp} ${vyp} `;
+        outerD += `C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${vx} ${vy} `;
+    }
+    outerD += "Z";
+    p += `<path d="${outerD}" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw * 1.4}" stroke-linejoin="round" />`;
+
+    // Radial veins
+    for (let i = 0; i < N; i++) {
+        const aPeak = (360 / N) * i;
+        const [tipX, tipY] = pt(aPeak, peakR * 0.78);
+        const [innerX, innerY] = pt(aPeak, 5);
+        p += `<line x1="${innerX}" y1="${innerY}" x2="${tipX}" y2="${tipY}" stroke="${o.stroke}" stroke-width="${sw * 0.6}" opacity="0.55" stroke-linecap="round" />`;
+    }
+
+    // Inner scalloped silhouette
+    const peakR2 = 8;
+    const valleyR2 = 4.2;
+    let innerD = "";
+    for (let i = 0; i < N; i++) {
+        const aPeak = (360 / N) * i + 36;
+        const aValley = aPeak + 360 / N / 2;
+        const aValleyPrev = aPeak - 360 / N / 2;
+        const [vx, vy] = pt(aValley, valleyR2);
+        const [vxp, vyp] = pt(aValleyPrev, valleyR2);
+        const [cp1x, cp1y] = pt(aPeak - 14, peakR2 * 0.95);
+        const [cp2x, cp2y] = pt(aPeak + 14, peakR2 * 0.95);
+        if (i === 0) innerD += `M ${vxp} ${vyp} `;
+        innerD += `C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${vx} ${vy} `;
+    }
+    innerD += "Z";
+    p += `<path d="${innerD}" fill="${o.pink}" stroke="${o.stroke}" stroke-width="${sw * 1.2}" stroke-linejoin="round" />`;
+
+    p += `<circle r="2.4" fill="${o.forest}" stroke="${o.stroke}" stroke-width="${sw}" />`;
+    p += `<circle r="1.1" fill="${o.gold}" />`;
+
+    return p;
+}
+
+/* ─────────────── Stages: bud, opening, scatter ─────────────── */
+
+function bud(o: BloomPalette): string {
+    const sw = o.sw * 1.2;
+    return `<path d="M 0 6 C -10 6 -12 -10 0 -22 C 12 -10 10 6 0 6 Z" fill="${o.green}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" />
+    <path d="M 0 -22 C -3 -16 -3 -8 0 -2" fill="none" stroke="${o.stroke}" stroke-width="${sw * 0.6}" />
+    <path d="M 0 -22 C 3 -16 3 -8 0 -2" fill="none" stroke="${o.stroke}" stroke-width="${sw * 0.6}" />`;
+}
+
+function opening(o: BloomPalette): string {
+    const sw = o.sw * 1.2;
+    let p = "";
+    for (let i = 0; i < 3; i++) {
+        const a = -40 + i * 40;
+        p += `<path d="${woodPetal(22, 8)}" transform="rotate(${a})" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" />`;
+    }
+    p += `<circle r="3" fill="${o.forest}" stroke="${o.stroke}" stroke-width="${sw}" />`;
+    return p;
+}
+
+function scatter(o: BloomPalette): string {
+    const sw = o.sw * 1.2;
+    let p = "";
+    for (let i = 0; i < 6; i++) {
+        const a = (360 / 6) * i;
+        p += `<path d="${woodPetal(20, 7)}" transform="rotate(${a})" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw}" stroke-linejoin="round" opacity="0.85" />`;
+    }
+    let s = "";
+    [
+        [-22, 18],
+        [-10, 28],
+        [4, 22],
+        [16, 30],
+        [22, 14],
+        [-18, 36],
+        [10, 38],
+    ].forEach(([x, y]) => {
+        s += `<circle cx="${x}" cy="${y}" r="2" fill="${o.gold}" stroke="${o.stroke}" stroke-width="${sw * 0.5}" />`;
+    });
+    return `<g transform="translate(0,-6)">${p}</g><circle cy="-6" r="3.5" fill="${o.forest}" stroke="${o.stroke}" stroke-width="${sw}" />${s}`;
+}
+
+/* ─────────────── Public API ─────────────── */
+
+const KIND_FN: Record<string, (seed: string, o: BloomPalette) => string> = {
+    genesis,
+    fork,
+    compose,
 };
 
-/**
- * Render a bloom SVG string for the given agent.
- *
- * @param tokenId  — the agent's INFT id (used to seed variation)
- * @param variant  — bloom archetype derived from lineage
- * @param opts     — visual modifiers
- */
+export function variantFromLineage(parentCount: number): "genesis" | "fork" | "compose" {
+    if (parentCount === 0) return "genesis";
+    if (parentCount === 1) return "fork";
+    return "compose";
+}
+
 export function renderBloomSvg(
-  tokenId: number,
-  variant: BloomVariant,
-  opts: RenderOptions = {}
+    kind: BloomKind,
+    seed: string | number,
+    options: { size?: number; sw?: number; palette?: Partial<BloomPalette> } = {}
 ): string {
-  const size = opts.size ?? 120;
-  const cx = size / 2;
-  const cy = size / 2;
-  const palette = BLOOM_PALETTES[variant];
+    const size = options.size ?? 120;
+    const half = size / 2;
+    const sw = options.sw ?? 1.2;
+    const palette: BloomPalette = { ...DEFAULT_PALETTE, ...(options.palette ?? {}), sw };
+    const seedStr = String(seed);
 
-  const rng = seedRandom(tokenId);
-
-  const petalCount = variant === "marigold" ? 8 : 5;
-  const petalLen = size * (variant === "lotus" ? 0.36 : variant === "marigold" ? 0.32 : 0.34);
-  const petalWidthBase = size * (variant === "marigold" ? 0.13 : 0.18);
-  const angleOffset = rng() * 360;
-  const wiltRatio = opts.alignmentHealth !== undefined ? opts.alignmentHealth / 10_000 : 1;
-
-  // ─────────── Petals ───────────
-  const petalPaths: string[] = [];
-  for (let i = 0; i < petalCount; i++) {
-    const angle = (i / petalCount) * 360 + angleOffset;
-    const wobble = (rng() - 0.5) * 0.3;
-    const len = petalLen * (1 - wobble * 0.2) * wiltRatio;
-    const w = petalWidthBase * (1 + wobble * 0.4);
-    petalPaths.push(makePetalPath(cx, cy, angle, len, w));
-  }
-
-  // For marigold, render an inner ring of smaller petals
-  const innerPetals: string[] = [];
-  if (variant === "marigold") {
-    for (let i = 0; i < petalCount; i++) {
-      const angle = (i / petalCount) * 360 + angleOffset + 22.5;
-      const len = petalLen * 0.6;
-      const w = petalWidthBase * 0.85;
-      innerPetals.push(makePetalPath(cx, cy, angle, len, w));
+    let inner: string;
+    if (kind === "logo") inner = logoMark(palette);
+    else if (kind === "bud") inner = bud(palette);
+    else if (kind === "opening") inner = opening(palette);
+    else if (kind === "scatter") inner = scatter(palette);
+    else {
+        const fn = KIND_FN[kind] ?? KIND_FN.genesis;
+        inner = fn(seedStr, palette);
     }
-  }
 
-  // ─────────── Center stamen / coin ───────────
-  const stamenR = size * (variant === "lotus" ? 0.08 : 0.07);
-
-  // ─────────── Optional leaves ───────────
-  const leafBlocks: string[] = [];
-  if (opts.showLeaves !== false) {
-    const leafAngles = [200, 340];
-    for (const a of leafAngles) {
-      leafBlocks.push(makeLeaf(cx, cy + size * 0.36, a, size * 0.18, palette.leafStroke));
-    }
-  }
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" class="${opts.className ?? ""}">
-    <g transform="translate(0,0)">
-      ${leafBlocks.join("")}
-      ${innerPetals
-        .map(
-          (d) =>
-            `<path d="${d}" fill="${palette.petalFill}" fill-opacity="0.6" stroke="${palette.petalStroke}" stroke-width="0.6" stroke-linejoin="round"/>`
-        )
-        .join("")}
-      ${petalPaths
-        .map(
-          (d) =>
-            `<path d="${d}" fill="${palette.petalFill}" stroke="${palette.petalStroke}" stroke-width="1" stroke-linejoin="round"/>`
-        )
-        .join("")}
-      <circle cx="${cx}" cy="${cy}" r="${stamenR + 3}" fill="${palette.centerFill}" stroke="${palette.petalStroke}" stroke-width="0.8"/>
-      <circle cx="${cx}" cy="${cy}" r="${stamenR}" fill="${palette.petalStroke}"/>
-      <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="middle"
-            font-family="JetBrains Mono, monospace" font-size="${stamenR * 0.9}" fill="${palette.centerFill}" font-weight="700">
-        0G
-      </text>
-    </g>
-  </svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-${half} -${half} ${size} ${size}" width="${size}" height="${size}">${inner}</svg>`;
 }
 
-function makePetalPath(cx: number, cy: number, angleDeg: number, length: number, width: number): string {
-  const rad = (angleDeg * Math.PI) / 180;
-  const tipX = cx + Math.cos(rad) * length;
-  const tipY = cy + Math.sin(rad) * length;
-  // Two control points perpendicular to the petal axis
-  const perpRad = rad + Math.PI / 2;
-  const c1x = cx + Math.cos(rad) * length * 0.3 + Math.cos(perpRad) * width;
-  const c1y = cy + Math.sin(rad) * length * 0.3 + Math.sin(perpRad) * width;
-  const c2x = cx + Math.cos(rad) * length * 0.7 + Math.cos(perpRad) * width;
-  const c2y = cy + Math.sin(rad) * length * 0.7 + Math.sin(perpRad) * width;
-  const c3x = cx + Math.cos(rad) * length * 0.7 - Math.cos(perpRad) * width;
-  const c3y = cy + Math.sin(rad) * length * 0.7 - Math.sin(perpRad) * width;
-  const c4x = cx + Math.cos(rad) * length * 0.3 - Math.cos(perpRad) * width;
-  const c4y = cy + Math.sin(rad) * length * 0.3 - Math.sin(perpRad) * width;
-
-  return `M ${cx},${cy} C ${c1x},${c1y} ${c2x},${c2y} ${tipX},${tipY} C ${c3x},${c3y} ${c4x},${c4y} ${cx},${cy} Z`;
-}
-
-function makeLeaf(cx: number, cy: number, angleDeg: number, length: number, color: string): string {
-  const rad = (angleDeg * Math.PI) / 180;
-  const tipX = cx + Math.cos(rad) * length;
-  const tipY = cy + Math.sin(rad) * length;
-  const perpRad = rad + Math.PI / 2;
-  const sideX = cx + Math.cos(rad) * length * 0.5 + Math.cos(perpRad) * length * 0.25;
-  const sideY = cy + Math.sin(rad) * length * 0.5 + Math.sin(perpRad) * length * 0.25;
-  return `<path d="M ${cx},${cy} Q ${sideX},${sideY} ${tipX},${tipY}"
-    fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>`;
-}
-
-/**
- * Convert an SVG string to a Base64 data URI suitable for an `<img src>`.
- */
 export function svgToDataUri(svg: string): string {
-  const encoded = typeof window === "undefined"
-    ? Buffer.from(svg).toString("base64")
-    : btoa(unescape(encodeURIComponent(svg)));
-  return `data:image/svg+xml;base64,${encoded}`;
+    if (typeof window === "undefined") {
+        return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+    }
+    return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
