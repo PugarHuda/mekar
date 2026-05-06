@@ -142,7 +142,7 @@ Every inference pays its ancestors.
 The royalty rail for the agentic era — built natively on @0G_labs.
 
 🔗 mekar.vercel.app
-👨‍💻 [GITHUB LINK HERE after init]
+👨‍💻 github.com/PugarHuda/mekar
 
 #0GHackathon #BuildOn0G
 @0g_CN @0g_Eco @HackQuest_

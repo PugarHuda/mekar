@@ -36,7 +36,15 @@
       "Bash(curl -s \"https://mekar.vercel.app/api/bloom/4.svg\")",
       "Bash(git init *)",
       "Bash(git config *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(awk '{print $2}')",
+      "Bash(awk -F/ '{print $1\"/\"$2}')",
+      "Bash(git rm *)",
+      "Bash(grep -E \"\\\\.env$|\\\\.env\\\\.local|private\")",
+      "Bash(grep -E \"\\\\.env$\")",
+      "Bash(git commit -m ' *)",
+      "Bash(gh repo *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -1,5 +1,9 @@
 # 🌳 MEKAR
 
+[![Live Demo](https://img.shields.io/badge/live-mekar.vercel.app-d4a437)](https://mekar.vercel.app)
+[![Tests](https://img.shields.io/badge/tests-28%20passing-1c3b2f)](packages/contracts/test/MEKAR.t.sol)
+[![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0xA00A7641FEE39753fFdd1cECA5b73336a68699e3)
+
 **AI Genealogy & Royalty Protocol on 0G**
 
 > *Every AI has a lineage. Every inference pays its ancestors.*

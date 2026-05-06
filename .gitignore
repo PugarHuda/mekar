@@ -53,6 +53,13 @@ broadcast/
 # Foundry deployment broadcast logs (often contain RPC + signer details)
 packages/contracts/broadcast/
 
+# Foundry-installed dependencies — re-create with `forge install`
+packages/contracts/lib/
+
+# Foundry compiled artifacts
+packages/contracts/out/
+packages/contracts/cache_forge/
+
 # Agent output workspace files (claude tooling)
 .claude/sessions/
 *.swp

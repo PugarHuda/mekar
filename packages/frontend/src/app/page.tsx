@@ -179,7 +179,12 @@ export default function Home() {
             <span>MEKAR — AI Genealogy Protocol</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="https://github.com" className="hover:text-foreground">
+            <Link
+              href="https://github.com/PugarHuda/mekar"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground"
+            >
               GitHub
             </Link>
             <Link href="https://docs.0g.ai" className="hover:text-foreground">

@@ -42,7 +42,7 @@ The AI industry is in a provenance crisis. NYT vs OpenAI ($7.5B), Getty vs Stabi
 
 ## Code Repository
 ```
-[GITHUB URL — fill in after `git init` + first push]
+https://github.com/PugarHuda/mekar
 ```
 
 The repo includes:
@@ -103,7 +103,7 @@ https://chainscan-galileo.0g.ai/tx/0xd4c01777f7908c7b175e1720eab800e32d5f16aab44
 
 ## README / Documentation
 ```
-[GITHUB README URL]
+https://github.com/PugarHuda/mekar#readme
 ```
 
 The README includes:
