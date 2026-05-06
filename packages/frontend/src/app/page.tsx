@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Bloom, BloomLogo } from "@/components/Bloom";
+import { CodeBloom } from "@/components/CodeBloom";
 
 export default function Home() {
     return (
@@ -108,11 +109,11 @@ function Hero() {
                             </div>
                         ))}
                         <div className="hero__bloom">
-                            <Bloom
-                                kind="genesis"
+                            <CodeBloom
+                                width={640}
+                                height={820}
                                 seed="mekar-hero-v2"
-                                size={560}
-                                sw={1.4}
+                                style="woodcut"
                             />
                         </div>
                         <div className="hero__caption">
