@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
@@ -9,7 +9,7 @@ import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
 import { isDeployed } from "@/contracts/addresses";
 import { explorerLink } from "@/lib/chains";
 import { shortAddress, formatTimeAgo } from "@/lib/utils";
-import { Loader2, Search, ExternalLink } from "lucide-react";
+import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
 
 type Filter = "All" | "Genesis" | "Forks" | "Composed";
 const FILTERS: Filter[] = ["All", "Genesis", "Forks", "Composed"];
@@ -20,6 +20,40 @@ export default function ExplorerPage() {
     const [filter, setFilter] = useState<Filter>("All");
     const [selected, setSelected] = useState<LineageNode | null>(null);
     const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isDragging, setIsDragging] = useState(false);
+    const dragStartRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
+
+    function resetView() {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+    }
+
+    function onCanvasPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+        if ((e.target as HTMLElement).closest(".tree-node")) return; // don't pan when clicking a bloom
+        e.currentTarget.setPointerCapture(e.pointerId);
+        dragStartRef.current = { px: e.clientX, py: e.clientY, sx: pan.x, sy: pan.y };
+        setIsDragging(true);
+    }
+
+    function onCanvasPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+        if (!dragStartRef.current) return;
+        const { px, py, sx, sy } = dragStartRef.current;
+        setPan({ x: sx + (e.clientX - px), y: sy + (e.clientY - py) });
+    }
+
+    function onCanvasPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        dragStartRef.current = null;
+        setIsDragging(false);
+    }
+
+    function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
+        if (!e.ctrlKey && !e.metaKey) return; // only zoom on Ctrl/Cmd+wheel; otherwise let page scroll
+        e.preventDefault();
+        const delta = -e.deltaY * 0.0015;
+        setZoom((z) => Math.max(0.4, Math.min(2, +(z + delta).toFixed(2))));
+    }
 
     const positioned = useMemo(() => layoutGarden(nodes, edges), [nodes, edges]);
 
@@ -179,8 +213,9 @@ export default function ExplorerPage() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                setZoom((z) => Math.max(0.6, +(z - 0.15).toFixed(2)))
+                                                setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))
                                             }
+                                            aria-label="Zoom out"
                                             style={{
                                                 background: "transparent",
                                                 border: "none",
@@ -196,8 +231,9 @@ export default function ExplorerPage() {
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                setZoom((z) => Math.min(1.6, +(z + 0.15).toFixed(2)))
+                                                setZoom((z) => Math.min(2, +(z + 0.15).toFixed(2)))
                                             }
+                                            aria-label="Zoom in"
                                             style={{
                                                 background: "transparent",
                                                 border: "none",
@@ -209,15 +245,62 @@ export default function ExplorerPage() {
                                         >
                                             +
                                         </button>
+                                        <span
+                                            aria-hidden
+                                            style={{
+                                                width: 1,
+                                                height: 14,
+                                                background: "var(--rule)",
+                                                margin: "0 2px",
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={resetView}
+                                            aria-label="Reset view"
+                                            title="Reset view (zoom 100% + center)"
+                                            style={{
+                                                background: "transparent",
+                                                border: "none",
+                                                color: "var(--ink)",
+                                                cursor: "pointer",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                padding: 0,
+                                            }}
+                                        >
+                                            <Maximize2 size={13} />
+                                        </button>
                                     </div>
+                                    <span
+                                        style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 6,
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 11,
+                                            letterSpacing: "0.06em",
+                                            color: "var(--ink-soft)",
+                                        }}
+                                    >
+                                        <Hand size={12} /> drag to pan · ⌘/ctrl+scroll to zoom
+                                    </span>
                                 </div>
 
                                 <div
                                     className="explorer-canvas"
+                                    onPointerDown={onCanvasPointerDown}
+                                    onPointerMove={onCanvasPointerMove}
+                                    onPointerUp={onCanvasPointerUp}
+                                    onPointerCancel={onCanvasPointerUp}
+                                    onWheel={onCanvasWheel}
                                     style={{
                                         height: 600,
                                         position: "relative",
                                         overflow: "hidden",
+                                        cursor: isDragging ? "grabbing" : "grab",
+                                        touchAction: "none",
+                                        userSelect: isDragging ? "none" : "auto",
                                     }}
                                 >
                                     {isLoading ? (
@@ -262,9 +345,12 @@ export default function ExplorerPage() {
                                                 position: "relative",
                                                 width: "100%",
                                                 height: "100%",
-                                                transform: `scale(${zoom})`,
+                                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                                                 transformOrigin: "top left",
-                                                transition: "transform 220ms ease",
+                                                transition: isDragging
+                                                    ? "none"
+                                                    : "transform 180ms ease",
+                                                willChange: "transform",
                                             }}
                                         >
                                             <svg
