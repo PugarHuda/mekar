@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import {
-  useAccount,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-  useReadContract,
-  useBalance,
+    useAccount,
+    useWriteContract,
+    useWaitForTransactionReceipt,
+    useReadContract,
+    useBalance,
 } from "wagmi";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -14,198 +14,292 @@ import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
 import { ROYALTY_VAULT_ABI } from "@/contracts/abis";
 import { explorerLink } from "@/lib/chains";
 import { formatOG } from "@/lib/utils";
-import { Loader2, Coins, ExternalLink, Sparkles } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
 
 type Props = {
-  agentId: number;
-  inferencePrice: bigint;
+    agentId: number;
+    inferencePrice: bigint;
 };
 
-/**
- * One-click inference payment UI for any agent.
- *
- * Flow:
- *   1. User connects wallet
- *   2. Click "Pay & Run Inference"
- *   3. Pay $0G to RoyaltyVault.payInference
- *   4. (Compute provider settles automatically — for demo, deployer settles via backend or manually)
- */
+const labelStyle: React.CSSProperties = {
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
+    color: "var(--ink-soft)",
+};
+
 export function InferencePay({ agentId, inferencePrice }: Props) {
-  const { address, isConnected } = useAccount();
-  const [prompt, setPrompt] = useState("Hello, agent!");
+    const { address, isConnected } = useAccount();
+    const [prompt, setPrompt] = useState("Hello, agent!");
 
-  const { data: balance } = useBalance({ address });
+    const { data: balance } = useBalance({ address });
 
-  const { data: isRegisteredProvider } = useReadContract({
-    address: CONTRACT_ADDRESSES.RoyaltyVault,
-    abi: ROYALTY_VAULT_ABI,
-    functionName: "isRegisteredProvider",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
-
-  const { writeContract, data: txHash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash: txHash,
-  });
-
-  function handlePay() {
-    if (!address) {
-      toast.error("Connect wallet first");
-      return;
-    }
-
-    if (balance && balance.value < inferencePrice) {
-      toast.error(`Need ≥ ${formatOG(inferencePrice)} $0G. Get from faucet.`);
-      return;
-    }
-
-    writeContract(
-      {
+    useReadContract({
         address: CONTRACT_ADDRESSES.RoyaltyVault,
         abi: ROYALTY_VAULT_ABI,
-        functionName: "payInference",
-        args: [BigInt(agentId)],
-        value: inferencePrice,
-      },
-      {
-        onSuccess: () => toast.success("Inference payment submitted"),
-        onError: (err) => toast.error(err.message.slice(0, 200)),
-      }
-    );
-  }
+        functionName: "isRegisteredProvider",
+        args: address ? [address] : undefined,
+        query: { enabled: !!address },
+    });
 
-  const insufficientBalance = balance ? balance.value < inferencePrice : false;
+    const { writeContract, data: txHash, isPending } = useWriteContract();
+    const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+        hash: txHash,
+    });
 
-  return (
-    <div className="rounded-2xl border border-mekar-green/30 bg-gradient-to-br from-mekar-green/5 to-transparent p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-mekar-green" />
-        <h3 className="text-lg font-bold">Run Inference</h3>
-      </div>
+    function handlePay() {
+        if (!address) {
+            toast.error("Connect wallet first");
+            return;
+        }
 
-      <div>
-        <label className="text-xs font-mono text-muted-foreground mb-1 block">
-          PROMPT (mock)
-        </label>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          rows={2}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mekar-green resize-none"
-          placeholder="Ask the agent something..."
-        />
-      </div>
+        if (balance && balance.value < inferencePrice) {
+            toast.error(`Need ≥ ${formatOG(inferencePrice)} $0G. Get from faucet.`);
+            return;
+        }
 
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Coins className="h-4 w-4" />
-          <span>Price:</span>
-        </div>
-        <span className="font-mono font-bold">
-          {formatOG(inferencePrice, 6)} $0G
-        </span>
-      </div>
+        writeContract(
+            {
+                address: CONTRACT_ADDRESSES.RoyaltyVault,
+                abi: ROYALTY_VAULT_ABI,
+                functionName: "payInference",
+                args: [BigInt(agentId)],
+                value: inferencePrice,
+            },
+            {
+                onSuccess: () => toast.success("Inference payment submitted"),
+                onError: (err) => toast.error(err.message.slice(0, 200)),
+            }
+        );
+    }
 
-      {balance && (
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Your balance:</span>
-          <span
-            className={`font-mono ${insufficientBalance ? "text-rose-400" : "text-muted-foreground"}`}
-          >
-            {formatOG(balance.value)} $0G
-          </span>
-        </div>
-      )}
+    const insufficientBalance = balance ? balance.value < inferencePrice : false;
 
-      <button
-        onClick={handlePay}
-        disabled={!isConnected || isPending || isConfirming || insufficientBalance}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-mekar-green px-4 py-2.5 text-sm font-semibold text-background hover:bg-emerald-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {(isPending || isConfirming) && <Loader2 className="h-4 w-4 animate-spin" />}
-        {!isConnected
-          ? "Connect Wallet"
-          : insufficientBalance
-            ? "Insufficient Balance"
-            : isPending
-              ? "Confirming..."
-              : isConfirming
-                ? "Mining..."
-                : "Pay & Run Inference"}
-      </button>
-
-      {txHash && (
+    return (
         <div
-          className={`rounded-lg border p-3 text-xs ${
-            isSuccess
-              ? "border-mekar-green/30 bg-mekar-green/10 text-mekar-green"
-              : "border-border bg-background"
-          }`}
+            style={{
+                border: "1.5px solid var(--rule)",
+                background: "var(--surface)",
+                borderRadius: "var(--radius)",
+                padding: 24,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+            }}
         >
-          <div className="flex items-center justify-between">
-            <span>{isSuccess ? "✓ Payment confirmed" : "Pending..."}</span>
-            <Link
-              href={explorerLink(txHash, "tx")}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 hover:underline"
-            >
-              View tx <ExternalLink className="h-3 w-3" />
-            </Link>
-          </div>
-          {isSuccess && (
-            <p className="mt-2 text-muted-foreground">
-              Royalty distributed atomically to all ancestors. Check Explorer for{" "}
-              <span className="font-mono">RoyaltyPaid</span> events.
-            </p>
-          )}
-        </div>
-      )}
+            <div>
+                <span className="eyebrow">Pay &amp; run</span>
+                <h3
+                    style={{
+                        fontFamily: "var(--display)",
+                        fontStyle: "italic",
+                        fontSize: 26,
+                        margin: "6px 0 0",
+                    }}
+                >
+                    Try this <em>bloom.</em>
+                </h3>
+            </div>
 
-      <div className="text-xs text-muted-foreground border-t border-border pt-3">
-        <strong className="text-foreground">How it works:</strong> Payment goes to
-        RoyaltyVault.sol → walks lineage tree → distributes 50% to owner, 25% to parents,
-        15% to grandparents, 7% to great-grandparents, 3% to training contributors.
-        All in one atomic tx.
-      </div>
-    </div>
-  );
+            <div>
+                <label style={{ ...labelStyle, display: "block", marginBottom: 6 }}>
+                    Prompt (mock)
+                </label>
+                <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={2}
+                    placeholder="Ask the agent something…"
+                    style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        border: "1px solid var(--rule)",
+                        background: "var(--bg)",
+                        fontFamily: "var(--body)",
+                        fontSize: 14,
+                        color: "var(--ink)",
+                        borderRadius: 4,
+                        resize: "none",
+                    }}
+                />
+            </div>
+
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: 13,
+                    color: "var(--ink)",
+                }}
+            >
+                <span style={labelStyle}>Price</span>
+                <span style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>
+                    {formatOG(inferencePrice, 6)} 0G
+                </span>
+            </div>
+
+            {balance && (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 12,
+                    }}
+                >
+                    <span style={labelStyle}>Your balance</span>
+                    <span
+                        style={{
+                            fontFamily: "var(--mono)",
+                            color: insufficientBalance ? "var(--coral)" : "var(--ink-soft)",
+                        }}
+                    >
+                        {formatOG(balance.value)} 0G
+                    </span>
+                </div>
+            )}
+
+            <button
+                type="button"
+                onClick={handlePay}
+                disabled={!isConnected || isPending || isConfirming || insufficientBalance}
+                className="btn"
+                style={{
+                    width: "100%",
+                    justifyContent: "center",
+                    opacity:
+                        !isConnected || isPending || isConfirming || insufficientBalance
+                            ? 0.55
+                            : 1,
+                    cursor:
+                        !isConnected || isPending || isConfirming || insufficientBalance
+                            ? "not-allowed"
+                            : "pointer",
+                }}
+            >
+                {(isPending || isConfirming) && (
+                    <Loader2
+                        className="animate-spin"
+                        style={{ width: 14, height: 14, marginRight: 8 }}
+                    />
+                )}
+                {!isConnected
+                    ? "Connect a wallet"
+                    : insufficientBalance
+                      ? "Insufficient balance"
+                      : isPending
+                        ? "Confirming…"
+                        : isConfirming
+                          ? "Mining the bloom…"
+                          : "Pay & run inference →"}
+            </button>
+
+            {txHash && (
+                <div
+                    style={{
+                        border: "1px solid var(--rule)",
+                        background: isSuccess ? "var(--gold)" : "var(--bg-alt)",
+                        padding: "10px 12px",
+                        fontSize: 12,
+                        borderRadius: 4,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                    }}
+                >
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span
+                            style={{
+                                fontFamily: "var(--mono)",
+                                color: isSuccess ? "var(--cocoa)" : "var(--ink-soft)",
+                            }}
+                        >
+                            {isSuccess ? "✓ Settled" : "Pending…"}
+                        </span>
+                        <Link
+                            href={explorerLink(txHash, "tx")}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                                color: "var(--ink)",
+                                fontFamily: "var(--mono)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                textDecoration: "underline",
+                                textDecorationColor: "var(--rule)",
+                            }}
+                        >
+                            View tx <ExternalLink size={11} />
+                        </Link>
+                    </div>
+                    {isSuccess && (
+                        <p style={{ color: "var(--ink-soft)", margin: 0 }}>
+                            Royalty distributed atomically to all ancestors. Check the explorer
+                            for{" "}
+                            <code style={{ fontFamily: "var(--mono)" }}>RoyaltyPaid</code>{" "}
+                            events.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            <hr className="divider" style={{ margin: 0 }} />
+            <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: 0, lineHeight: 1.55 }}>
+                <strong style={{ color: "var(--ink)" }}>How it works.</strong> Payment lands in
+                RoyaltyVault, walks the lineage, and pays 50% direct owner / 25% gen-1 / 15%
+                gen-2 / 7% gen-3+ / 3% training contributors — all in one atomic tx.
+            </p>
+        </div>
+    );
 }
 
-/**
- * Help component to register as compute provider (demo flow).
- */
 export function RegisterProviderButton() {
-  const { address } = useAccount();
-  const { writeContract, data: txHash, isPending } = useWriteContract();
-  const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+    const { address } = useAccount();
+    const { writeContract, data: txHash, isPending } = useWriteContract();
+    const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
-  function handleRegister() {
-    if (!address) return toast.error("Connect wallet");
-    const stake = BigInt("100000000000000000"); // 0.1 ether
-    writeContract(
-      {
-        address: CONTRACT_ADDRESSES.RoyaltyVault,
-        abi: ROYALTY_VAULT_ABI,
-        functionName: "registerProvider",
-        args: [address, stake],
-        value: stake,
-      },
-      {
-        onSuccess: () => toast.success("Registered as compute provider"),
-        onError: (err) => toast.error(err.message.slice(0, 200)),
-      }
+    function handleRegister() {
+        if (!address) return toast.error("Connect wallet");
+        const stake = BigInt("100000000000000000");
+        writeContract(
+            {
+                address: CONTRACT_ADDRESSES.RoyaltyVault,
+                abi: ROYALTY_VAULT_ABI,
+                functionName: "registerProvider",
+                args: [address, stake],
+                value: stake,
+            },
+            {
+                onSuccess: () => toast.success("Registered as compute provider"),
+                onError: (err) => toast.error(err.message.slice(0, 200)),
+            }
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={handleRegister}
+            disabled={isPending || isSuccess}
+            style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                color: "var(--ink-soft)",
+                textDecoration: "underline",
+                textDecorationColor: "var(--rule)",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: isPending || isSuccess ? "not-allowed" : "pointer",
+                opacity: isPending || isSuccess ? 0.55 : 1,
+            }}
+        >
+            {isPending
+                ? "Registering…"
+                : isSuccess
+                  ? "✓ Registered as compute provider"
+                  : "Register as compute provider (0.1 0G stake)"}
+        </button>
     );
-  }
-
-  return (
-    <button
-      onClick={handleRegister}
-      disabled={isPending || isSuccess}
-      className="text-xs text-muted-foreground hover:text-mekar-green underline underline-offset-2 transition-colors"
-    >
-      {isPending ? "Registering..." : isSuccess ? "✓ Registered" : "Register as compute provider (0.1 0G stake)"}
-    </button>
-  );
 }
