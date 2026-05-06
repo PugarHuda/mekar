@@ -63,3 +63,5 @@ packages/contracts/cache_forge/
 # Agent output workspace files (claude tooling)
 .claude/sessions/
 *.swp
+
+.vercel

@@ -1,336 +1,954 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
+import { use, useMemo, useState } from "react";
 import { Header } from "@/components/Header";
-import { NetworkBanner } from "@/components/NetworkBanner";
+import { Footer } from "@/components/Footer";
+import { Bloom } from "@/components/Bloom";
 import { InferencePay, RegisterProviderButton } from "@/components/InferencePay";
 import { useAgent, modeLabel } from "@/hooks/useAgent";
 import { useAgentInferenceHistory } from "@/hooks/useUserStats";
 import { explorerLink } from "@/lib/chains";
-import { shortAddress, formatTimeAgo, formatOG } from "@/lib/utils";
-import {
-  ArrowLeft,
-  ExternalLink,
-  Loader2,
-  Sparkles,
-  GitFork,
-  GitMerge,
-  Shield,
-  Database,
-  Cpu,
-  Activity,
-} from "lucide-react";
+import { formatOG, formatTimeAgo, shortAddress } from "@/lib/utils";
+import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const agentId = parseInt(id, 10);
-  const { agent, isLoading } = useAgent(agentId);
-  const history = useAgentInferenceHistory(Number.isFinite(agentId) ? agentId : undefined);
+    const { id } = use(params);
+    const agentId = parseInt(id, 10);
+    const { agent, isLoading } = useAgent(agentId);
+    const history = useAgentInferenceHistory(Number.isFinite(agentId) ? agentId : undefined);
+    const [selectedTx, setSelectedTx] = useState<(typeof history.inferences)[number] | null>(null);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-mekar-deep/10">
-      <Header />
-      <NetworkBanner />
+    const sparkData = useMemo(() => proceduralSeries(agentId, 30), [agentId]);
+    const earningsSeries = useMemo(
+        () => sparkData.map((v) => v * 0.92),
+        [sparkData]
+    );
 
-      <main className="mx-auto max-w-7xl px-4 lg:px-8 py-8">
-        <Link
-          href="/explorer"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+    return (
+        <div>
+            <Header />
+            <main style={{ padding: "var(--pad-section) 0" }}>
+                <div className="container">
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: 14,
+                            alignItems: "center",
+                            color: "var(--ink-soft)",
+                            fontFamily: "var(--mono)",
+                            fontSize: 12,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                            marginBottom: 28,
+                        }}
+                    >
+                        <Link
+                            href="/explorer"
+                            style={{
+                                color: "var(--ink-soft)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                            }}
+                        >
+                            <ArrowLeft size={14} />
+                            Lineage Garden
+                        </Link>
+                        <span>·</span>
+                        <span>
+                            {agent
+                                ? agent.parents.length === 0
+                                    ? "Genesis"
+                                    : agent.parents.length === 1
+                                      ? "Fork"
+                                      : "Composed"
+                                : "Loading"}
+                        </span>
+                    </div>
+
+                    {isLoading && (
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: "100px 0",
+                            }}
+                        >
+                            <Loader2 className="animate-spin" size={36} color="var(--gold-deep)" />
+                        </div>
+                    )}
+
+                    {!isLoading && !agent && (
+                        <div
+                            style={{
+                                border: "1.5px solid var(--rule)",
+                                background: "var(--bg-alt)",
+                                padding: "60px 32px",
+                                textAlign: "center",
+                                borderRadius: "var(--radius)",
+                            }}
+                        >
+                            <h2 style={{ marginBottom: 16 }}>Agent #{agentId} not found.</h2>
+                            <p style={{ color: "var(--ink-soft)", maxWidth: "60ch", margin: "0 auto" }}>
+                                This bloom hasn&apos;t been planted on this network. Try the
+                                explorer for the full garden.
+                            </p>
+                        </div>
+                    )}
+
+                    {agent && (
+                        <>
+                            {/* HERO */}
+                            <header
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "260px 1fr auto",
+                                    gap: 48,
+                                    alignItems: "center",
+                                    paddingBottom: 56,
+                                    borderBottom: "1px solid var(--rule)",
+                                    marginBottom: 56,
+                                    flexWrap: "wrap",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        filter: "drop-shadow(0 12px 28px rgba(61, 40, 23, 0.18))",
+                                    }}
+                                >
+                                    <Bloom
+                                        kind={
+                                            agent.parents.length === 0
+                                                ? "genesis"
+                                                : agent.parents.length === 1
+                                                  ? "fork"
+                                                  : "compose"
+                                        }
+                                        seed={String(agent.id)}
+                                        size={220}
+                                        sw={1.6}
+                                    />
+                                </div>
+
+                                <div>
+                                    <span className="eyebrow">
+                                        /
+                                        {agent.parents.length === 0
+                                            ? "genesis"
+                                            : agent.parents.length === 1
+                                              ? "fork"
+                                              : "composed"}{" "}
+                                        bloom
+                                    </span>
+                                    <h1
+                                        style={{
+                                            fontSize: "clamp(48px, 6vw, 84px)",
+                                            marginTop: 12,
+                                        }}
+                                    >
+                                        Agent <em>#{agent.id}</em>
+                                    </h1>
+                                    <code
+                                        style={{
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 13,
+                                            color: "var(--ink-soft)",
+                                            background: "var(--bg-alt)",
+                                            padding: "4px 10px",
+                                            borderRadius: 4,
+                                            display: "inline-block",
+                                            marginTop: 12,
+                                        }}
+                                    >
+                                        gen {agent.generation} · {modeLabel(agent.mode)}
+                                    </code>
+                                    <p
+                                        style={{
+                                            color: "var(--ink-soft)",
+                                            marginTop: 18,
+                                            maxWidth: "60ch",
+                                            fontSize: 16,
+                                        }}
+                                    >
+                                        {agent.parents.length === 0
+                                            ? "A foundational bloom — the seed of its lineage. Every fork that descends from it inherits a share of the royalty cascade."
+                                            : agent.parents.length === 1
+                                              ? `A fine-tune of agent #${agent.parents[0]}. Inferences split between this bloom, its parent, and any further ancestors.`
+                                              : `A composed bloom merged from ${agent.parents.length} parents. Royalty obligations carry forward through every ancestor.`}
+                                    </p>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            gap: 8,
+                                            marginTop: 18,
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        <span className="chip">
+                                            {agent.descendants.length} descendants
+                                        </span>
+                                        <span className="chip">
+                                            alignment {(agent.alignmentHealth / 100).toFixed(0)}%
+                                        </span>
+                                        <span className="chip">{modeLabel(agent.mode)}</span>
+                                    </div>
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 16,
+                                        minWidth: 220,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            border: "1.5px solid var(--cocoa)",
+                                            borderRadius: "var(--radius)",
+                                            padding: "20px 22px",
+                                            background: "var(--surface)",
+                                            boxShadow: "var(--shadow-paper)",
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--mono)",
+                                                fontSize: 11,
+                                                letterSpacing: "0.18em",
+                                                textTransform: "uppercase",
+                                                color: "var(--ink-soft)",
+                                            }}
+                                        >
+                                            Per inference
+                                        </div>
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--display)",
+                                                fontSize: 36,
+                                                fontStyle: "italic",
+                                                color: "var(--ink)",
+                                                marginTop: 4,
+                                                lineHeight: 1,
+                                            }}
+                                        >
+                                            {formatOG(agent.inferencePrice, 6)}{" "}
+                                            <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>
+                                                0G
+                                            </span>
+                                        </div>
+                                        <div
+                                            style={{
+                                                marginTop: 4,
+                                                fontSize: 12,
+                                                color: "var(--ink-soft)",
+                                            }}
+                                        >
+                                            Cascade: 50% / 25% / 15% / 7% / 3%
+                                        </div>
+                                    </div>
+                                    <a href="#try" className="btn">
+                                        Try it →
+                                    </a>
+                                    <Link href={`/mint?fork=${agent.id}`} className="btn btn--ghost">
+                                        Fork this bloom
+                                    </Link>
+                                </div>
+                            </header>
+
+                            {/* LINEAGE STRIP */}
+                            <section style={{ marginBottom: 80 }}>
+                                <div style={{ marginBottom: 24 }}>
+                                    <span className="eyebrow">Lineage</span>
+                                    <h2
+                                        style={{
+                                            fontSize: "clamp(32px, 3.6vw, 48px)",
+                                            marginTop: 8,
+                                        }}
+                                    >
+                                        Ancestors and <em>descendants</em>.
+                                    </h2>
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: 24,
+                                        alignItems: "center",
+                                        flexWrap: "wrap",
+                                        padding: "28px 0",
+                                        borderTop: "1px solid var(--rule)",
+                                        borderBottom: "1px solid var(--rule)",
+                                    }}
+                                >
+                                    {agent.parents.map((p) => (
+                                        <Link
+                                            key={p}
+                                            href={`/agent/${p}`}
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                alignItems: "center",
+                                                gap: 6,
+                                                textDecoration: "none",
+                                                color: "var(--ink)",
+                                                opacity: 0.85,
+                                            }}
+                                        >
+                                            <Bloom
+                                                kind="genesis"
+                                                seed={`parent-${p}`}
+                                                size={70}
+                                                sw={1.2}
+                                            />
+                                            <span style={{ fontSize: 12, fontWeight: 600 }}>
+                                                #{p}
+                                            </span>
+                                            <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-soft)" }}>
+                                                ancestor
+                                            </code>
+                                        </Link>
+                                    ))}
+
+                                    {agent.parents.length > 0 && (
+                                        <span
+                                            style={{
+                                                fontFamily: "var(--display)",
+                                                fontSize: 32,
+                                                color: "var(--ink-soft)",
+                                            }}
+                                        >
+                                            →
+                                        </span>
+                                    )}
+
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "center",
+                                            gap: 6,
+                                            padding: "12px 18px",
+                                            background: "var(--bg-alt)",
+                                            border: "1.5px solid var(--cocoa)",
+                                            borderRadius: 8,
+                                        }}
+                                    >
+                                        <Bloom
+                                            kind={
+                                                agent.parents.length === 0
+                                                    ? "genesis"
+                                                    : agent.parents.length === 1
+                                                      ? "fork"
+                                                      : "compose"
+                                            }
+                                            seed={String(agent.id)}
+                                            size={88}
+                                            sw={1.4}
+                                        />
+                                        <span style={{ fontSize: 13, fontWeight: 600 }}>
+                                            #{agent.id}
+                                        </span>
+                                        <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-soft)" }}>
+                                            this bloom
+                                        </code>
+                                    </div>
+
+                                    {agent.descendants.length > 0 && (
+                                        <span
+                                            style={{
+                                                fontFamily: "var(--display)",
+                                                fontSize: 32,
+                                                color: "var(--ink-soft)",
+                                            }}
+                                        >
+                                            →
+                                        </span>
+                                    )}
+
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            gap: 16,
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        {agent.descendants.map((d) => (
+                                            <Link
+                                                key={d}
+                                                href={`/agent/${d}`}
+                                                style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    gap: 4,
+                                                    textDecoration: "none",
+                                                    color: "var(--ink)",
+                                                    opacity: 0.8,
+                                                }}
+                                            >
+                                                <Bloom
+                                                    kind="fork"
+                                                    seed={`child-${d}`}
+                                                    size={56}
+                                                    sw={1}
+                                                />
+                                                <span style={{ fontSize: 11, fontWeight: 600 }}>
+                                                    #{d}
+                                                </span>
+                                            </Link>
+                                        ))}
+                                        {agent.descendants.length === 0 && (
+                                            <span
+                                                style={{
+                                                    color: "var(--ink-soft)",
+                                                    fontStyle: "italic",
+                                                    fontFamily: "var(--display)",
+                                                    fontSize: 18,
+                                                }}
+                                            >
+                                                No descendants yet — this lineage hasn&apos;t
+                                                bloomed further.
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* STATS GRID */}
+                            <section
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                                    gap: 0,
+                                    border: "1.5px solid var(--cocoa)",
+                                    background: "var(--surface)",
+                                    marginBottom: 80,
+                                }}
+                            >
+                                <StatCell
+                                    big={history.totalInferences.toString()}
+                                    label="Total inferences"
+                                    sub={`across ${history.inferences.length} events`}
+                                    spark={sparkData}
+                                />
+                                <StatCell
+                                    big={`${formatOG(history.totalDistributed, 5)}`}
+                                    label="0G distributed"
+                                    sub={`${(history.totalInferences > 0 ? Number(history.totalDistributed) / 1e18 / history.totalInferences : 0).toFixed(6)} avg / call`}
+                                    spark={earningsSeries}
+                                    sparkColor="var(--gold)"
+                                />
+                                <StatCell
+                                    big={agent.descendants.length.toString()}
+                                    label="Direct descendants"
+                                    sub={`royalty depth ${agent.parents.length === 0 ? 0 : agent.generation}`}
+                                />
+                                <StatCell
+                                    big={shortAddress(agent.owner ?? agent.creator, 4)}
+                                    label="Steward"
+                                    sub={`Created ${formatTimeAgo(agent.createdAt)}`}
+                                />
+                            </section>
+
+                            {/* TRY IT */}
+                            <section id="try" style={{ marginBottom: 80 }}>
+                                <div style={{ marginBottom: 24 }}>
+                                    <span className="eyebrow">/inference</span>
+                                    <h2
+                                        style={{
+                                            fontSize: "clamp(32px, 3.6vw, 48px)",
+                                            marginTop: 8,
+                                        }}
+                                    >
+                                        Try a single <em>inference.</em>
+                                    </h2>
+                                    <p
+                                        style={{
+                                            color: "var(--ink-soft)",
+                                            maxWidth: "60ch",
+                                            marginTop: 8,
+                                        }}
+                                    >
+                                        Pay {formatOG(agent.inferencePrice, 6)} 0G to invoke this
+                                        agent. The royalty cascade settles atomically across the
+                                        full lineage in a single on-chain transaction.
+                                    </p>
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr 380px",
+                                        gap: 24,
+                                        alignItems: "start",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            border: "1.5px solid var(--rule)",
+                                            background: "var(--surface)",
+                                            padding: 24,
+                                            borderRadius: "var(--radius)",
+                                            minHeight: 240,
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                fontFamily: "var(--mono)",
+                                                fontSize: 11,
+                                                letterSpacing: "0.18em",
+                                                textTransform: "uppercase",
+                                                color: "var(--ink-soft)",
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            Demo prompt (mock)
+                                        </div>
+                                        <p
+                                            style={{
+                                                color: "var(--ink)",
+                                                fontStyle: "italic",
+                                                fontFamily: "var(--display)",
+                                                fontSize: 22,
+                                                margin: 0,
+                                            }}
+                                        >
+                                            &ldquo;Translate this README into Bahasa Indonesia,
+                                            preserving code blocks.&rdquo;
+                                        </p>
+                                        <hr className="divider" style={{ margin: "20px 0" }} />
+                                        <div
+                                            style={{
+                                                color: "var(--ink-soft)",
+                                                fontSize: 14,
+                                                lineHeight: 1.55,
+                                            }}
+                                        >
+                                            ▍ Live inference output is wired to 0G Compute on
+                                            mainnet. For Galileo testnet, payment settles on
+                                            chain and routes royalties via{" "}
+                                            <code style={{ fontFamily: "var(--mono)" }}>
+                                                RoyaltyVault.settleInference
+                                            </code>
+                                            . Connect a wallet to try it.
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <InferencePay
+                                            agentId={agent.id}
+                                            inferencePrice={agent.inferencePrice}
+                                        />
+                                        <div style={{ marginTop: 12 }}>
+                                            <RegisterProviderButton />
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* RECENT INFERENCES */}
+                            <section style={{ marginBottom: 80 }}>
+                                <div style={{ marginBottom: 24 }}>
+                                    <span className="eyebrow">Settlement log</span>
+                                    <h2
+                                        style={{
+                                            fontSize: "clamp(32px, 3.6vw, 48px)",
+                                            marginTop: 8,
+                                        }}
+                                    >
+                                        Recent <em>inferences.</em>
+                                    </h2>
+                                </div>
+
+                                {history.inferences.length === 0 ? (
+                                    <div
+                                        style={{
+                                            border: "1px dashed var(--rule)",
+                                            padding: "60px 24px",
+                                            textAlign: "center",
+                                            color: "var(--ink-soft)",
+                                            fontStyle: "italic",
+                                            fontFamily: "var(--display)",
+                                            fontSize: 22,
+                                        }}
+                                    >
+                                        {history.isLoading
+                                            ? "Scanning RoyaltyPaid events…"
+                                            : "No inference activity yet. Be the first to bloom this agent."}
+                                    </div>
+                                ) : (
+                                    <table
+                                        style={{
+                                            width: "100%",
+                                            borderCollapse: "collapse",
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 13,
+                                        }}
+                                    >
+                                        <thead>
+                                            <tr
+                                                style={{
+                                                    borderBottom: "1.5px solid var(--cocoa)",
+                                                    textAlign: "left",
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 11,
+                                                    letterSpacing: "0.12em",
+                                                    textTransform: "uppercase",
+                                                    color: "var(--ink-soft)",
+                                                }}
+                                            >
+                                                <th style={{ padding: "12px 12px" }}>Block</th>
+                                                <th style={{ padding: "12px 12px" }}>Recipient</th>
+                                                <th style={{ padding: "12px 12px" }}>Generation</th>
+                                                <th
+                                                    style={{
+                                                        padding: "12px 12px",
+                                                        textAlign: "right",
+                                                    }}
+                                                >
+                                                    Amount
+                                                </th>
+                                                <th
+                                                    style={{
+                                                        padding: "12px 12px",
+                                                        textAlign: "right",
+                                                    }}
+                                                >
+                                                    Tx
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {history.inferences.slice(0, 10).map((inf) => (
+                                                <tr
+                                                    key={`${inf.txHash}-${inf.recipient}`}
+                                                    onClick={() => setSelectedTx(inf)}
+                                                    style={{
+                                                        borderBottom: "1px solid var(--rule)",
+                                                        cursor: "pointer",
+                                                        transition: "background 160ms ease",
+                                                    }}
+                                                    onMouseEnter={(e) =>
+                                                        (e.currentTarget.style.background =
+                                                            "var(--bg-alt)")
+                                                    }
+                                                    onMouseLeave={(e) =>
+                                                        (e.currentTarget.style.background = "")
+                                                    }
+                                                >
+                                                    <td
+                                                        style={{
+                                                            padding: "14px 12px",
+                                                            color: "var(--ink-soft)",
+                                                        }}
+                                                    >
+                                                        #{inf.blockNumber.toString()}
+                                                    </td>
+                                                    <td style={{ padding: "14px 12px" }}>
+                                                        {shortAddress(inf.recipient, 4)}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            padding: "14px 12px",
+                                                            color: "var(--ink-soft)",
+                                                        }}
+                                                    >
+                                                        gen {inf.generation}
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            padding: "14px 12px",
+                                                            textAlign: "right",
+                                                            color: "var(--gold-deep)",
+                                                            fontWeight: 600,
+                                                        }}
+                                                    >
+                                                        +{formatOG(inf.amount, 6)} 0G
+                                                    </td>
+                                                    <td
+                                                        style={{
+                                                            padding: "14px 12px",
+                                                            textAlign: "right",
+                                                        }}
+                                                    >
+                                                        →
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </section>
+                        </>
+                    )}
+                </div>
+            </main>
+            <Footer />
+
+            {selectedTx && (
+                <TxModal
+                    tx={selectedTx}
+                    agentId={agent?.id ?? agentId}
+                    onClose={() => setSelectedTx(null)}
+                />
+            )}
+        </div>
+    );
+}
+
+/* ─────────────── Helpers ─────────────── */
+
+function StatCell({
+    big,
+    label,
+    sub,
+    spark,
+    sparkColor = "var(--primary)",
+}: {
+    big: string;
+    label: string;
+    sub: string;
+    spark?: number[];
+    sparkColor?: string;
+}) {
+    return (
+        <div
+            style={{
+                padding: 24,
+                borderRight: "1.5px solid var(--cocoa)",
+                minHeight: 180,
+            }}
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Explorer
-        </Link>
-
-        {isLoading && (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-mekar-green" />
-          </div>
-        )}
-
-        {!isLoading && !agent && (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center">
-            <h2 className="text-xl font-bold mb-2">Agent #{agentId} not found</h2>
-            <p className="text-muted-foreground">
-              This agent may not exist on the current network, or contracts are not deployed.
-            </p>
-          </div>
-        )}
-
-        {agent && (
-          <div className="grid lg:grid-cols-[1fr_400px] gap-6">
-            {/* Main detail */}
-            <div className="space-y-6">
-              {/* Header card */}
-              <div className="rounded-2xl border border-border bg-card p-6">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      {agent.generation === 0 && (
-                        <Sparkles className="h-6 w-6 text-mekar-green" />
-                      )}
-                      {agent.generation > 0 && agent.parents.length === 1 && (
-                        <GitFork className="h-6 w-6 text-mekar-emerald" />
-                      )}
-                      {agent.parents.length > 1 && (
-                        <GitMerge className="h-6 w-6 text-mekar-gold" />
-                      )}
-                      <h1 className="text-3xl font-bold font-mono">Agent #{agent.id}</h1>
-                    </div>
-                    <p className="text-muted-foreground text-sm">
-                      {agent.generation === 0
-                        ? "Genesis agent — root of lineage"
-                        : agent.parents.length > 1
-                          ? `Composed agent (${agent.parents.length} parents)`
-                          : "Forked agent"}
-                    </p>
-                  </div>
-
-                  <HealthBadge health={agent.alignmentHealth} />
+            <div
+                style={{
+                    fontFamily: "var(--display)",
+                    fontStyle: "italic",
+                    fontSize: 36,
+                    color: "var(--ink)",
+                    lineHeight: 1.1,
+                }}
+            >
+                {big}
+            </div>
+            <div
+                style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--ink-soft)",
+                    marginTop: 8,
+                }}
+            >
+                {label}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>{sub}</div>
+            {spark && (
+                <div style={{ marginTop: 16 }}>
+                    <Sparkline data={spark} color={sparkColor} />
                 </div>
-              </div>
+            )}
+        </div>
+    );
+}
 
-              {/* Lineage */}
-              <Section title="Lineage" icon={<GitFork className="h-4 w-4" />}>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <Stat label="Generation" value={agent.generation.toString()} />
-                  <Stat label="Mode" value={modeLabel(agent.mode)} />
-                </div>
+function Sparkline({ data, color = "var(--primary)" }: { data: number[]; color?: string }) {
+    const max = Math.max(...data);
+    const min = Math.min(...data);
+    const w = 220;
+    const h = 50;
+    const step = w / (data.length - 1);
+    const pts = data
+        .map((v, i) => {
+            const x = i * step;
+            const y = h - ((v - min) / (max - min || 1)) * h;
+            return `${x},${y}`;
+        })
+        .join(" ");
+    return (
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+            <polyline
+                points={pts}
+                fill="none"
+                stroke={color}
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            <polyline points={`0,${h} ${pts} ${w},${h}`} fill={color} opacity="0.08" />
+        </svg>
+    );
+}
 
-                {agent.parents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">
-                    No parents — this is a genesis agent.
-                  </p>
-                ) : (
-                  <div>
-                    <div className="text-xs text-muted-foreground font-mono mb-2">PARENTS</div>
-                    <div className="flex flex-wrap gap-2">
-                      {agent.parents.map((p) => (
-                        <Link
-                          key={p}
-                          href={`/agent/${p}`}
-                          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono hover:border-mekar-green hover:text-mekar-green transition-colors"
-                        >
-                          ← #{p}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
+function proceduralSeries(seed: number, n: number): number[] {
+    const out = [];
+    let s = (seed * 2654435761) >>> 0;
+    for (let i = 0; i < n; i++) {
+        s = (s * 1664525 + 1013904223) >>> 0;
+        out.push(0.4 + ((s >>> 0) / 0x100000000) * 0.6);
+    }
+    return out;
+}
 
-                {agent.descendants.length > 0 && (
-                  <div className="mt-4">
-                    <div className="text-xs text-muted-foreground font-mono mb-2">
-                      DIRECT DESCENDANTS ({agent.descendants.length})
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {agent.descendants.map((d) => (
-                        <Link
-                          key={d}
-                          href={`/agent/${d}`}
-                          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-mono hover:border-mekar-green hover:text-mekar-green transition-colors"
-                        >
-                          → #{d}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </Section>
+/* ─────────────── Tx Modal ─────────────── */
 
-              {/* Ownership */}
-              <Section title="Ownership" icon={<Shield className="h-4 w-4" />}>
-                <div className="space-y-3">
-                  <AddressRow label="Creator" address={agent.creator} />
-                  {agent.owner !== agent.creator && (
-                    <AddressRow label="Current Owner" address={agent.owner} />
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    Minted {formatTimeAgo(agent.createdAt)}
-                  </div>
-                </div>
-              </Section>
+function TxModal({
+    tx,
+    agentId,
+    onClose,
+}: {
+    tx: { txHash: `0x${string}`; recipient: `0x${string}`; generation: number; amount: bigint; blockNumber: bigint };
+    agentId: number;
+    onClose: () => void;
+}) {
+    return (
+        <>
+            <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(15,12,9,0.5)",
+                    backdropFilter: "blur(4px)",
+                    border: "none",
+                    cursor: "pointer",
+                    zIndex: 80,
+                }}
+            />
+            <div
+                role="dialog"
+                aria-modal="true"
+                style={{
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: "min(560px, 92vw)",
+                    background: "var(--surface)",
+                    border: "1.5px solid var(--cocoa)",
+                    borderRadius: "var(--radius)",
+                    padding: 32,
+                    boxShadow: "0 32px 80px -32px rgba(15,12,9,0.5)",
+                    zIndex: 90,
+                }}
+            >
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close"
+                    style={{
+                        position: "absolute",
+                        top: 14,
+                        right: 14,
+                        border: "1px solid var(--rule)",
+                        borderRadius: "50%",
+                        width: 32,
+                        height: 32,
+                        background: "transparent",
+                        color: "var(--ink)",
+                        fontSize: 18,
+                        cursor: "pointer",
+                    }}
+                >
+                    ×
+                </button>
 
-              {/* On-chain proof */}
-              <Section title="On-Chain Proof" icon={<Database className="h-4 w-4" />}>
-                <div className="space-y-3 text-xs font-mono">
-                  <HashRow label="Weights Pointer" hash={agent.weightsPointer} />
-                  <HashRow label="Training Data Merkle" hash={agent.trainingDataMerkle} />
-                  <HashRow label="TEE Attestation" hash={agent.teeAttestation} />
-                </div>
-              </Section>
+                <span className="eyebrow">/royalty paid · {formatTimeAgo(Number(tx.blockNumber))}</span>
+                <h2 style={{ fontSize: 36, marginTop: 8 }}>
+                    Inference <em>settled.</em>
+                </h2>
 
-              {/* Inference history */}
-              <Section title="Inference History" icon={<Activity className="h-4 w-4" />}>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <Stat
-                    label="Total Inferences"
-                    value={history.isLoading ? "…" : history.totalInferences.toString()}
-                  />
-                  <Stat
-                    label="Royalty Distributed"
-                    value={history.isLoading ? "…" : `${formatOG(history.totalDistributed, 6)} 0G`}
-                  />
-                </div>
-
-                {history.inferences.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6 italic">
-                    {history.isLoading
-                      ? "Scanning RoyaltyPaid events..."
-                      : "No inference activity yet. Be the first to use this agent!"}
-                  </p>
-                ) : (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead className="bg-secondary/50 text-muted-foreground uppercase tracking-wider">
-                        <tr>
-                          <th className="text-left px-3 py-2 font-mono">Recipient</th>
-                          <th className="text-left px-3 py-2 font-mono">Gen</th>
-                          <th className="text-right px-3 py-2 font-mono">Amount</th>
-                          <th className="text-right px-3 py-2 font-mono">Tx</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {history.inferences.slice(0, 10).map((inf, i) => (
-                          <tr
-                            key={`${inf.txHash}-${i}`}
-                            className="border-t border-border hover:bg-secondary/30"
-                          >
-                            <td className="px-3 py-2 font-mono">
-                              {shortAddress(inf.recipient, 4)}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-muted-foreground">
-                              {inf.generation}
-                            </td>
-                            <td className="px-3 py-2 text-right font-mono text-mekar-green">
-                              +{formatOG(inf.amount, 6)}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <Link
-                                href={explorerLink(inf.txHash, "tx")}
+                <dl
+                    style={{
+                        marginTop: 20,
+                        padding: "20px 0",
+                        borderTop: "1px solid var(--rule)",
+                        borderBottom: "1px solid var(--rule)",
+                    }}
+                >
+                    <ModalDL
+                        label="Tx hash"
+                        value={
+                            <Link
+                                href={explorerLink(tx.txHash, "tx")}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-muted-foreground hover:text-mekar-green"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Section>
-            </div>
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 12,
+                                    color: "var(--ink)",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    textDecoration: "underline",
+                                    textDecorationColor: "var(--rule)",
+                                }}
+                            >
+                                {tx.txHash.slice(0, 12)}…{tx.txHash.slice(-6)}
+                                <ExternalLink size={12} />
+                            </Link>
+                        }
+                    />
+                    <ModalDL label="Block" value={`#${tx.blockNumber.toString()}`} />
+                    <ModalDL label="Agent" value={`#${agentId}`} />
+                    <ModalDL label="Recipient" value={shortAddress(tx.recipient, 6)} />
+                    <ModalDL label="Generation" value={`L${tx.generation}`} />
+                    <ModalDL
+                        label="Royalty amount"
+                        value={
+                            <span
+                                style={{
+                                    color: "var(--gold-deep)",
+                                    fontFamily: "var(--display)",
+                                    fontStyle: "italic",
+                                    fontSize: 22,
+                                }}
+                            >
+                                +{formatOG(tx.amount, 6)} 0G
+                            </span>
+                        }
+                    />
+                </dl>
 
-            {/* Sidebar: Inference + Actions */}
-            <aside className="space-y-4">
-              <InferencePay agentId={agent.id} inferencePrice={agent.inferencePrice} />
-
-              <div className="rounded-2xl border border-border bg-card p-4 text-xs space-y-2">
-                <div className="font-semibold text-foreground flex items-center gap-1.5">
-                  <Cpu className="h-3.5 w-3.5" />
-                  Demo Setup
-                </div>
-                <p className="text-muted-foreground">
-                  For inference to settle (and trigger royalty distribution), a registered
-                  compute provider must call <code className="text-mekar-green">settleInference</code>.
+                <p style={{ color: "var(--ink-soft)", marginTop: 20, fontSize: 14 }}>
+                    Royalty was distributed atomically as part of the inference settlement
+                    transaction. The cascade walked the lineage tree, deduplicated multi-path
+                    ancestors, and paid every owner in the same block.
                 </p>
-                <RegisterProviderButton />
-              </div>
-
-              <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
-                <div className="text-sm font-semibold">Actions</div>
-                <Link
-                  href={`/mint?fork=${agent.id}`}
-                  className="block w-full text-center rounded-lg border border-border px-3 py-2 text-xs hover:border-mekar-green hover:text-mekar-green transition-colors"
-                >
-                  Fork this Agent
-                </Link>
-                <Link
-                  href={`/mint?compose=${agent.id}`}
-                  className="block w-full text-center rounded-lg border border-border px-3 py-2 text-xs hover:border-mekar-gold hover:text-mekar-gold transition-colors"
-                >
-                  Use in Compose
-                </Link>
-              </div>
-            </aside>
-          </div>
-        )}
-      </main>
-    </div>
-  );
+            </div>
+        </>
+    );
 }
 
-function Section({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6">
-      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-        {icon}
-        {title}
-      </h2>
-      {children}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground font-mono mb-0.5">{label}</div>
-      <div className="text-lg font-bold font-mono">{value}</div>
-    </div>
-  );
-}
-
-function HealthBadge({ health }: { health: number }) {
-  const pct = (health / 100).toFixed(1);
-  const color =
-    health >= 9_000
-      ? "border-mekar-green/30 bg-mekar-green/10 text-mekar-green"
-      : health >= 7_000
-        ? "border-mekar-gold/30 bg-mekar-gold/10 text-mekar-gold"
-        : "border-rose-500/30 bg-rose-500/10 text-rose-400";
-
-  return (
-    <div className={`rounded-lg border px-3 py-2 ${color}`}>
-      <div className="text-xs uppercase tracking-wider opacity-80">Alignment</div>
-      <div className="text-2xl font-bold font-mono">{pct}%</div>
-    </div>
-  );
-}
-
-function AddressRow({ label, address }: { label: string; address: `0x${string}` }) {
-  return (
-    <div>
-      <div className="text-xs text-muted-foreground font-mono mb-0.5">{label}</div>
-      <Link
-        href={explorerLink(address, "address")}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm font-mono text-foreground hover:text-mekar-green transition-colors"
-      >
-        {shortAddress(address, 6)}
-        <ExternalLink className="h-3 w-3" />
-      </Link>
-    </div>
-  );
-}
-
-function HashRow({ label, hash }: { label: string; hash: `0x${string}` }) {
-  return (
-    <div>
-      <div className="text-muted-foreground mb-0.5">{label}</div>
-      <div className="break-all text-foreground/80 text-[10px]">{hash}</div>
-    </div>
-  );
+function ModalDL({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div
+            style={{
+                display: "grid",
+                gridTemplateColumns: "120px 1fr",
+                gap: 16,
+                padding: "10px 0",
+            }}
+        >
+            <dt
+                style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--ink-soft)",
+                }}
+            >
+                {label}
+            </dt>
+            <dd style={{ margin: 0, color: "var(--ink)" }}>{value}</dd>
+        </div>
+    );
 }
