@@ -224,15 +224,15 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("y", (d) => -d.radius / 2)
             .style("pointer-events", "none");
 
-        // Label pill — name (top) + focus phrase (bottom). Wider than the
-        // old "#id / gen N" pill so longer agent names breathe.
+        // Label pill — 3 rows: gen eyebrow (top) → name (primary) → focus (bottom).
+        // Hierarchy: lineage marker first, then identity, then function.
         const label = node.append("g").attr("class", "label");
         label
             .append("rect")
             .attr("x", -90)
             .attr("y", (d) => d.radius / 2 + 6)
             .attr("width", 180)
-            .attr("height", 32)
+            .attr("height", 44)
             .attr("rx", 4)
             .attr("fill", "#fbf6ec")
             .attr("stroke", "#3d2817")
@@ -242,9 +242,19 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .append("text")
             .attr("text-anchor", "middle")
             .attr("font-family", "'JetBrains Mono', monospace")
+            .attr("font-size", 8.5)
+            .attr("fill", "#8a6a48")
+            .attr("letter-spacing", "0.12em")
+            .attr("y", (d) => d.radius / 2 + 18)
+            .text((d) => `GEN ${d.generation}`)
+            .style("pointer-events", "none");
+        label
+            .append("text")
+            .attr("text-anchor", "middle")
+            .attr("font-family", "'JetBrains Mono', monospace")
             .attr("font-size", 10.5)
             .attr("fill", "#3d2817")
-            .attr("y", (d) => d.radius / 2 + 19)
+            .attr("y", (d) => d.radius / 2 + 32)
             .text((d) => d.name)
             .style("pointer-events", "none");
         label
@@ -253,8 +263,8 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("font-family", "'JetBrains Mono', monospace")
             .attr("font-size", 9)
             .attr("fill", "#5a3f2a")
-            .attr("y", (d) => d.radius / 2 + 30)
-            .text((d) => `${d.focus} · gen ${d.generation}`)
+            .attr("y", (d) => d.radius / 2 + 44)
+            .text((d) => d.focus)
             .style("pointer-events", "none");
 
         // Drag — D3 handles transformation through the current zoom matrix.

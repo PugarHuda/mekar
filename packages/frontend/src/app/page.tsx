@@ -579,7 +579,7 @@ function ExplorerPreview() {
                                                 x={-90}
                                                 y={n.size / 2 + 6}
                                                 width={180}
-                                                height={32}
+                                                height={44}
                                                 rx={4}
                                                 fill="#fbf6ec"
                                                 stroke="#3d2817"
@@ -588,9 +588,19 @@ function ExplorerPreview() {
                                             <text
                                                 textAnchor="middle"
                                                 fontFamily="'JetBrains Mono', monospace"
+                                                fontSize={8.5}
+                                                fill="#8a6a48"
+                                                letterSpacing="0.12em"
+                                                y={n.size / 2 + 18}
+                                            >
+                                                GEN {n.generation}
+                                            </text>
+                                            <text
+                                                textAnchor="middle"
+                                                fontFamily="'JetBrains Mono', monospace"
                                                 fontSize={10.5}
                                                 fill="#3d2817"
-                                                y={n.size / 2 + 19}
+                                                y={n.size / 2 + 32}
                                             >
                                                 {n.name}
                                             </text>
@@ -599,9 +609,9 @@ function ExplorerPreview() {
                                                 fontFamily="'JetBrains Mono', monospace"
                                                 fontSize={9}
                                                 fill="#5a3f2a"
-                                                y={n.size / 2 + 31}
+                                                y={n.size / 2 + 44}
                                             >
-                                                {n.focus} · gen {n.generation}
+                                                {n.focus}
                                             </text>
                                         </g>
                                     ))}
