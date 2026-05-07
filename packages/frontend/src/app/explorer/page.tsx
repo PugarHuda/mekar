@@ -445,54 +445,59 @@ export default function ExplorerPage() {
                                                 {connectors.map((c) => {
                                                     const mx = (c.from.x + c.to.x) / 2;
                                                     const my = (c.from.y + c.to.y) / 2;
-                                                    // Cubic bezier with two control points so the
-                                                    // line eases out of one bloom and into the
-                                                    // next — feels like a natural vine, no kink.
-                                                    const dy = c.to.y - c.from.y;
-                                                    const cp1y = c.from.y + dy * 0.55;
-                                                    const cp2y = c.to.y - dy * 0.55;
                                                     return (
                                                         <g key={c.key}>
-                                                            {/* soft shadow under the vine */}
-                                                            <path
-                                                                d={`M ${c.from.x} ${c.from.y} C ${c.from.x} ${cp1y}, ${c.to.x} ${cp2y}, ${c.to.x} ${c.to.y}`}
-                                                                fill="none"
+                                                            {/* shadow stroke under the line */}
+                                                            <line
+                                                                x1={c.from.x}
+                                                                y1={c.from.y}
+                                                                x2={c.to.x}
+                                                                y2={c.to.y}
                                                                 stroke="#3d2817"
-                                                                strokeWidth="3"
-                                                                opacity="0.06"
+                                                                strokeWidth="4"
+                                                                opacity="0.08"
                                                                 vectorEffect="non-scaling-stroke"
                                                                 strokeLinecap="round"
                                                             />
-                                                            {/* main vine — thick cocoa ink */}
-                                                            <path
-                                                                d={`M ${c.from.x} ${c.from.y} C ${c.from.x} ${cp1y}, ${c.to.x} ${cp2y}, ${c.to.x} ${c.to.y}`}
-                                                                fill="none"
+                                                            {/* main edge — straight cocoa line, like a network graph edge */}
+                                                            <line
+                                                                x1={c.from.x}
+                                                                y1={c.from.y}
+                                                                x2={c.to.x}
+                                                                y2={c.to.y}
                                                                 stroke="#3d2817"
-                                                                strokeWidth="1.6"
-                                                                opacity="0.78"
+                                                                strokeWidth="1.8"
+                                                                opacity="0.85"
                                                                 vectorEffect="non-scaling-stroke"
                                                                 strokeLinecap="round"
                                                             />
-                                                            {/* sage leaf seed-pod at midpoint */}
-                                                            <g
-                                                                transform={`translate(${mx}, ${my})`}
-                                                            >
+                                                            {/* anchor dots — proves the line attaches to each bloom center */}
+                                                            <circle
+                                                                cx={c.from.x}
+                                                                cy={c.from.y}
+                                                                r="2.5"
+                                                                fill="#d4a437"
+                                                                stroke="#3d2817"
+                                                                strokeWidth="0.9"
+                                                                vectorEffect="non-scaling-stroke"
+                                                            />
+                                                            <circle
+                                                                cx={c.to.x}
+                                                                cy={c.to.y}
+                                                                r="2.5"
+                                                                fill="#d4a437"
+                                                                stroke="#3d2817"
+                                                                strokeWidth="0.9"
+                                                                vectorEffect="non-scaling-stroke"
+                                                            />
+                                                            {/* sage seed-pod at midpoint */}
+                                                            <g transform={`translate(${mx}, ${my})`}>
                                                                 <ellipse
                                                                     rx="1.6"
                                                                     ry="0.85"
                                                                     fill="#6b8a4b"
                                                                     stroke="#3d2817"
                                                                     strokeWidth="0.7"
-                                                                    vectorEffect="non-scaling-stroke"
-                                                                />
-                                                                <line
-                                                                    x1="-1.4"
-                                                                    y1="0"
-                                                                    x2="1.4"
-                                                                    y2="0"
-                                                                    stroke="#3d2817"
-                                                                    strokeWidth="0.4"
-                                                                    opacity="0.55"
                                                                     vectorEffect="non-scaling-stroke"
                                                                 />
                                                             </g>

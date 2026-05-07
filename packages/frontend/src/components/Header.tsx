@@ -3,10 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { BloomLogo } from "@/components/Bloom";
-import { Menu, X } from "lucide-react";
-import { shortAddress } from "@/lib/utils";
+import { Menu, X, AlertTriangle } from "lucide-react";
 
 const NAV = [
     { href: "/", label: "Home", k: "home" },
@@ -31,19 +30,6 @@ export function Header() {
     const pathname = usePathname();
     const active = detectActive(pathname ?? "/");
     const [mobileOpen, setMobileOpen] = useState(false);
-
-    const { address, isConnected } = useAccount();
-    const { connectors, connect, isPending } = useConnect();
-    const { disconnect } = useDisconnect();
-
-    const onConnect = () => {
-        if (isConnected) {
-            disconnect();
-            return;
-        }
-        const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
-        if (injected) connect({ connector: injected });
-    };
 
     return (
         <nav className="nav">
@@ -97,20 +83,9 @@ export function Header() {
                     })}
                 </div>
 
-                <button
-                    onClick={onConnect}
-                    disabled={isPending}
-                    className="nav__connect hidden md:inline-flex"
-                >
-                    <BloomLogo size={18} sw={2} />
-                    <span>
-                        {isConnected && address
-                            ? shortAddress(address, 4)
-                            : isPending
-                              ? "Connecting…"
-                              : "Connect wallet"}
-                    </span>
-                </button>
+                <div className="hidden md:inline-flex">
+                    <WalletConnect />
+                </div>
 
                 <button
                     type="button"
@@ -160,24 +135,130 @@ export function Header() {
                                 </Link>
                             );
                         })}
-                        <button
-                            onClick={onConnect}
-                            disabled={isPending}
-                            className="nav__connect"
-                            style={{ marginTop: 8, justifyContent: "center" }}
-                        >
-                            <BloomLogo size={18} sw={2} />
-                            <span>
-                                {isConnected && address
-                                    ? shortAddress(address, 4)
-                                    : isPending
-                                      ? "Connecting…"
-                                      : "Connect wallet"}
-                            </span>
-                        </button>
+                        <div style={{ marginTop: 8, display: "flex", justifyContent: "center" }}>
+                            <WalletConnect onAfterAction={() => setMobileOpen(false)} />
+                        </div>
                     </div>
                 </div>
             )}
         </nav>
+    );
+}
+
+/**
+ * Cream/gold-themed wrapper around RainbowKit's ConnectButton.Custom so we get
+ * the full multi-wallet modal (MetaMask, WalletConnect, Coinbase, etc.) and
+ * automatic chain-switch UX while keeping the woodcut visual language.
+ */
+function WalletConnect({ onAfterAction }: { onAfterAction?: () => void }) {
+    return (
+        <ConnectButton.Custom>
+            {({
+                account,
+                chain,
+                openAccountModal,
+                openChainModal,
+                openConnectModal,
+                mounted,
+            }) => {
+                const ready = mounted;
+                const connected = ready && account && chain;
+
+                if (!ready) {
+                    return (
+                        <button
+                            type="button"
+                            disabled
+                            aria-hidden
+                            className="nav__connect"
+                            style={{ opacity: 0, pointerEvents: "none" }}
+                        >
+                            <BloomLogo size={18} sw={2} />
+                            <span>Connect wallet</span>
+                        </button>
+                    );
+                }
+
+                if (!connected) {
+                    return (
+                        <button
+                            type="button"
+                            className="nav__connect"
+                            onClick={() => {
+                                openConnectModal();
+                                onAfterAction?.();
+                            }}
+                        >
+                            <BloomLogo size={18} sw={2} />
+                            <span>Connect wallet</span>
+                        </button>
+                    );
+                }
+
+                if (chain.unsupported) {
+                    return (
+                        <button
+                            type="button"
+                            className="nav__connect"
+                            onClick={() => {
+                                openChainModal();
+                                onAfterAction?.();
+                            }}
+                            style={{
+                                background: "var(--coral)",
+                                color: "var(--surface)",
+                                borderColor: "var(--cocoa)",
+                            }}
+                        >
+                            <AlertTriangle size={14} />
+                            <span>Wrong network</span>
+                        </button>
+                    );
+                }
+
+                return (
+                    <div style={{ display: "inline-flex", gap: 6 }}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                openChainModal();
+                                onAfterAction?.();
+                            }}
+                            className="nav__connect"
+                            style={{
+                                background: "var(--surface)",
+                                fontFamily: "var(--mono)",
+                                fontSize: 12,
+                                padding: "6px 12px",
+                            }}
+                            title={`Connected to ${chain.name}`}
+                        >
+                            <span
+                                aria-hidden
+                                style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    background: "var(--tea)",
+                                    boxShadow: "0 0 0 3px rgba(107,138,75,0.18)",
+                                }}
+                            />
+                            <span>{(chain.name ?? "").replace("0G-", "") || "0G"}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                openAccountModal();
+                                onAfterAction?.();
+                            }}
+                            className="nav__connect"
+                        >
+                            <BloomLogo size={18} sw={2} />
+                            <span>{account.displayName}</span>
+                        </button>
+                    </div>
+                );
+            }}
+        </ConnectButton.Custom>
     );
 }

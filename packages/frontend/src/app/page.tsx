@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Bloom, BloomLogo } from "@/components/Bloom";
 import { CodeBloom } from "@/components/CodeBloom";
+import { useLineageData } from "@/hooks/useLineageData";
 
 export default function Home() {
     return (
@@ -74,6 +75,7 @@ function Petal({
 /* ─────────────── Hero ─────────────── */
 
 function Hero() {
+    const { totalAgents, edges } = useLineageData();
     const petals = useMemo(() => {
         const out = [];
         for (let i = 0; i < 14; i++) {
@@ -123,12 +125,12 @@ function Hero() {
                         </div>
                         <div className="hero__meta">
                             <div className="hero__meta-item">
-                                <span className="num">4</span>
+                                <span className="num">{totalAgents}</span>
                                 <span className="label">Agents bloomed</span>
                             </div>
                             <div className="hero__meta-item">
-                                <span className="num">3</span>
-                                <span className="label">Royalty events</span>
+                                <span className="num">{edges.length}</span>
+                                <span className="label">Lineage edges</span>
                             </div>
                             <div className="hero__meta-item">
                                 <span className="num">ERC-7857</span>
@@ -311,23 +313,44 @@ function How() {
 /* ─────────────── Live stats strip ─────────────── */
 
 function StatsStrip() {
+    const { totalAgents, nodes, edges } = useLineageData();
     const [tick, setTick] = useState(0);
     useEffect(() => {
         const id = setInterval(() => setTick((t) => t + 1), 2400);
         return () => clearInterval(id);
     }, []);
 
+    const genesisCount = nodes.filter((n) => n.parents.length === 0).length;
+    const composedCount = nodes.filter((n) => n.parents.length >= 2).length;
+
     const stats = [
-        { num: "4", unit: "agents", label: "Bloomed to date", live: false },
         {
-            num: (12 + tick).toLocaleString(),
-            unit: "calls/min",
-            label: "Inferences settling",
+            num: totalAgents.toString(),
+            unit: "agents",
+            label: "Bloomed to date",
             live: true,
         },
-        { num: "0.0036", unit: "0G", label: "Royalties scattered", live: false },
-        { num: "0.04¢", unit: "median", label: "Per-call gas", live: false },
+        {
+            num: edges.length.toString(),
+            unit: "edges",
+            label: "Lineage links on chain",
+            live: false,
+        },
+        {
+            num: genesisCount.toString(),
+            unit: "genesis",
+            label: "Anchor lineages",
+            live: false,
+        },
+        {
+            num: composedCount.toString(),
+            unit: "merged",
+            label: "Composed blooms",
+            live: false,
+        },
     ];
+    void tick; // tick still triggers re-render so any future live counters update
+
 
     return (
         <section className="stats">
