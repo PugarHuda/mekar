@@ -254,7 +254,7 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("font-size", 9)
             .attr("fill", "#5a3f2a")
             .attr("y", (d) => d.radius / 2 + 30)
-            .text((d) => d.focus)
+            .text((d) => `${d.focus} · gen ${d.generation}`)
             .style("pointer-events", "none");
 
         // Drag — D3 handles transformation through the current zoom matrix.

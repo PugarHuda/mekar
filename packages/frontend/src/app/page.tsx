@@ -390,6 +390,7 @@ type PreviewNode = {
     id: string;
     name: string;
     focus: string;
+    generation: number;
     kind: "genesis" | "fork" | "compose";
     x: number;
     y: number;
@@ -401,6 +402,7 @@ const PREVIEW_NODES: PreviewNode[] = [
         id: "0xa3f1",
         name: "Llama-3-70B",
         focus: "multilingual base",
+        generation: 0,
         kind: "genesis",
         x: 500,
         y: 88,
@@ -410,6 +412,7 @@ const PREVIEW_NODES: PreviewNode[] = [
         id: "0xd118",
         name: "Jasmine-Indo-7B",
         focus: "indo translation",
+        generation: 1,
         kind: "fork",
         x: 290,
         y: 226,
@@ -419,6 +422,7 @@ const PREVIEW_NODES: PreviewNode[] = [
         id: "0xe22a",
         name: "Frangipani-Coder",
         focus: "rust codegen",
+        generation: 1,
         kind: "fork",
         x: 710,
         y: 226,
@@ -428,6 +432,7 @@ const PREVIEW_NODES: PreviewNode[] = [
         id: "0x9d3f",
         name: "Marigold-Compose",
         focus: "code + math hybrid",
+        generation: 2,
         kind: "compose",
         x: 500,
         y: 348,
@@ -596,7 +601,7 @@ function ExplorerPreview() {
                                                 fill="#5a3f2a"
                                                 y={n.size / 2 + 31}
                                             >
-                                                {n.focus}
+                                                {n.focus} · gen {n.generation}
                                             </text>
                                         </g>
                                     ))}
