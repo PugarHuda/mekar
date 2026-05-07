@@ -183,6 +183,18 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .style("cursor", "grab")
             .style("transition", "filter 200ms ease");
 
+        // Invisible hit-area: catches drag/click anywhere on the bloom even
+        // through transparent petal gaps. Sits behind the visible art but
+        // with pointer-events:all so the bare <g> never has to rely on the
+        // image (which sets pointer-events:none).
+        node
+            .append("circle")
+            .attr("class", "hit")
+            .attr("r", (d) => d.radius / 2 + 6)
+            .attr("fill", "transparent")
+            .attr("stroke", "none")
+            .attr("pointer-events", "all");
+
         // Behind-bloom anchor circle so the line visibly attaches to the centre.
         node
             .append("circle")
@@ -190,7 +202,8 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("r", 5)
             .attr("fill", "#d4a437")
             .attr("stroke", "#3d2817")
-            .attr("stroke-width", 1);
+            .attr("stroke-width", 1)
+            .style("pointer-events", "none");
 
         node
             .append("image")
