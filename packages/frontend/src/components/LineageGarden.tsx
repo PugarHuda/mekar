@@ -10,6 +10,7 @@ import {
 import * as d3 from "d3";
 import type { LineageNode, LineageEdge } from "@/hooks/useLineageData";
 import { renderBloomSvg, svgToDataUri, variantFromLineage } from "@/lib/bloom";
+import { agentName, agentFocus } from "@/lib/agentNaming";
 
 export type LineageGardenHandle = {
     zoomIn: () => void;
@@ -29,6 +30,11 @@ type SimNode = LineageNode & d3.SimulationNodeDatum & {
     /** stable bloom data uri so we don't recompute every tick */
     href: string;
     radius: number;
+    /** synthesised display name + focus phrase so the label reads like a
+     *  real agent card instead of "#1 / gen 0". Generated deterministically
+     *  from the on-chain id in @/lib/agentNaming. */
+    name: string;
+    focus: string;
 };
 type SimEdge = d3.SimulationLinkDatum<SimNode>;
 
@@ -54,7 +60,8 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
 
     const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
-    // Memoise bloom data URIs so simulation re-binds don't redraw the SVG.
+    // Memoise bloom data URIs + name/focus labels so simulation re-binds
+    // don't redraw the SVG or recompute the seeded RNG every tick.
     const nodesWithHref = useMemo(() => {
         return nodes.map((n) => {
             const variant = variantFromLineage(n.parents.length);
@@ -64,7 +71,9 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
                 sw: 1.2,
             });
             const href = svgToDataUri(svg);
-            return { ...n, href, radius };
+            const name = agentName(n.id, n.parents.length);
+            const focus = agentFocus(n.id, n.parents.length);
+            return { ...n, href, radius, name, focus };
         });
     }, [nodes]);
 
@@ -215,14 +224,15 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("y", (d) => -d.radius / 2)
             .style("pointer-events", "none");
 
-        // Label pill.
+        // Label pill — name (top) + focus phrase (bottom). Wider than the
+        // old "#id / gen N" pill so longer agent names breathe.
         const label = node.append("g").attr("class", "label");
         label
             .append("rect")
-            .attr("x", -32)
-            .attr("y", (d) => d.radius / 2 + 4)
-            .attr("width", 64)
-            .attr("height", 28)
+            .attr("x", -90)
+            .attr("y", (d) => d.radius / 2 + 6)
+            .attr("width", 180)
+            .attr("height", 32)
             .attr("rx", 4)
             .attr("fill", "#fbf6ec")
             .attr("stroke", "#3d2817")
@@ -234,8 +244,8 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("font-family", "'JetBrains Mono', monospace")
             .attr("font-size", 10.5)
             .attr("fill", "#3d2817")
-            .attr("y", (d) => d.radius / 2 + 16)
-            .text((d) => `#${d.id}`)
+            .attr("y", (d) => d.radius / 2 + 19)
+            .text((d) => d.name)
             .style("pointer-events", "none");
         label
             .append("text")
@@ -243,8 +253,8 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .attr("font-family", "'JetBrains Mono', monospace")
             .attr("font-size", 9)
             .attr("fill", "#5a3f2a")
-            .attr("y", (d) => d.radius / 2 + 27)
-            .text((d) => `gen ${d.generation}`)
+            .attr("y", (d) => d.radius / 2 + 30)
+            .text((d) => d.focus)
             .style("pointer-events", "none");
 
         // Drag — D3 handles transformation through the current zoom matrix.

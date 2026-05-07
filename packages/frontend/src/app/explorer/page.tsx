@@ -11,6 +11,7 @@ import { shortAddress, formatTimeAgo } from "@/lib/utils";
 import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
 import { LineageGarden, type LineageGardenHandle } from "@/components/LineageGarden";
 import { Bloom } from "@/components/Bloom";
+import { agentName, agentFocus } from "@/lib/agentNaming";
 
 type Filter = "All" | "Genesis" | "Forks" | "Composed";
 const FILTERS: Filter[] = ["All", "Genesis", "Forks", "Composed"];
@@ -292,6 +293,7 @@ export default function ExplorerPage() {
                             {selected && (
                                 <AgentSlideover
                                     node={selected}
+                                    nodes={nodes}
                                     onClose={() => setSelected(null)}
                                 />
                             )}
@@ -306,9 +308,19 @@ export default function ExplorerPage() {
 
 /* ─────────────── Slideover with agent detail ─────────────── */
 
-function AgentSlideover({ node, onClose }: { node: LineageNode; onClose: () => void }) {
+function AgentSlideover({
+    node,
+    nodes,
+    onClose,
+}: {
+    node: LineageNode;
+    nodes: LineageNode[];
+    onClose: () => void;
+}) {
     const kind =
         node.parents.length === 0 ? "genesis" : node.parents.length === 1 ? "fork" : "compose";
+    const name = agentName(node.id, node.parents.length);
+    const focus = agentFocus(node.id, node.parents.length);
 
     return (
         <>
@@ -369,9 +381,10 @@ function AgentSlideover({ node, onClose }: { node: LineageNode; onClose: () => v
                 </div>
 
                 <span className="eyebrow">
-                    {kind === "genesis" ? "Genesis bloom" : kind === "fork" ? "Fork" : "Composed"}
+                    {kind === "genesis" ? "Genesis bloom" : kind === "fork" ? "Fork" : "Composed"}{" "}
+                    · {focus}
                 </span>
-                <h2 style={{ marginTop: 8, fontSize: 36 }}>Agent #{node.id}</h2>
+                <h2 style={{ marginTop: 8, fontSize: 36 }}>{name}</h2>
 
                 <code
                     style={{
@@ -384,7 +397,8 @@ function AgentSlideover({ node, onClose }: { node: LineageNode; onClose: () => v
                         letterSpacing: "0.04em",
                     }}
                 >
-                    Generation {node.generation} · created {formatTimeAgo(node.createdAt)}
+                    Token #{node.id} · gen {node.generation} · created{" "}
+                    {formatTimeAgo(node.createdAt)}
                 </code>
 
                 <p
@@ -452,26 +466,32 @@ function AgentSlideover({ node, onClose }: { node: LineageNode; onClose: () => v
                             Parents
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            {node.parents.map((p) => (
-                                <Link
-                                    key={p}
-                                    href={`/agent/${p}`}
-                                    style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                        padding: "6px 12px",
-                                        border: "1px solid var(--rule)",
-                                        borderRadius: 999,
-                                        fontFamily: "var(--mono)",
-                                        fontSize: 12,
-                                        color: "var(--ink)",
-                                        background: "var(--bg-alt)",
-                                    }}
-                                >
-                                    ← #{p}
-                                </Link>
-                            ))}
+                            {node.parents.map((p) => {
+                                const parentNode = nodes.find((n) => n.id === p);
+                                const parentLabel = parentNode
+                                    ? agentName(p, parentNode.parents.length)
+                                    : `Token #${p}`;
+                                return (
+                                    <Link
+                                        key={p}
+                                        href={`/agent/${p}`}
+                                        style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 6,
+                                            padding: "6px 12px",
+                                            border: "1px solid var(--rule)",
+                                            borderRadius: 999,
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 12,
+                                            color: "var(--ink)",
+                                            background: "var(--bg-alt)",
+                                        }}
+                                    >
+                                        ← {parentLabel}
+                                    </Link>
+                                );
+                            })}
                         </div>
                     </div>
                 )}

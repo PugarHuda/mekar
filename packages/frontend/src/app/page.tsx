@@ -389,6 +389,7 @@ function StatsStrip() {
 type PreviewNode = {
     id: string;
     name: string;
+    focus: string;
     kind: "genesis" | "fork" | "compose";
     x: number;
     y: number;
@@ -396,10 +397,42 @@ type PreviewNode = {
 };
 
 const PREVIEW_NODES: PreviewNode[] = [
-    { id: "0xa3f1", name: "Llama-3-70B", kind: "genesis", x: 500, y: 88, size: 110 },
-    { id: "0xd118", name: "Jasmine-Indo-7B", kind: "fork", x: 290, y: 226, size: 92 },
-    { id: "0xe22a", name: "Frangipani-Coder", kind: "fork", x: 710, y: 226, size: 92 },
-    { id: "0x9d3f", name: "Marigold-Compose", kind: "compose", x: 500, y: 348, size: 100 },
+    {
+        id: "0xa3f1",
+        name: "Llama-3-70B",
+        focus: "multilingual base",
+        kind: "genesis",
+        x: 500,
+        y: 88,
+        size: 110,
+    },
+    {
+        id: "0xd118",
+        name: "Jasmine-Indo-7B",
+        focus: "indo translation",
+        kind: "fork",
+        x: 290,
+        y: 226,
+        size: 92,
+    },
+    {
+        id: "0xe22a",
+        name: "Frangipani-Coder",
+        focus: "rust codegen",
+        kind: "fork",
+        x: 710,
+        y: 226,
+        size: 92,
+    },
+    {
+        id: "0x9d3f",
+        name: "Marigold-Compose",
+        focus: "code + math hybrid",
+        kind: "compose",
+        x: 500,
+        y: 348,
+        size: 100,
+    },
 ];
 
 const PREVIEW_EDGES: Array<[string, string]> = [
@@ -538,9 +571,9 @@ function ExplorerPreview() {
                                                 style={{ pointerEvents: "none" }}
                                             />
                                             <rect
-                                                x={-66}
+                                                x={-90}
                                                 y={n.size / 2 + 6}
-                                                width={132}
+                                                width={180}
                                                 height={32}
                                                 rx={4}
                                                 fill="#fbf6ec"
@@ -563,7 +596,7 @@ function ExplorerPreview() {
                                                 fill="#5a3f2a"
                                                 y={n.size / 2 + 31}
                                             >
-                                                {n.id}
+                                                {n.focus}
                                             </text>
                                         </g>
                                     ))}
