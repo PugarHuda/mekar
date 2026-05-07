@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { Bloom } from "@/components/Bloom";
 import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
 import { isDeployed } from "@/contracts/addresses";
 import { explorerLink } from "@/lib/chains";
 import { shortAddress, formatTimeAgo } from "@/lib/utils";
 import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
+import { LineageGarden, type LineageGardenHandle } from "@/components/LineageGarden";
+import { Bloom } from "@/components/Bloom";
 
 type Filter = "All" | "Genesis" | "Forks" | "Composed";
 const FILTERS: Filter[] = ["All", "Genesis", "Forks", "Composed"];
@@ -19,120 +20,9 @@ export default function ExplorerPage() {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<Filter>("All");
     const [selected, setSelected] = useState<LineageNode | null>(null);
-    const [zoom, setZoom] = useState(1);
-    const [pan, setPan] = useState({ x: 0, y: 0 });
-    const [isCanvasDragging, setIsCanvasDragging] = useState(false);
-    const [draggingNodeId, setDraggingNodeId] = useState<number | null>(null);
-    const [posOverrides, setPosOverrides] = useState<Map<number, { x: number; y: number }>>(
-        new Map()
-    );
+    const gardenRef = useRef<LineageGardenHandle>(null);
 
-    const canvasRef = useRef<HTMLDivElement>(null);
-    const canvasDragRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
-    const nodeDragRef = useRef<{
-        id: number;
-        startX: number;
-        startY: number;
-        startPosX: number;
-        startPosY: number;
-        moved: boolean;
-    } | null>(null);
-
-    function resetView() {
-        setZoom(1);
-        setPan({ x: 0, y: 0 });
-        setPosOverrides(new Map());
-    }
-
-    /* ─── canvas pan (drag empty space) ─── */
-
-    function onCanvasPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-        if ((e.target as HTMLElement).closest(".tree-node")) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        canvasDragRef.current = { px: e.clientX, py: e.clientY, sx: pan.x, sy: pan.y };
-        setIsCanvasDragging(true);
-    }
-
-    function onCanvasPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-        if (!canvasDragRef.current) return;
-        const { px, py, sx, sy } = canvasDragRef.current;
-        setPan({ x: sx + (e.clientX - px), y: sy + (e.clientY - py) });
-    }
-
-    function onCanvasPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-        canvasDragRef.current = null;
-        setIsCanvasDragging(false);
-    }
-
-    function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
-        if (!e.ctrlKey && !e.metaKey) return;
-        e.preventDefault();
-        const delta = -e.deltaY * 0.0015;
-        setZoom((z) => Math.max(0.4, Math.min(2, +(z + delta).toFixed(2))));
-    }
-
-    /* ─── per-node drag ─── */
-
-    function onNodePointerDown(
-        e: React.PointerEvent<HTMLButtonElement>,
-        node: { id: number; x: number; y: number }
-    ) {
-        e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        nodeDragRef.current = {
-            id: node.id,
-            startX: e.clientX,
-            startY: e.clientY,
-            startPosX: node.x,
-            startPosY: node.y,
-            moved: false,
-        };
-        setDraggingNodeId(node.id);
-    }
-
-    function onNodePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
-        const drag = nodeDragRef.current;
-        if (!drag || !canvasRef.current) return;
-        const dxPx = e.clientX - drag.startX;
-        const dyPx = e.clientY - drag.startY;
-        if (!drag.moved && Math.abs(dxPx) + Math.abs(dyPx) > 4) drag.moved = true;
-        if (!drag.moved) return;
-        const rect = canvasRef.current.getBoundingClientRect();
-        const dxPct = (dxPx / rect.width / zoom) * 100;
-        const dyPct = (dyPx / rect.height / zoom) * 100;
-        setPosOverrides((prev) => {
-            const next = new Map(prev);
-            next.set(drag.id, {
-                x: Math.max(2, Math.min(98, drag.startPosX + dxPct)),
-                y: Math.max(4, Math.min(96, drag.startPosY + dyPct)),
-            });
-            return next;
-        });
-    }
-
-    function onNodePointerUp(
-        e: React.PointerEvent<HTMLButtonElement>,
-        node: LineageNode
-    ) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-        const drag = nodeDragRef.current;
-        nodeDragRef.current = null;
-        setDraggingNodeId(null);
-        if (drag && !drag.moved) setSelected(node);
-    }
-
-    const positionedRaw = useMemo(() => layoutGarden(nodes, edges), [nodes, edges]);
-    const positioned = useMemo(
-        () =>
-            positionedRaw.map((n) => {
-                const o = posOverrides.get(n.id);
-                return o ? { ...n, x: o.x, y: o.y } : n;
-            }),
-        [positionedRaw, posOverrides]
-    );
-
-    const visible = positioned.filter((n) => {
+    const visible = nodes.filter((n) => {
         if (filter === "Genesis" && n.parents.length !== 0) return false;
         if (filter === "Forks" && n.parents.length !== 1) return false;
         if (filter === "Composed" && n.parents.length < 2) return false;
@@ -141,28 +31,11 @@ export default function ExplorerPage() {
         return haystack.includes(search.toLowerCase());
     });
     const visibleIds = new Set(visible.map((n) => n.id));
+    const visibleEdges = edges.filter(
+        (e) => visibleIds.has(e.source) && visibleIds.has(e.target)
+    );
 
-    const connectors = positioned.flatMap((n) => {
-        if (!n.parents || n.parents.length === 0) return [];
-        return n.parents
-            .filter((p) => visibleIds.has(p) && visibleIds.has(n.id))
-            .map((p) => {
-                const parent = positioned.find((x) => x.id === p);
-                if (!parent) return null;
-                return {
-                    key: `${p}-${n.id}`,
-                    from: { x: parent.x, y: parent.y },
-                    to: { x: n.x, y: n.y },
-                };
-            })
-            .filter(Boolean) as Array<{
-            key: string;
-            from: { x: number; y: number };
-            to: { x: number; y: number };
-        }>;
-    });
-
-    const genesisCount = positioned.filter((n) => n.parents.length === 0).length;
+    const genesisCount = nodes.filter((n) => n.parents.length === 0).length;
 
     return (
         <div>
@@ -287,9 +160,7 @@ export default function ExplorerPage() {
                                     >
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setZoom((z) => Math.max(0.4, +(z - 0.15).toFixed(2)))
-                                            }
+                                            onClick={() => gardenRef.current?.zoomOut()}
                                             aria-label="Zoom out"
                                             style={{
                                                 background: "transparent",
@@ -302,12 +173,10 @@ export default function ExplorerPage() {
                                         >
                                             −
                                         </button>
-                                        <span>{Math.round(zoom * 100)}%</span>
+                                        <span>zoom</span>
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                setZoom((z) => Math.min(2, +(z + 0.15).toFixed(2)))
-                                            }
+                                            onClick={() => gardenRef.current?.zoomIn()}
                                             aria-label="Zoom in"
                                             style={{
                                                 background: "transparent",
@@ -331,9 +200,9 @@ export default function ExplorerPage() {
                                         />
                                         <button
                                             type="button"
-                                            onClick={resetView}
+                                            onClick={() => gardenRef.current?.reset()}
                                             aria-label="Reset view"
-                                            title="Reset view (zoom 100% + center)"
+                                            title="Reset zoom + pan"
                                             style={{
                                                 background: "transparent",
                                                 border: "none",
@@ -358,26 +227,17 @@ export default function ExplorerPage() {
                                             color: "var(--ink-soft)",
                                         }}
                                     >
-                                        <Hand size={12} /> drag a bloom to move · drag empty
-                                        space to pan · ⌘/ctrl+scroll to zoom
+                                        <Hand size={12} /> drag a bloom · scroll empty area to pan
+                                        · ⌘/ctrl+scroll to zoom
                                     </span>
                                 </div>
 
                                 <div
-                                    ref={canvasRef}
                                     className="explorer-canvas"
-                                    onPointerDown={onCanvasPointerDown}
-                                    onPointerMove={onCanvasPointerMove}
-                                    onPointerUp={onCanvasPointerUp}
-                                    onPointerCancel={onCanvasPointerUp}
-                                    onWheel={onCanvasWheel}
                                     style={{
                                         height: 600,
                                         position: "relative",
                                         overflow: "hidden",
-                                        cursor: isCanvasDragging ? "grabbing" : "grab",
-                                        touchAction: "none",
-                                        userSelect: isCanvasDragging ? "none" : "auto",
                                     }}
                                 >
                                     {isLoading ? (
@@ -417,157 +277,14 @@ export default function ExplorerPage() {
                                                 : "No blooms in this filter. Try another petal."}
                                         </div>
                                     ) : (
-                                        <div
-                                            style={{
-                                                position: "relative",
-                                                width: "100%",
-                                                height: "100%",
-                                                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-                                                transformOrigin: "top left",
-                                                transition: isCanvasDragging
-                                                    ? "none"
-                                                    : "transform 180ms ease",
-                                                willChange: "transform",
-                                            }}
-                                        >
-                                            <svg
-                                                className="connectors"
-                                                preserveAspectRatio="none"
-                                                viewBox="0 0 100 100"
-                                                style={{
-                                                    position: "absolute",
-                                                    inset: 0,
-                                                    width: "100%",
-                                                    height: "100%",
-                                                    pointerEvents: "none",
-                                                }}
-                                            >
-                                                {connectors.map((c) => {
-                                                    const mx = (c.from.x + c.to.x) / 2;
-                                                    const my = (c.from.y + c.to.y) / 2;
-                                                    return (
-                                                        <g key={c.key}>
-                                                            {/* shadow stroke under the line */}
-                                                            <line
-                                                                x1={c.from.x}
-                                                                y1={c.from.y}
-                                                                x2={c.to.x}
-                                                                y2={c.to.y}
-                                                                stroke="#3d2817"
-                                                                strokeWidth="4"
-                                                                opacity="0.08"
-                                                                vectorEffect="non-scaling-stroke"
-                                                                strokeLinecap="round"
-                                                            />
-                                                            {/* main edge — straight cocoa line, like a network graph edge */}
-                                                            <line
-                                                                x1={c.from.x}
-                                                                y1={c.from.y}
-                                                                x2={c.to.x}
-                                                                y2={c.to.y}
-                                                                stroke="#3d2817"
-                                                                strokeWidth="1.8"
-                                                                opacity="0.85"
-                                                                vectorEffect="non-scaling-stroke"
-                                                                strokeLinecap="round"
-                                                            />
-                                                            {/* anchor dots — proves the line attaches to each bloom center */}
-                                                            <circle
-                                                                cx={c.from.x}
-                                                                cy={c.from.y}
-                                                                r="2.5"
-                                                                fill="#d4a437"
-                                                                stroke="#3d2817"
-                                                                strokeWidth="0.9"
-                                                                vectorEffect="non-scaling-stroke"
-                                                            />
-                                                            <circle
-                                                                cx={c.to.x}
-                                                                cy={c.to.y}
-                                                                r="2.5"
-                                                                fill="#d4a437"
-                                                                stroke="#3d2817"
-                                                                strokeWidth="0.9"
-                                                                vectorEffect="non-scaling-stroke"
-                                                            />
-                                                            {/* sage seed-pod at midpoint */}
-                                                            <g transform={`translate(${mx}, ${my})`}>
-                                                                <ellipse
-                                                                    rx="1.6"
-                                                                    ry="0.85"
-                                                                    fill="#6b8a4b"
-                                                                    stroke="#3d2817"
-                                                                    strokeWidth="0.7"
-                                                                    vectorEffect="non-scaling-stroke"
-                                                                />
-                                                            </g>
-                                                        </g>
-                                                    );
-                                                })}
-                                            </svg>
-
-                                            {visible.map((n) => {
-                                                const kind =
-                                                    n.parents.length === 0
-                                                        ? "genesis"
-                                                        : n.parents.length === 1
-                                                          ? "fork"
-                                                          : "compose";
-                                                const isDraggingThis =
-                                                    draggingNodeId === n.id;
-                                                const isMoved = posOverrides.has(n.id);
-                                                return (
-                                                    <button
-                                                        key={n.id}
-                                                        type="button"
-                                                        className="tree-node"
-                                                        style={{
-                                                            left: `${n.x}%`,
-                                                            top: `${n.y}%`,
-                                                            background: "transparent",
-                                                            border: "none",
-                                                            padding: 0,
-                                                            cursor: isDraggingThis
-                                                                ? "grabbing"
-                                                                : "grab",
-                                                            transition: isDraggingThis
-                                                                ? "none"
-                                                                : "left 180ms ease, top 180ms ease",
-                                                            zIndex: isDraggingThis ? 20 : isMoved ? 10 : 1,
-                                                            touchAction: "none",
-                                                            filter: isDraggingThis
-                                                                ? "drop-shadow(0 14px 18px rgba(61,40,23,0.25))"
-                                                                : "none",
-                                                        }}
-                                                        onPointerDown={(e) => onNodePointerDown(e, n)}
-                                                        onPointerMove={onNodePointerMove}
-                                                        onPointerUp={(e) => onNodePointerUp(e, n)}
-                                                        onPointerCancel={(e) =>
-                                                            onNodePointerUp(e, n)
-                                                        }
-                                                    >
-                                                        <Bloom
-                                                            kind={kind}
-                                                            seed={String(n.id)}
-                                                            size={
-                                                                kind === "genesis"
-                                                                    ? 110
-                                                                    : kind === "compose"
-                                                                      ? 92
-                                                                      : 72
-                                                            }
-                                                            sw={1.1}
-                                                        />
-                                                        <span className="tree-node__label">
-                                                            #{n.id}
-                                                            <span className="tree-node__hash">
-                                                                gen {n.generation}
-                                                            </span>
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
+                                        <LineageGarden
+                                            ref={gardenRef}
+                                            nodes={visible}
+                                            edges={visibleEdges}
+                                            onSelect={setSelected}
+                                            selectedId={selected?.id ?? null}
+                                            height={600}
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -839,31 +556,3 @@ function NotDeployedNotice() {
     );
 }
 
-/* ─────────────── Garden layout (depth × siblings) ─────────────── */
-
-type Positioned = LineageNode & { x: number; y: number };
-
-function layoutGarden(nodes: LineageNode[], _edges: { source: number; target: number }[]): Positioned[] {
-    if (nodes.length === 0) return [];
-
-    // Group by generation
-    const byGen = new Map<number, LineageNode[]>();
-    for (const n of nodes) {
-        const arr = byGen.get(n.generation) ?? [];
-        arr.push(n);
-        byGen.set(n.generation, arr);
-    }
-    const maxGen = Math.max(...byGen.keys());
-
-    const result: Positioned[] = [];
-    for (let gen = 0; gen <= maxGen; gen++) {
-        const row = byGen.get(gen) ?? [];
-        const yPct = maxGen === 0 ? 50 : 12 + (gen / maxGen) * 76;
-        const count = row.length;
-        row.forEach((n, idx) => {
-            const xPct = count === 1 ? 50 : 12 + (idx / (count - 1)) * 76;
-            result.push({ ...n, x: xPct, y: yPct });
-        });
-    }
-    return result;
-}
