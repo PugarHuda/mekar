@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Bloom, BloomLogo } from "@/components/Bloom";
 import { CodeBloom } from "@/components/CodeBloom";
 import { useLineageData } from "@/hooks/useLineageData";
+import { renderBloomSvg, svgToDataUri } from "@/lib/bloom";
 
 export default function Home() {
     return (
@@ -381,6 +382,42 @@ function StatsStrip() {
 
 /* ─────────────── Mini explorer preview ─────────────── */
 
+// Static curated lineage that mirrors what /explorer would show with real
+// data — same visual signature: gold anchor dots, straight cocoa edges with
+// shadow + sage pod, woodcut blooms. Coords live in a 1000×420 viewBox so
+// strokes and label pills size identically to the real LineageGarden.
+type PreviewNode = {
+    id: string;
+    name: string;
+    kind: "genesis" | "fork" | "compose";
+    x: number;
+    y: number;
+    size: number;
+};
+
+const PREVIEW_NODES: PreviewNode[] = [
+    { id: "0xa3f1", name: "Llama-3-70B", kind: "genesis", x: 500, y: 88, size: 110 },
+    { id: "0xd118", name: "Jasmine-Indo-7B", kind: "fork", x: 290, y: 226, size: 92 },
+    { id: "0xe22a", name: "Frangipani-Coder", kind: "fork", x: 710, y: 226, size: 92 },
+    { id: "0x9d3f", name: "Marigold-Compose", kind: "compose", x: 500, y: 348, size: 100 },
+];
+
+const PREVIEW_EDGES: Array<[string, string]> = [
+    ["0xa3f1", "0xd118"],
+    ["0xa3f1", "0xe22a"],
+    ["0xd118", "0x9d3f"],
+    ["0xe22a", "0x9d3f"],
+];
+
+const PREVIEW_BLOOMS = PREVIEW_NODES.map((n) => ({
+    ...n,
+    href: svgToDataUri(renderBloomSvg(n.kind, n.id, { size: n.size, sw: 1.2 })),
+}));
+
+const PREVIEW_BY_ID = Object.fromEntries(
+    PREVIEW_BLOOMS.map((n) => [n.id, n])
+) as Record<string, (typeof PREVIEW_BLOOMS)[number]>;
+
 function ExplorerPreview() {
     return (
         <section className="explorer-preview" id="explorer">
@@ -420,61 +457,119 @@ function ExplorerPreview() {
                     </div>
 
                     <div
-                        className="explorer-canvas"
-                        style={{ height: 420, position: "relative" }}
+                        className="explorer-canvas explorer-canvas--preview"
+                        style={{ height: 420, position: "relative", overflow: "hidden" }}
                     >
-                        {/* Connector vines */}
-                        <svg className="connectors" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <path
-                                d="M 50,18 Q 35,40 36,60"
-                                stroke="rgba(61,40,23,0.35)"
-                                strokeWidth="0.3"
-                                fill="none"
-                            />
-                            <path
-                                d="M 50,18 Q 65,40 60,60"
-                                stroke="rgba(61,40,23,0.35)"
-                                strokeWidth="0.3"
-                                fill="none"
-                            />
-                            <path
-                                d="M 36,60 Q 42,75 48,86"
-                                stroke="rgba(61,40,23,0.35)"
-                                strokeWidth="0.3"
-                                fill="none"
-                            />
-                            <path
-                                d="M 60,60 Q 54,75 48,86"
-                                stroke="rgba(61,40,23,0.35)"
-                                strokeWidth="0.3"
-                                fill="none"
-                            />
-                        </svg>
-
-                        {[
-                            { x: 50, y: 18, kind: "genesis" as const, id: "0xa3f1", name: "Llama-3-70B" },
-                            { x: 36, y: 56, kind: "fork" as const, id: "0xd118", name: "Jasmine-Indo-7B" },
-                            { x: 60, y: 58, kind: "fork" as const, id: "0xe22a", name: "Frangipani-Coder" },
-                            { x: 48, y: 86, kind: "compose" as const, id: "0x9d3f", name: "Marigold-Compose" },
-                        ].map((n) => (
-                            <Link
-                                key={n.id}
-                                href="/explorer"
-                                className="tree-node"
-                                style={{ left: `${n.x}%`, top: `${n.y}%` }}
+                        <Link
+                            href="/explorer"
+                            aria-label="Open the full lineage explorer"
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                display: "block",
+                                cursor: "pointer",
+                            }}
+                        >
+                            <svg
+                                viewBox="0 0 1000 420"
+                                preserveAspectRatio="xMidYMid meet"
+                                style={{ display: "block", width: "100%", height: "100%" }}
                             >
-                                <Bloom
-                                    kind={n.kind}
-                                    seed={n.id}
-                                    size={n.kind === "compose" ? 100 : 90}
-                                    sw={1.4}
-                                />
-                                <div className="tree-node__label">
-                                    {n.name}
-                                    <span className="tree-node__hash">{n.id}</span>
-                                </div>
-                            </Link>
-                        ))}
+                                {/* Edges: shadow line + main line + sage pod at midpoint */}
+                                <g>
+                                    {PREVIEW_EDGES.map(([a, b], i) => {
+                                        const sa = PREVIEW_BY_ID[a];
+                                        const sb = PREVIEW_BY_ID[b];
+                                        return (
+                                            <g key={i}>
+                                                <line
+                                                    x1={sa.x}
+                                                    y1={sa.y}
+                                                    x2={sb.x}
+                                                    y2={sb.y}
+                                                    stroke="#3d2817"
+                                                    strokeWidth={6}
+                                                    opacity={0.07}
+                                                    strokeLinecap="round"
+                                                />
+                                                <line
+                                                    x1={sa.x}
+                                                    y1={sa.y}
+                                                    x2={sb.x}
+                                                    y2={sb.y}
+                                                    stroke="#3d2817"
+                                                    strokeWidth={1.8}
+                                                    opacity={0.85}
+                                                    strokeLinecap="round"
+                                                />
+                                                <ellipse
+                                                    cx={(sa.x + sb.x) / 2}
+                                                    cy={(sa.y + sb.y) / 2}
+                                                    rx={4.5}
+                                                    ry={2.2}
+                                                    fill="#6b8a4b"
+                                                    stroke="#3d2817"
+                                                    strokeWidth={0.9}
+                                                />
+                                            </g>
+                                        );
+                                    })}
+                                </g>
+
+                                {/* Nodes: anchor + bloom image + label pill */}
+                                <g>
+                                    {PREVIEW_BLOOMS.map((n) => (
+                                        <g
+                                            key={n.id}
+                                            transform={`translate(${n.x}, ${n.y})`}
+                                        >
+                                            <circle
+                                                r={5}
+                                                fill="#d4a437"
+                                                stroke="#3d2817"
+                                                strokeWidth={1}
+                                            />
+                                            <image
+                                                href={n.href}
+                                                width={n.size}
+                                                height={n.size}
+                                                x={-n.size / 2}
+                                                y={-n.size / 2}
+                                                style={{ pointerEvents: "none" }}
+                                            />
+                                            <rect
+                                                x={-66}
+                                                y={n.size / 2 + 6}
+                                                width={132}
+                                                height={32}
+                                                rx={4}
+                                                fill="#fbf6ec"
+                                                stroke="#3d2817"
+                                                strokeWidth={1}
+                                            />
+                                            <text
+                                                textAnchor="middle"
+                                                fontFamily="'JetBrains Mono', monospace"
+                                                fontSize={10.5}
+                                                fill="#3d2817"
+                                                y={n.size / 2 + 19}
+                                            >
+                                                {n.name}
+                                            </text>
+                                            <text
+                                                textAnchor="middle"
+                                                fontFamily="'JetBrains Mono', monospace"
+                                                fontSize={9}
+                                                fill="#5a3f2a"
+                                                y={n.size / 2 + 31}
+                                            >
+                                                {n.id}
+                                            </text>
+                                        </g>
+                                    ))}
+                                </g>
+                            </svg>
+                        </Link>
                     </div>
                 </div>
             </div>
