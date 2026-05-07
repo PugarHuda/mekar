@@ -184,13 +184,13 @@ export const LineageGarden = forwardRef<LineageGardenHandle, Props>(function Lin
             .style("transition", "filter 200ms ease");
 
         // Invisible hit-area: catches drag/click anywhere on the bloom even
-        // through transparent petal gaps. Sits behind the visible art but
-        // with pointer-events:all so the bare <g> never has to rely on the
-        // image (which sets pointer-events:none).
+        // through transparent petal gaps. Sized to match forceCollide pad
+        // (radius/2 + 14) so the clickable zone stretches right up to —
+        // but never into — the neighbouring bloom's territory.
         node
             .append("circle")
             .attr("class", "hit")
-            .attr("r", (d) => d.radius / 2 + 6)
+            .attr("r", (d) => d.radius / 2 + 14)
             .attr("fill", "transparent")
             .attr("stroke", "none")
             .attr("pointer-events", "all");
