@@ -18,6 +18,7 @@ import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { AGENT_INFT_ABI } from "@/contracts/abis";
 import { explorerLink } from "@/lib/chains";
 import { uploadToZGStorage, type StorageUploadResult } from "@/lib/storage";
+import { agentName, agentFocus, kindFromParents } from "@/lib/agentNaming";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 type Mode = "genesis" | "fork" | "compose";
@@ -525,47 +526,17 @@ function Step1({
                         <div
                             style={{
                                 display: "grid",
-                                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                                gap: 8,
+                                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                                gap: 12,
                             }}
                         >
                             {nodes.map((n) => (
-                                <button
+                                <ParentCard
                                     key={n.id}
-                                    type="button"
+                                    node={n}
+                                    selected={parentId === n.id}
                                     onClick={() => setParentId(n.id)}
-                                    style={{
-                                        border:
-                                            parentId === n.id
-                                                ? "1.5px solid var(--cocoa)"
-                                                : "1px solid var(--rule)",
-                                        background:
-                                            parentId === n.id ? "var(--gold)" : "var(--bg-alt)",
-                                        padding: 12,
-                                        borderRadius: 4,
-                                        cursor: "pointer",
-                                        color: parentId === n.id ? "var(--cocoa)" : "var(--ink)",
-                                        textAlign: "left",
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            fontFamily: "var(--mono)",
-                                            fontWeight: 600,
-                                            fontSize: 13,
-                                        }}
-                                    >
-                                        #{n.id}
-                                    </div>
-                                    <div
-                                        style={{
-                                            fontSize: 11,
-                                            opacity: 0.7,
-                                        }}
-                                    >
-                                        gen {n.generation}
-                                    </div>
-                                </button>
+                                />
                             ))}
                         </div>
                     )}
@@ -594,16 +565,18 @@ function Step1({
                         <div
                             style={{
                                 display: "grid",
-                                gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-                                gap: 8,
+                                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                                gap: 12,
                             }}
                         >
                             {nodes.map((n) => {
                                 const sel = parentIds.includes(n.id);
                                 return (
-                                    <button
+                                    <ParentCard
                                         key={n.id}
-                                        type="button"
+                                        node={n}
+                                        selected={sel}
+                                        composeMode
                                         onClick={() =>
                                             setParentIds(
                                                 sel
@@ -611,33 +584,7 @@ function Step1({
                                                     : [...parentIds, n.id]
                                             )
                                         }
-                                        style={{
-                                            border: sel
-                                                ? "1.5px solid var(--cocoa)"
-                                                : "1px solid var(--rule)",
-                                            background: sel
-                                                ? "var(--pink)"
-                                                : "var(--bg-alt)",
-                                            padding: 12,
-                                            borderRadius: 4,
-                                            cursor: "pointer",
-                                            textAlign: "left",
-                                            color: sel ? "var(--cocoa)" : "var(--ink)",
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                fontFamily: "var(--mono)",
-                                                fontWeight: 600,
-                                                fontSize: 13,
-                                            }}
-                                        >
-                                            #{n.id}
-                                        </div>
-                                        <div style={{ fontSize: 11, opacity: 0.7 }}>
-                                            gen {n.generation}
-                                        </div>
-                                    </button>
+                                    />
                                 );
                             })}
                         </div>
@@ -645,6 +592,99 @@ function Step1({
                 </div>
             )}
         </div>
+    );
+}
+
+/* ─────────────── Parent picker card (fork + compose) ─────────────── */
+
+/**
+ * Shows agent identity at-a-glance: bloom preview + synthesised name
+ * + focus phrase + lineage caption. Replaces the old "#id / gen N"
+ * picker that gave no signal about what the agent actually does.
+ *
+ * `composeMode` swaps the active highlight from gold (single-pick) to
+ * pink (multi-select), matching the visual language of the rest of the
+ * compose flow.
+ */
+function ParentCard({
+    node,
+    selected,
+    onClick,
+    composeMode = false,
+}: {
+    node: { id: number; parents: number[]; generation: number };
+    selected: boolean;
+    onClick: () => void;
+    composeMode?: boolean;
+}) {
+    const kind = kindFromParents(node.parents.length);
+    const name = agentName(node.id, node.parents.length);
+    const focus = agentFocus(node.id, node.parents.length);
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{
+                border: selected ? "1.5px solid var(--cocoa)" : "1px solid var(--rule)",
+                background: selected
+                    ? composeMode
+                        ? "var(--pink)"
+                        : "var(--gold)"
+                    : "var(--bg-alt)",
+                padding: 14,
+                borderRadius: 6,
+                cursor: "pointer",
+                color: selected ? "var(--cocoa)" : "var(--ink)",
+                textAlign: "left",
+                display: "flex",
+                gap: 12,
+                alignItems: "flex-start",
+                transition: "background 120ms ease, border-color 120ms ease",
+            }}
+        >
+            <div style={{ flexShrink: 0 }}>
+                <Bloom kind={kind} seed={String(node.id)} size={48} sw={1.4} />
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                    style={{
+                        fontFamily: "var(--mono)",
+                        fontWeight: 600,
+                        fontSize: 13,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {name}
+                </div>
+                <div
+                    style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 11,
+                        opacity: 0.85,
+                        marginTop: 2,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {focus}
+                </div>
+                <div
+                    style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 10,
+                        opacity: 0.55,
+                        marginTop: 6,
+                        letterSpacing: "0.04em",
+                    }}
+                >
+                    #{node.id} · gen {node.generation}
+                </div>
+            </div>
+        </button>
     );
 }
 
