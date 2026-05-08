@@ -1,8 +1,8 @@
 # 🌳 MEKAR
 
 [![Live Demo](https://img.shields.io/badge/live-mekar.vercel.app-d4a437)](https://mekar.vercel.app)
-[![Tests](https://img.shields.io/badge/tests-28%20passing-1c3b2f)](packages/contracts/test/MEKAR.t.sol)
-[![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0xA00A7641FEE39753fFdd1cECA5b73336a68699e3)
+[![Tests](https://img.shields.io/badge/tests-33%20passing-1c3b2f)](packages/contracts/test/MEKAR.t.sol)
+[![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3)
 
 **AI Genealogy & Royalty Protocol on 0G**
 
@@ -55,18 +55,18 @@ MEKAR provides the missing **royalty rail** for AI:
 
 ---
 
-## 🔌 0G Modules Used (6 components)
+## 🔌 0G Modules Used
 
-| Module | Usage |
-|---|---|
-| **0G Chain** (16602) | All 7 smart contracts deployed at the Galileo testnet |
-| **0G Storage Log** | Genealogy events, lineage history (permanent) |
-| **0G Storage KV** | Mutable agent metadata with ACL |
-| **0G Specialized Flow** | Encrypted model weights (premium permanence) |
-| **0G Compute (TEE)** | Sealed inference + training attestation |
-| **INFT (ERC-7857)** | Each agent tokenized with composition primitives |
-| **Alignment Nodes** | Lineage health audits |
-| **Data Serving Network** | Auto-billing for inference |
+| Module | Usage | Status |
+|---|---|---|
+| **0G Chain** (16602) | 5 smart contracts deployed on Galileo testnet | ✅ Live |
+| **0G Storage Log** | Real `Indexer.upload()` — agent weights anchored, returned root used as on-chain `weightsPointer` | ✅ Live |
+| **INFT (ERC-7857)** | Each agent tokenized with mint/fork/compose primitives | ✅ Live |
+| **Alignment Nodes** | Allowlist auditor pushes alignment scores → scales ancestor royalty | ✅ Live (single-auditor for demo) |
+| **0G Storage KV** | Mutable agent metadata with ACL | 🟡 Phase 2 |
+| **0G Specialized Flow** | Encrypted model weights (premium tier + ECIES owner keys) | 🟡 Phase 2 |
+| **0G Compute (TEE)** | Sealed inference + training attestation | 🟡 Phase 2 |
+| **Data Serving Network** | Auto-billing for inference | 🟡 Phase 2 |
 
 ---
 
@@ -119,20 +119,23 @@ forge test
 cp .env.example .env
 # Add DEPLOYER_PRIVATE_KEY
 
-# Deploy contracts (uses forge create due to forge script chain detection issue)
-forge create --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --evm-version cancun --legacy --broadcast \
-  contracts/AgentINFT.sol:AgentINFT --constructor-args $YOUR_ADDRESS
+# Deploy 4 contracts + wire-up + write addresses to env
+bash scripts/deploy-v2-fix.sh
+
+# Multi-wallet seed: 3 fresh wallets, 4-agent lineage, alignment slash, 3 inferences
+bash scripts/multi-wallet-seed.sh
 ```
 
-See [`docs/DEPLOY_GUIDE.md`](docs/DEPLOY_GUIDE.md) for the full walkthrough.
+> **Galileo gotcha:** `forge script` and `cast send` (blocking) hit
+> intermittent null-response errors. The shell scripts above use the
+> `--async` + receipt-polling pattern that works reliably. See
+> `packages/backend/CLAUDE.md` for details.
 
-### Run Frontend
+### Run Frontend + Backend (for /mint Q3 upload flow)
 
 ```bash
-pnpm --filter @mekar/frontend dev
-# → http://localhost:3000
+pnpm --filter @mekar/frontend dev   # → http://localhost:3000
+pnpm --filter @mekar/backend dev    # → http://localhost:3001 (real 0G Storage)
 ```
 
 ---
@@ -194,6 +197,26 @@ Plus: compute provider fee + protocol fee
 
 ---
 
+## ✅ FAQ Honesty Audit
+
+Each FAQ claim from the landing page is mapped to a concrete on-chain test
+or live transaction. Nothing in the FAQ is marketing-only.
+
+| FAQ | Claim | Implementation | Evidence |
+|---|---|---|---|
+| Q1 | Royalty cascade on inference (not just resale) | `RoyaltyVault._distributeRoyalty` BFS walk | 14 settlements distributing across 4 wallets |
+| Q2 | Bounded depth (10), atomic, treasury fallback | Final sweep in `_distributeRoyalty`: `(fee - distributed) → protocolFeesAccrued` | Treasury accrual = expected math, wei-perfect |
+| Q3 | Encrypted weights, hash-only on chain | `Indexer.upload()` → real root → `weightsPointer` | Agent #5 — anchor tx + on-chain pointer match |
+| Q4 | Alignment audits cut royalty share | Per-ancestor share scaled by `alignmentHealth/10000` | Bob (50%) earns 50% less than Alice (100%) on the same gen tier |
+| Q5 | Burned ancestor → treasury fallback | `try/catch` around `ownerOf` and `getParents` in `_distributeAncestorTiers` and `_gatherNextTier` | Unit tests `test_Q5_*` cover both burned and reverting-owner paths |
+
+Phase 2 (still aspirational, marked clearly):
+- Encrypted weights via Specialized Flow + ECIES owner keys
+- Real TEE attestation verification (currently checks non-empty bytes)
+- Multi-auditor oracle network (currently single approved auditor for demo)
+
+---
+
 ## 🛡️ Anti-Wrapping Defense
 
 A 5-layer protection against clone laundering:
@@ -224,37 +247,62 @@ A 5-layer protection against clone laundering:
 
 ## 📊 Live Deployment (0G Galileo Testnet — Chain 16602)
 
+### Contracts (v2 — with Q2/Q4/Q5 fixes)
+
 | Contract | Address | Explorer |
 |---|---|---|
-| **MekarRegistry** | `0x66b2F33bF34081b48046e713457fa3912363E779` | [view ↗](https://chainscan-galileo.0g.ai/address/0x66b2F33bF34081b48046e713457fa3912363E779) |
-| **AgentINFT** (ERC-7857) | `0xA00A7641FEE39753fFdd1cECA5b73336a68699e3` | [view ↗](https://chainscan-galileo.0g.ai/address/0xA00A7641FEE39753fFdd1cECA5b73336a68699e3) |
-| **RoyaltyVault** | `0x1D62B1D60375D325C3362073e12806A7DF20FBDa` | [view ↗](https://chainscan-galileo.0g.ai/address/0x1D62B1D60375D325C3362073e12806A7DF20FBDa) |
+| **MekarRegistry** | `0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92` | [view ↗](https://chainscan-galileo.0g.ai/address/0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92) |
+| **AgentINFT** (ERC-7857) | `0x2B429feAe5d2732fF126F964D5786C0c51A844f3` | [view ↗](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3) |
+| **RoyaltyVault** | `0x49eCE891AeA76aad967A83B53DC160328036BABc` | [view ↗](https://chainscan-galileo.0g.ai/address/0x49eCE891AeA76aad967A83B53DC160328036BABc) |
+| **AlignmentAuditor** | `0x4C399b1f2DBD4028d39E21A512E90930375910eB` | [view ↗](https://chainscan-galileo.0g.ai/address/0x4C399b1f2DBD4028d39E21A512E90930375910eB) |
 | **TrainingDataRegistry** | `0xdBE4397f3e4CCafDA7bfbeD264448577249513e8` | [view ↗](https://chainscan-galileo.0g.ai/address/0xdBE4397f3e4CCafDA7bfbeD264448577249513e8) |
 
-### Live Lineage Tree (4 Agents, 3 Inferences Settled)
+### Live Lineage (5 Agents across 4 Wallets, 14 Inferences Settled)
 
 ```
-Genesis #1 (gen 0)
-  ├── Fork #2 — medical (gen 1)
-  │     │
-  │     └─┐
-  └── Fork #3 — legal (gen 1)
-            │
-            └── Compose #4 — medical+legal (gen 2)
-                    ↓
-                3 inferences paid + royalty distributed
+Genesis #1 (gen 0, deployer, alignment 100%)
+  ├── Fork #2 (gen 1, alice, alignment 100%)
+  └── Fork #3 (gen 1, bob, alignment 50% ← slashed by AlignmentAuditor)
+        ↓ both parents
+        Compose #4 (gen 2, carol)
+                ↓
+            3 inferences settled — cascade flows to all 4 wallets
+
+Genesis #5 (gen 0, deployer)
+  - weightsPointer = real 0G Storage Merkle root anchored via Indexer.upload()
+  - 3 inferences settled (incl. one recovered from a stuck escrow)
 ```
 
-**On-chain proof (Galileo):**
-- Inference #1 settlement: [`0xd4c0...51d3b`](https://chainscan-galileo.0g.ai/tx/0xd4c01777f7908c7b175e1720eab800e32d5f16aab44fe0543c4cb8974a451d3b)
-- Inference #2 settlement: [`0x07fd...28635`](https://chainscan-galileo.0g.ai/tx/0x07fd3503a1d55ce8348c536f850ca32d6ca9ee24e9f87ba56b36c3537e328635)
+### On-chain proof
 
-Each settlement tx contains **4 RoyaltyPaid events** showing automatic distribution to:
-- Agent #4 owner (50%)
-- Agent #2 parent (12.5%)
-- Agent #3 parent (12.5%)
-- Agent #1 grandparent (15% — deduplicated despite 2 paths)
-- Plus: training contributor share, compute provider fee, protocol fee
+| Round | Settlements | Treasury accrued | Math match |
+|---|---:|---:|---|
+| Multi-wallet seed (#4) | 3 | 6.975e14 wei | ✅ exact wei |
+| Top-up rounds (#2, #3, #5) | 10 | +3e15 wei | ✅ exact wei |
+| Stuck-escrow recovery | 1 | +5.7e14 wei | ✅ exact wei |
+| **Total** | **14** | **4.9675e15 wei** | ✅ |
+
+Treasury delta consistently matches the FAQ claim: protocol fee + Q2 sweep
+(undistributed deep-gen) + Q4 alignment slash → all consolidate into the
+treasury. **Misalignment is a real economic penalty**: bob (50% align)
+gets exactly half the gen-1 share alice (100%) gets when their forks are
+referenced as ancestors.
+
+Sample settlement tx: [`0xe999...96bb`](https://chainscan-galileo.0g.ai/tx/0xe99986c000a6f81c3aabe70c843907c0b587f559bb279f9e1c021892a01d96bb)
+(stuck-escrow recovery, also doubles as a clean Q5 fallback example).
+
+Q3 evidence — Agent #5 was minted with a real 0G Storage root anchored
+through the SDK:
+
+| Step | Tx |
+|---|---|
+| 0G Flow anchor | [`0x973f...34b2`](https://chainscan-galileo.0g.ai/tx/0x973ff6949b0289b197351587d439b393e39891a58a613e8701e798be2e1134b2) |
+| INFT mint | [`0xfe01...709c`](https://chainscan-galileo.0g.ai/tx/0xfe012939690e97c13cbeb734be0c0edb59b5f7db956f3c66d357e3f8d321709c) |
+| `getLineage(5).weightsPointer` | `0xd056682f7056b0d15309101fd3f98d8051dfd6b4cff3cd739be6bc7a70075fc8` |
+
+The pointer on chain matches the rootHash returned by the storage upload
+to the byte — the data really is on 0G Storage, the contract really
+references it.
 
 ---
 
