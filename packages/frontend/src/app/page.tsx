@@ -717,7 +717,7 @@ function FAQ() {
         },
         {
             q: "Do I have to expose model weights?",
-            a: "No. Weights are encrypted on 0G Specialized Flow. The chain stores only hashes, attestations, and lineage references. Owners control decryption keys.",
+            a: "No. Weights upload to 0G Storage; the chain stores only the resulting Merkle root + a TEE attestation hash. The testnet demo anchors files on the log tier as-is — production swaps in the Specialized Flow tier with owner-held decryption keys, gated by Strict-mode INFTs.",
         },
         {
             q: "Can I revoke a fork I disapprove of?",

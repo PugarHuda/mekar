@@ -17,6 +17,7 @@ import { useLineageData } from "@/hooks/useLineageData";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { AGENT_INFT_ABI } from "@/contracts/abis";
 import { explorerLink } from "@/lib/chains";
+import { uploadToZGStorage, type StorageUploadResult } from "@/lib/storage";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 type Mode = "genesis" | "fork" | "compose";
@@ -66,6 +67,10 @@ function MintPageInner() {
             : []
     );
 
+    // Real 0G Storage upload state — replaces the keccak256 stub. Once a file
+    // is uploaded the returned rootHash is what we send on-chain.
+    const [storageUpload, setStorageUpload] = useState<StorageUploadResult | null>(null);
+
     const { address } = useAccount();
     const { nodes } = useLineageData();
 
@@ -80,12 +85,23 @@ function MintPageInner() {
 
     /* ─────────────── Mint actions ─────────────── */
 
+    /**
+     * Resolve the on-chain weightsPointer. Prefer the real 0G Storage rootHash
+     * if the user uploaded; fall back to a deterministic stub for the case
+     * where the backend isn't running (so the demo still mints without the
+     * full Q3 path).
+     */
+    function resolveWeightsPointer(seedPrefix: string): `0x${string}` {
+        if (storageUpload?.rootHash) return storageUpload.rootHash;
+        return keccak256(toHex(`${seedPrefix}:${seed}`));
+    }
+
     function handleMintGenesis() {
         if (!address) {
             toast.error("Connect a wallet first");
             return;
         }
-        const weightsPtr = keccak256(toHex(`weights:${seed}`));
+        const weightsPtr = resolveWeightsPointer("weights");
         const trainingMerkle = keccak256(toHex(`training:${datasetNote || seed}`));
         const teeProof = keccak256(toHex(`tee:${seed}`));
 
@@ -97,7 +113,12 @@ function MintPageInner() {
                 args: [weightsPtr, trainingMerkle, teeProof, DEFAULT_SCHEMA, 1],
             },
             {
-                onSuccess: () => toast.success("Genesis bloom minting…"),
+                onSuccess: () =>
+                    toast.success(
+                        storageUpload
+                            ? "Genesis minting with 0G Storage pointer…"
+                            : "Genesis minting (stub pointer — upload weights to use real one)…"
+                    ),
                 onError: (err) => toast.error(err.message.slice(0, 200)),
             }
         );
@@ -106,7 +127,7 @@ function MintPageInner() {
     function handleMintFork() {
         if (!address) return toast.error("Connect a wallet first");
         if (!parentId) return toast.error("Pick a parent bloom");
-        const weightsPtr = keccak256(toHex(`fork-weights:${seed}`));
+        const weightsPtr = resolveWeightsPointer("fork-weights");
         const trainingMerkle = keccak256(toHex(`fork-training:${datasetNote || seed}`));
         const teeProof = keccak256(toHex(`fork-tee:${seed}`));
 
@@ -127,7 +148,7 @@ function MintPageInner() {
     function handleMintCompose() {
         if (!address) return toast.error("Connect a wallet first");
         if (parentIds.length < 2) return toast.error("Pick at least 2 parents");
-        const weightsPtr = keccak256(toHex(`compose-weights:${seed}`));
+        const weightsPtr = resolveWeightsPointer("compose-weights");
         const trainingMerkle = keccak256(toHex(`compose-training:${seed}`));
         const teeProof = keccak256(toHex(`compose-tee:${seed}`));
 
@@ -259,7 +280,13 @@ function MintPageInner() {
                                 />
                             )}
                             {step === 2 && (
-                                <Step2 datasetNote={datasetNote} setDatasetNote={setDatasetNote} />
+                                <Step2
+                                    datasetNote={datasetNote}
+                                    setDatasetNote={setDatasetNote}
+                                    storageUpload={storageUpload}
+                                    setStorageUpload={setStorageUpload}
+                                    seed={seed}
+                                />
                             )}
                             {step === 3 && (
                                 <Step3
@@ -621,23 +648,55 @@ function Step1({
     );
 }
 
-/* ─────────────── Step 2: weights / dataset ─────────────── */
+/* ─────────────── Step 2: weights / dataset (real 0G Storage) ─────────────── */
 
 function Step2({
     datasetNote,
     setDatasetNote,
+    storageUpload,
+    setStorageUpload,
+    seed,
 }: {
     datasetNote: string;
     setDatasetNote: (v: string) => void;
+    storageUpload: StorageUploadResult | null;
+    setStorageUpload: (r: StorageUploadResult | null) => void;
+    seed: string;
 }) {
-    const [stage, setStage] = useState(0);
+    const [file, setFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
-    const stages = [
-        "Hashing model weights",
-        "Pinning to 0G Specialized Flow",
-        "Verifying chunks on Data Availability layer",
-        "Sealing manifest",
-    ];
+    async function handleUpload() {
+        setUploadError(null);
+        setUploading(true);
+        try {
+            // If a file is picked, upload it. Otherwise upload a manifest blob
+            // built from the dataset note + seed so the on-chain pointer is
+            // still real (not stub).
+            const payload: Blob | string = file
+                ? file
+                : JSON.stringify(
+                      {
+                          kind: "mekar-agent-manifest",
+                          seed,
+                          datasetNote: datasetNote || "(none)",
+                          createdAt: new Date().toISOString(),
+                      },
+                      null,
+                      2
+                  );
+            const result = await uploadToZGStorage(payload, `mekar-mint-${seed}`);
+            setStorageUpload(result);
+            toast.success("Anchored to 0G Storage");
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setUploadError(msg);
+            toast.error(msg.slice(0, 200));
+        } finally {
+            setUploading(false);
+        }
+    }
 
     return (
         <div>
@@ -645,96 +704,172 @@ function Step2({
                 Pin the <em>weights.</em>
             </h2>
             <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
-                In production, your weights upload to 0G Storage. For the testnet demo, we record
-                a Merkle root + storage pointer hash on chain — the cascade still settles.
+                Upload your model weights (or a manifest if weights live elsewhere) to 0G Storage.
+                The returned root hash anchors as your INFT&apos;s <code>weightsPointer</code>{" "}
+                on chain. Skip this step and we&apos;ll mint with a deterministic stub instead.
             </p>
 
-            <label
-                style={{
-                    display: "block",
-                    fontFamily: "var(--mono)",
-                    fontSize: 11,
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    color: "var(--ink-soft)",
-                    marginBottom: 8,
-                }}
-            >
-                Training data summary
-            </label>
-            <input
-                type="text"
-                value={datasetNote}
-                onChange={(e) => setDatasetNote(e.target.value)}
-                placeholder="e.g. Indonesian medical corpus · 50 GB · CC-BY"
-                style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    border: "1px solid var(--rule)",
-                    background: "var(--bg)",
-                    fontFamily: "var(--mono)",
-                    fontSize: 13,
-                    color: "var(--ink)",
-                    borderRadius: 4,
-                    marginBottom: 24,
-                }}
-            />
+            <Field label="Training data summary">
+                <input
+                    type="text"
+                    value={datasetNote}
+                    onChange={(e) => setDatasetNote(e.target.value)}
+                    placeholder="e.g. Indonesian medical corpus · 50 GB · CC-BY"
+                    style={inputStyle}
+                />
+            </Field>
+
+            <Field label="Weights file (optional)">
+                <input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    style={{
+                        ...inputStyle,
+                        padding: "10px 12px",
+                        cursor: "pointer",
+                    }}
+                />
+                <p
+                    style={{
+                        fontSize: 12,
+                        color: "var(--ink-soft)",
+                        marginTop: 6,
+                        fontFamily: "var(--mono)",
+                    }}
+                >
+                    {file
+                        ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB`
+                        : "No file picked — a JSON manifest will be uploaded instead."}
+                </p>
+            </Field>
 
             <button
                 type="button"
-                onClick={() => {
-                    setStage(1);
-                    setTimeout(() => setStage(2), 700);
-                    setTimeout(() => setStage(3), 1400);
-                    setTimeout(() => setStage(4), 2100);
-                }}
-                className="btn btn--ghost"
+                onClick={handleUpload}
+                disabled={uploading}
+                className="btn"
+                style={{ marginBottom: 20 }}
             >
-                Simulate upload to 0G Storage
+                {uploading ? (
+                    <>
+                        <Loader2 className="animate-spin" size={14} style={{ marginRight: 6 }} />
+                        Uploading to 0G Storage…
+                    </>
+                ) : storageUpload ? (
+                    "Re-upload"
+                ) : (
+                    "Upload to 0G Storage"
+                )}
             </button>
 
-            <div style={{ marginTop: 24 }}>
-                {stages.map((s, i) => {
-                    const idx = i + 1;
-                    const done = stage > idx;
-                    const active = stage === idx;
-                    return (
-                        <div
-                            key={s}
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 12,
-                                padding: "10px 0",
-                                color: done
-                                    ? "var(--tea)"
-                                    : active
-                                      ? "var(--ink)"
-                                      : "var(--ink-soft)",
-                            }}
-                        >
-                            <span
-                                style={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: "50%",
-                                    background: done
-                                        ? "var(--tea)"
-                                        : active
-                                          ? "var(--gold)"
-                                          : "var(--rule)",
-                                    boxShadow: active
-                                        ? "0 0 0 4px rgba(212, 164, 55, 0.18)"
-                                        : "none",
-                                }}
-                            />
-                            <span style={{ fontFamily: "var(--mono)", fontSize: 13 }}>
-                                {done ? "✓" : active ? "…" : "·"} {s}
-                            </span>
-                        </div>
-                    );
-                })}
+            {uploadError && (
+                <div
+                    style={{
+                        background: "rgba(194, 90, 74, 0.08)",
+                        border: "1px solid rgba(194, 90, 74, 0.4)",
+                        borderRadius: 4,
+                        padding: "10px 14px",
+                        marginBottom: 16,
+                        fontSize: 13,
+                        color: "#c25a4a",
+                        fontFamily: "var(--mono)",
+                    }}
+                >
+                    {uploadError}
+                </div>
+            )}
+
+            {storageUpload && (
+                <div
+                    style={{
+                        background: "var(--bg-alt)",
+                        border: "1.5px solid var(--cocoa)",
+                        borderRadius: "var(--radius)",
+                        padding: 18,
+                    }}
+                >
+                    <div
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 11,
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            color: "var(--tea)",
+                            marginBottom: 10,
+                        }}
+                    >
+                        ✓ Anchored to 0G Storage
+                    </div>
+                    <ManifestRow
+                        label="Root hash (on-chain pointer)"
+                        value={storageUpload.rootHash}
+                    />
+                    <ManifestRow
+                        label="Anchor tx"
+                        value={storageUpload.txHash}
+                        href={explorerLink(storageUpload.txHash, "tx")}
+                    />
+                    <ManifestRow
+                        label="Size"
+                        value={`${storageUpload.size} bytes`}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ManifestRow({
+    label,
+    value,
+    href,
+}: {
+    label: string;
+    value: string;
+    href?: string;
+}) {
+    const inner = (
+        <code
+            style={{
+                fontFamily: "var(--mono)",
+                fontSize: 12,
+                color: "var(--ink)",
+                wordBreak: "break-all",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+            }}
+        >
+            {value}
+            {href && <ExternalLink size={11} />}
+        </code>
+    );
+    return (
+        <div style={{ marginBottom: 8 }}>
+            <div
+                style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 10.5,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--ink-soft)",
+                    marginBottom: 3,
+                }}
+            >
+                {label}
             </div>
+            {href ? (
+                <Link
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ textDecoration: "underline", textDecorationColor: "var(--rule)" }}
+                >
+                    {inner}
+                </Link>
+            ) : (
+                inner
+            )}
         </div>
     );
 }

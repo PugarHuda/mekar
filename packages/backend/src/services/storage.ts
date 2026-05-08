@@ -5,17 +5,23 @@
  *   - Upload encrypted agent weights
  *   - Upload training data manifests
  *   - Resolve storage pointers (root hashes)
- *   - Use Specialized Flow for premium permanent storage
  *
- * NOTE: SDK API may evolve. This wrapper centralizes calls so we can adapt
- *       when 0G SDK ships breaking changes.
+ * The Indexer.upload() call:
+ *   1. Computes the file's Merkle root client-side
+ *   2. Submits a Flow contract tx to anchor the root on-chain (signer pays)
+ *   3. Pushes data segments to a quorum of selected storage nodes
+ *
+ * The returned rootHash is the canonical pointer that downstream contracts
+ * (AgentINFT, TrainingDataRegistry) store as `bytes32`.
  */
 
 import { ethers } from "ethers";
+import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk";
 import { config } from "../lib/config.js";
 import { logger } from "../lib/logger.js";
 
 let _provider: ethers.JsonRpcProvider | null = null;
+let _indexer: Indexer | null = null;
 
 export function getProvider(): ethers.JsonRpcProvider {
   if (!_provider) {
@@ -31,38 +37,65 @@ export function getSigner(): ethers.Wallet {
   return new ethers.Wallet(config.wallet.privateKey, getProvider());
 }
 
+function getIndexer(): Indexer {
+  if (!_indexer) {
+    _indexer = new Indexer(config.storageIndexer);
+  }
+  return _indexer;
+}
+
 /**
- * Upload a buffer to 0G Storage and return the root hash.
+ * Upload a buffer to 0G Storage and return the canonical root hash.
  *
- * For MVP this returns a deterministic mock root. Wire to actual 0G SDK
- * once the broker URL is available and we have $0G in the wallet.
+ * @param data    Raw bytes (Buffer) or UTF-8 string
+ * @param options.tag  Free-form label for the log line (no on-chain effect)
+ * @returns       rootHash (use as on-chain weightsPointer), storagePointer
+ *                (deterministic helper hash for kv-style indexing), txHash
+ *                (the Flow contract anchor tx), size in bytes.
  */
 export async function uploadToStorage(
   data: Buffer | string,
   options: { tier?: "log" | "specialized"; tag?: string } = {}
-): Promise<{ rootHash: `0x${string}`; storagePointer: `0x${string}`; size: number }> {
+): Promise<{
+  rootHash: `0x${string}`;
+  storagePointer: `0x${string}`;
+  txHash: `0x${string}`;
+  size: number;
+}> {
   const tier = options.tier ?? "log";
   const buffer = typeof data === "string" ? Buffer.from(data) : data;
 
-  // TODO: Wire actual SDK upload:
-  //   const indexer = new Indexer(config.storageIndexer);
-  //   const file = ZgFile.fromBuffer(buffer);
-  //   const [tree, treeErr] = await file.merkleTree();
-  //   if (treeErr) throw treeErr;
-  //   const [tx, uploadErr] = await indexer.upload(file, signer);
+  const signer = getSigner();
+  const indexer = getIndexer();
+  const file = new MemData(Array.from(buffer));
 
-  // MVP: deterministic mock root from content hash
-  const rootHash = ethers.keccak256(buffer) as `0x${string}`;
+  logger.info({ size: buffer.length, tier, tag: options.tag }, "uploading to 0G Storage");
+
+  const [result, err] = await indexer.upload(file, config.rpcUrl, signer);
+  if (err) {
+    logger.error({ err: err.message, tag: options.tag }, "0G upload failed");
+    throw err;
+  }
+
+  // Single-file uploads return the non-array shape; sharded multi-file uploads
+  // return arrays. We always upload one MemData, so always single shape.
+  if (Array.isArray((result as { rootHashes?: string[] }).rootHashes)) {
+    throw new Error("unexpected sharded upload result for single file");
+  }
+  const r = result as { rootHash: string; txHash: string; txSeq: number };
+
+  const rootHash = (r.rootHash.startsWith("0x") ? r.rootHash : `0x${r.rootHash}`) as `0x${string}`;
+  const txHash = (r.txHash.startsWith("0x") ? r.txHash : `0x${r.txHash}`) as `0x${string}`;
   const storagePointer = ethers.keccak256(
     ethers.toUtf8Bytes(`${tier}:${options.tag ?? "untagged"}:${rootHash}`)
   ) as `0x${string}`;
 
   logger.info(
-    { tier, size: buffer.length, rootHash, storagePointer },
-    "uploadToStorage (mock)"
+    { rootHash, txHash, txSeq: r.txSeq, size: buffer.length },
+    "uploaded to 0G Storage"
   );
 
-  return { rootHash, storagePointer, size: buffer.length };
+  return { rootHash, storagePointer, txHash, size: buffer.length };
 }
 
 /**
