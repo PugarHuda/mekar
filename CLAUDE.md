@@ -27,14 +27,12 @@ USER LAYER
 ├── Fine-tuner Studio      (fork existing INFTs)
 └── End User UI            (use agent, pay inference fee)
 
-PROTOCOL LAYER
+PROTOCOL LAYER  (5 contracts shipped)
 ├── MekarRegistry.sol      (master registry, lineage graph)
-├── AgentINFT.sol          (ERC-7857 with composition)
-├── RoyaltyVault.sol       (fee distribution to ancestors)
-├── TrainingDataRegistry   (Merkle root anchoring)
-├── ForkFactory.sol        (single-parent fork)
-├── ComposeFactory.sol     (multi-parent merge)
-└── AlignmentAuditor.sol   (lineage health monitoring)
+├── AgentINFT.sol          (ERC-7857 + mintGenesis/Fork/Compose, alignment field)
+├── RoyaltyVault.sol       (BFS distribution, alignment-weighted, treasury sweep)
+├── TrainingDataRegistry   (Merkle root anchoring + contributor splits)
+└── AlignmentAuditor.sol   (allowlist-gated proxy that pushes alignment scores)
 
 0G INFRASTRUCTURE
 ├── 0G Chain (16602/16661) (smart contracts)
@@ -140,16 +138,20 @@ pnpm install
 # Compile contracts
 cd packages/contracts && forge build
 
-# Run tests (25 tests, all passing)
+# Run tests (33 tests, all passing — includes Q2/Q4/Q5 fix coverage)
 forge test
 
-# Deploy to 0G Galileo testnet
-# (See docs/DEPLOY_GUIDE.md for full walkthrough)
+# Deploy to 0G Galileo (foundry's chain detection breaks on 16602; use shell)
+bash scripts/deploy-v2-fix.sh
+
+# Multi-wallet seed — generates 3 fresh wallets, funds them, mints a 4-agent
+# lineage, slashes one with AlignmentAuditor, runs 3 settle inferences
+bash scripts/multi-wallet-seed.sh
 
 # Run frontend
 pnpm --filter @mekar/frontend dev
 
-# Run backend
+# Run backend (required for real 0G Storage uploads from /mint)
 pnpm --filter @mekar/backend dev
 ```
 
@@ -159,7 +161,6 @@ pnpm --filter @mekar/backend dev
 - **Commits:** Conventional commits (feat/fix/docs/chore)
 - **Solidity:** Solidity 0.8.24, OpenZeppelin 5.x, NatSpec comments
 - **TypeScript:** Strict mode, ESM
-- **Naming:** `MekarXxx.sol` for protocol contracts, `xxxFactory.sol` for factories
 
 ## Whitepaper References
 

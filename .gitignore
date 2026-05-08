@@ -22,6 +22,11 @@ coverage/
 .test-wallets.json
 *.test-wallets*
 
+# Stitch design handoff folders (large HTML/JSX, used as visual reference)
+.stitch-design/
+.stitch-v2/
+.tmp-stitch*
+
 # Logs
 *.log
 npm-debug.log*
