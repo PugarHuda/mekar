@@ -24,10 +24,15 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
     uint16 public constant COMPUTE_PROVIDER_BPS = 1_000;   // 10% on top of fee
     uint16 public constant PROTOCOL_FEE_BPS = 1_000;       // 10% on top of fee
     uint64 public constant ESCROW_TIMEOUT = 1 hours;
-    uint256 public constant MIN_PROVIDER_STAKE = 0.1 ether;
+    /// @dev Lowered from 0.1 OG to 0.001 OG for hackathon demo on Galileo
+    ///      where faucet drips are scarce. Production should restore higher
+    ///      stake to make slashing economically meaningful.
+    uint256 public constant MIN_PROVIDER_STAKE = 0.001 ether;
     /// @dev Hard cap on how many generations the distributor will walk per call.
     ///      Schemas with maxGenerationsPaid > MAX_LINEAGE_DEPTH are silently
-    ///      truncated to this value to bound gas usage.
+    ///      truncated to this value to bound gas usage. Royalty intended for
+    ///      ancestors beyond this cap routes to the protocol treasury via the
+    ///      same fallback path used for burned-ancestor revenue.
     uint16 public constant MAX_LINEAGE_DEPTH = 10;
 
     // ─────────────────────────────────────────────────────────────────────
@@ -253,7 +258,10 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
     /// @notice Walk the lineage tree and distribute royalty to all ancestors
     /// @dev Performs BFS up to MAX_LINEAGE_DEPTH. Deduplicates ancestors that
     ///      appear via multiple paths. Sends $0G to each ancestor's owner.
-    /// @return distributed Total amount actually distributed
+    ///      Any unallocated portion (deep-lineage cap, burned ancestor, low
+    ///      alignment) routes to `protocolFeesAccrued` so accounting closes
+    ///      on `fee` exactly. Closes the FAQ Q2 / Q4 / Q5 honesty gaps.
+    /// @return distributed Total amount actually paid out to ancestor wallets
     function _distributeRoyalty(uint256 agentId, uint256 fee)
         internal
         returns (uint256 distributed)
@@ -261,7 +269,7 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
         IMekarTypes.RoyaltySchema memory schema = agentInft.getRoyaltySchema(agentId);
         IMekarTypes.AgentLineage memory lineage = agentInft.getLineage(agentId);
 
-        // 1. Pay direct owner
+        // 1. Pay direct owner — current INFT holder, by definition not burned.
         uint256 ownerShare = LineageMath.computeGenerationShare(schema, 0, fee);
         address ownerAddr = agentInft.ownerOf(agentId);
         _safeTransfer(ownerAddr, ownerShare);
@@ -269,8 +277,6 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
         emit RoyaltyPaid(agentId, ownerAddr, 0, ownerShare);
 
         // 2. Walk ancestors generation by generation, deduplicating
-        // For each generation, total share = computeGenerationShare(schema, gen, fee)
-        // That share is split equally among unique ancestors at that generation.
         if (lineage.parents.length > 0) {
             distributed += _distributeAncestorTiers(lineage.parents, schema, fee);
         }
@@ -281,10 +287,26 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
             distributed += _distributeToContributors(lineage, trainingShare);
         }
 
+        // 4. Q2 fix — anything not distributed (deep-lineage cap, missing
+        //    ancestors, alignment slashing) is consolidated into the protocol
+        //    treasury rather than left dangling on the vault balance.
+        if (distributed < fee) {
+            unchecked {
+                protocolFeesAccrued += fee - distributed;
+            }
+        }
+
         return distributed;
     }
 
-    /// @dev BFS walk, paying each unique ancestor at each generation tier
+    /// @dev BFS walk, paying each unique ancestor at each generation tier.
+    ///      Per-ancestor share is scaled by alignmentHealth (Q4): an agent at
+    ///      80% alignment receives 80% of its tier slot; the missing 20% is
+    ///      not redistributed — `_distributeRoyalty` sweeps it into protocol
+    ///      treasury, so misalignment is a real economic penalty.
+    ///      Burned-ancestor `ownerOf` calls are caught (Q5) so settlement
+    ///      never reverts; the missing share also routes to treasury via the
+    ///      same final sweep.
     function _distributeAncestorTiers(
         uint256[] memory directParents,
         IMekarTypes.RoyaltySchema memory schema,
@@ -298,7 +320,6 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
         uint16 generation = 1;
 
         while (currentTier.length > 0 && generation <= schema.maxGenerationsPaid && generation <= MAX_LINEAGE_DEPTH) {
-            // Dedup current tier against previously paid + within tier itself
             uint256[] memory uniqueThisTier = _dedupAgainst(currentTier, paid, paidCount);
 
             if (uniqueThisTier.length > 0) {
@@ -307,13 +328,36 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
 
                 for (uint256 i = 0; i < uniqueThisTier.length; i++) {
                     uint256 ancestorId = uniqueThisTier[i];
-                    address ancestorOwner = agentInft.ownerOf(ancestorId);
 
-                    _safeTransfer(ancestorOwner, perAncestor);
-                    distributed += perAncestor;
-                    emit RoyaltyPaid(ancestorId, ancestorOwner, generation, perAncestor);
+                    // Q5: tolerate burned/nonexistent ancestor — owner lookup
+                    // may revert. On revert, skip transfer; the unallocated
+                    // perAncestor amount falls through to the treasury sweep.
+                    address ancestorOwner = address(0);
+                    try agentInft.ownerOf(ancestorId) returns (address o) {
+                        ancestorOwner = o;
+                    } catch {
+                        // ancestor burned — leave owner=0, share goes to treasury
+                    }
 
-                    // Mark as paid
+                    if (ancestorOwner != address(0)) {
+                        // Q4: scale by alignment health. 10000 = 100%, 0 = 0%.
+                        // ownerOf succeeded so getAlignmentHealth should too,
+                        // but wrap defensively.
+                        uint16 health = 10_000;
+                        try agentInft.getAlignmentHealth(ancestorId) returns (uint16 h) {
+                            health = h;
+                        } catch {
+                            // keep default 10000
+                        }
+
+                        uint256 effectiveShare = (perAncestor * health) / LineageMath.BPS_DENOMINATOR;
+                        if (effectiveShare > 0) {
+                            _safeTransfer(ancestorOwner, effectiveShare);
+                            distributed += effectiveShare;
+                            emit RoyaltyPaid(ancestorId, ancestorOwner, generation, effectiveShare);
+                        }
+                    }
+
                     if (paidCount < paid.length) {
                         paid[paidCount] = ancestorId;
                         unchecked {
@@ -323,7 +367,6 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
                 }
             }
 
-            // Build next tier = grandparents of current
             currentTier = _gatherNextTier(uniqueThisTier);
             unchecked {
                 generation++;
@@ -381,12 +424,19 @@ contract RoyaltyVault is IRoyaltyVault, Ownable, ReentrancyGuard {
         view
         returns (uint256[] memory)
     {
-        // Estimate buffer
         uint256[] memory buffer = new uint256[](currentTier.length * 8);
         uint256 bufferLen = 0;
 
         for (uint256 i = 0; i < currentTier.length; i++) {
-            uint256[] memory parents = agentInft.getParents(currentTier[i]);
+            // Q5: getParents has an `exists` modifier and reverts on burned
+            // tokens. Skip rather than abort the whole settlement; the
+            // ancestor's grandparents simply drop out of this distribution.
+            uint256[] memory parents;
+            try agentInft.getParents(currentTier[i]) returns (uint256[] memory p) {
+                parents = p;
+            } catch {
+                continue;
+            }
             for (uint256 j = 0; j < parents.length; j++) {
                 if (bufferLen >= buffer.length) break;
                 buffer[bufferLen] = parents[j];

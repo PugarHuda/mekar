@@ -713,7 +713,7 @@ function FAQ() {
         },
         {
             q: "What happens if an agent has a thousand ancestors?",
-            a: "Distribution is bounded by generation depth (default 10) and gas-aware. Beyond that, royalties accrue at the genesis level. The cascade always settles atomically in a single transaction.",
+            a: "Distribution is bounded by generation depth (default 10) and gas-aware. Beyond that cap, the unallocated share consolidates into the protocol treasury — the same rail that catches royalty owed to burned addresses. The cascade always settles atomically in a single transaction.",
         },
         {
             q: "Do I have to expose model weights?",

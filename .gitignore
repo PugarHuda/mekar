@@ -18,6 +18,10 @@ coverage/
 .env.*.local
 !.env.example
 
+# Auto-generated test wallet keys for multi-wallet seeding (NEVER commit)
+.test-wallets.json
+*.test-wallets*
+
 # Logs
 *.log
 npm-debug.log*

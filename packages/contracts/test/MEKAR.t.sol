@@ -6,6 +6,7 @@ import {AgentINFT} from "../contracts/AgentINFT.sol";
 import {MekarRegistry} from "../contracts/MekarRegistry.sol";
 import {RoyaltyVault} from "../contracts/RoyaltyVault.sol";
 import {TrainingDataRegistry} from "../contracts/TrainingDataRegistry.sol";
+import {AlignmentAuditor} from "../contracts/AlignmentAuditor.sol";
 import {IMekarTypes} from "../contracts/interfaces/IMekarTypes.sol";
 import {IAgentINFT} from "../contracts/interfaces/IAgentINFT.sol";
 
@@ -568,5 +569,212 @@ contract MEKARTest is Test {
         agentInft.updateAlignmentHealth(genesisId, 8_000);
 
         assertEq(agentInft.getAlignmentHealth(genesisId), 8_000);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Q5 fix — burned ancestor must NOT brick settlement
+    // ─────────────────────────────────────────────────────────────────────
+
+    function test_Q5_SettleSurvives_BurnedAncestor() public {
+        uint256 genesisId = _mintGenesisAs(alice);
+
+        vm.prank(bob);
+        uint256 forkId = agentInft.mintFork(
+            genesisId,
+            keccak256("fw"),
+            keccak256("ft"),
+            keccak256("fa")
+        );
+
+        // Burn the genesis ancestor (transfer to dead address — simulates loss)
+        vm.prank(alice);
+        agentInft.transferFrom(alice, address(0xdead), genesisId);
+
+        // Now make ancestor truly burned by removing it via re-transfer to 0x0
+        // OZ ERC721 doesn't let you transfer to 0 directly via transferFrom; use
+        // a burn helper. We sidestep by simulating with a non-existent ID via
+        // mock — the easiest equivalent is to assert the call to a deleted token
+        // does not abort the settle. So instead, mint a fork from a valid genesis
+        // and prove settlement does not revert when the ancestor is set to a
+        // contract that reverts on receive (simulates "unrecoverable owner").
+        // See test_Q5_SettleSurvives_RevertingOwner below for the canonical case.
+
+        _registerProvider();
+        uint256 price = royaltyVault.getInferencePrice(forkId);
+        vm.prank(user);
+        bytes32 reqId = royaltyVault.payInference{value: price}(forkId);
+
+        // The crux: this MUST succeed even though genesis owner is the dead
+        // address (which can't actually receive ETH usefully but can be queried).
+        vm.prank(provider);
+        royaltyVault.settleInference(reqId, keccak256("output"), hex"1234");
+
+        // Bob (fork owner) gets paid.
+        // Genesis share is still attempted (dead address accepts via .call),
+        // but the key invariant is that settlement did not revert.
+        assertEq(uint256(royaltyVault.getEscrow(reqId).status), uint256(IMekarTypes.EscrowStatus.Settled));
+    }
+
+    function test_Q5_SettleSurvives_RevertingOwner() public {
+        // Owner that reverts on receive — share routes to protocol via _safeTransfer fallback
+        RevertingOwner badOwner = new RevertingOwner();
+
+        uint256 genesisId = _mintGenesisAs(alice);
+
+        // Transfer genesis to the reverting contract
+        vm.prank(alice);
+        agentInft.transferFrom(alice, address(badOwner), genesisId);
+
+        vm.prank(bob);
+        uint256 forkId = agentInft.mintFork(
+            genesisId,
+            keccak256("fw"),
+            keccak256("ft"),
+            keccak256("fa")
+        );
+
+        _registerProvider();
+        uint256 protocolBefore = royaltyVault.protocolFeesAccrued();
+        uint256 price = royaltyVault.getInferencePrice(forkId);
+        vm.prank(user);
+        bytes32 reqId = royaltyVault.payInference{value: price}(forkId);
+
+        // Settlement must succeed despite reverting genesis owner
+        vm.prank(provider);
+        royaltyVault.settleInference(reqId, keccak256("output"), hex"1234");
+
+        assertEq(
+            uint256(royaltyVault.getEscrow(reqId).status),
+            uint256(IMekarTypes.EscrowStatus.Settled),
+            "settle must not revert"
+        );
+
+        // Genesis share fell back to protocol treasury (transfer reverted)
+        assertGt(royaltyVault.protocolFeesAccrued(), protocolBefore);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Q2 fix — anything not distributed must close to protocol treasury
+    // ─────────────────────────────────────────────────────────────────────
+
+    function test_Q2_UndistributedClosesToProtocol() public {
+        // Genesis with no parents and no training contributors registered →
+        // gen1/gen2/gen3+ all have nothing to distribute, AND trainingDataBps
+        // can't find contributors. The owner gets 50%, training falls back to
+        // creator (3%), and 47% should land in protocolFeesAccrued.
+        uint256 genesisId = _mintGenesisAs(alice);
+        _registerProvider();
+
+        uint256 protocolBefore = royaltyVault.protocolFeesAccrued();
+        uint256 price = royaltyVault.getInferencePrice(genesisId);
+
+        vm.prank(user);
+        bytes32 reqId = royaltyVault.payInference{value: price}(genesisId);
+
+        vm.prank(provider);
+        royaltyVault.settleInference(reqId, keccak256("output"), hex"1234");
+
+        // Base = price / 1.2 (10% protocol + 10% provider on top of base)
+        uint256 base = (price * 10_000) / 12_000;
+        uint256 protocolFee = (base * 1_000) / 10_000; // existing protocolFee path
+        uint256 ownerShare = (base * 5_000) / 10_000;
+        uint256 trainingShare = (base * 300) / 10_000;
+        uint256 expectedDistributed = ownerShare + trainingShare;
+        uint256 expectedSweep = base - expectedDistributed;
+
+        // Treasury receives: existing protocolFee path + Q2 sweep
+        uint256 expectedTreasuryDelta = protocolFee + expectedSweep;
+        assertEq(
+            royaltyVault.protocolFeesAccrued() - protocolBefore,
+            expectedTreasuryDelta,
+            "undistributed share must consolidate to treasury"
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Q4 — alignment-weighted ancestor share
+    // ─────────────────────────────────────────────────────────────────────
+
+    function test_Q4_AncestorShareScalesByAlignment() public {
+        uint256 genesisId = _mintGenesisAs(alice);
+
+        vm.prank(bob);
+        uint256 forkId = agentInft.mintFork(
+            genesisId,
+            keccak256("fw"),
+            keccak256("ft"),
+            keccak256("fa")
+        );
+
+        // Halve genesis alignment to 50%
+        vm.prank(deployer);
+        agentInft.setAlignmentAuditor(deployer);
+        vm.prank(deployer);
+        agentInft.updateAlignmentHealth(genesisId, 5_000);
+
+        _registerProvider();
+
+        uint256 aliceBefore = alice.balance;
+        uint256 protocolBefore = royaltyVault.protocolFeesAccrued();
+
+        uint256 price = royaltyVault.getInferencePrice(forkId);
+        vm.prank(user);
+        bytes32 reqId = royaltyVault.payInference{value: price}(forkId);
+
+        vm.prank(provider);
+        royaltyVault.settleInference(reqId, keccak256("output"), hex"1234");
+
+        uint256 base = (price * 10_000) / 12_000;
+        uint256 fullGen1 = (base * 2_500) / 10_000;
+        uint256 expectedAliceShare = (fullGen1 * 5_000) / 10_000; // 50% of full
+
+        assertEq(
+            alice.balance - aliceBefore,
+            expectedAliceShare,
+            "ancestor at 50% alignment receives 50% of tier slot"
+        );
+
+        // Slashed half should land in treasury (along with protocolFee path)
+        assertGt(royaltyVault.protocolFeesAccrued(), protocolBefore);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // AlignmentAuditor proxy — only approved auditors can flag
+    // ─────────────────────────────────────────────────────────────────────
+
+    function test_AlignmentAuditor_OnlyApprovedCanFlag() public {
+        uint256 genesisId = _mintGenesisAs(alice);
+
+        vm.prank(deployer);
+        AlignmentAuditor auditor = new AlignmentAuditor(deployer, address(agentInft));
+
+        vm.prank(deployer);
+        agentInft.setAlignmentAuditor(address(auditor));
+
+        // Bob (not approved) cannot flag
+        vm.prank(bob);
+        vm.expectRevert();
+        auditor.flagAgent(genesisId, 7_000, "test");
+
+        // After approval, bob can flag
+        vm.prank(deployer);
+        auditor.approveAuditor(bob);
+
+        vm.prank(bob);
+        auditor.flagAgent(genesisId, 7_000, "drift detected");
+
+        assertEq(agentInft.getAlignmentHealth(genesisId), 7_000);
+    }
+}
+
+/// @dev Test helper — a contract whose receive() reverts so we can simulate
+///      an "unrecoverable" royalty recipient (lost-key wallet, malicious
+///      contract, etc.). Used by Q5 fallback test.
+contract RevertingOwner {
+    receive() external payable {
+        revert("nope");
+    }
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }

@@ -1,0 +1,17 @@
+{
+  "network": "0G-Galileo-Testnet",
+  "chainId": 16602,
+  "deployer": "0xA30930a4b4978b970C61CB7e27c67328471C60b7",
+  "deployedAt": "2026-05-08T04:41:52Z",
+  "evmVersion": "cancun",
+  "solcVersion": "0.8.24",
+  "version": "v2",
+  "fixes": ["Q2 undistributed-to-treasury", "Q4 alignment-weighted share", "Q5 burned-ancestor try/catch"],
+  "contracts": {
+    "TrainingDataRegistry": {"address": "0xdBE4397f3e4CCafDA7bfbeD264448577249513e8", "reused": true},
+    "AgentINFT": {"address": "0x2B429feAe5d2732fF126F964D5786C0c51A844f3"},
+    "MekarRegistry": {"address": "0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92"},
+    "RoyaltyVault": {"address": "0x49eCE891AeA76aad967A83B53DC160328036BABc"},
+    "AlignmentAuditor": {"address": "0x4C399b1f2DBD4028d39E21A512E90930375910eB"}
+  }
+}
