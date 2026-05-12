@@ -1,14 +1,30 @@
 /**
- * Frontend → backend bridge for 0G Storage uploads.
+ * Browser → 0G Storage upload bridge.
  *
- * The backend (`@mekar/backend`) wraps the @0gfoundation/0g-ts-sdk Indexer
- * and pays gas to anchor the file's Merkle root via a Flow contract tx.
- * From the browser we just POST the bytes — the rootHash that comes back
- * is what we hand to AgentINFT.mintGenesis/mintFork as `weightsPointer`.
+ * Calls the same-origin Next.js API route `/api/storage/upload` which wraps
+ * `@0gfoundation/0g-ts-sdk` Indexer.upload. Returns the rootHash that the
+ * caller hands to AgentINFT.mintGenesis/mintFork as `weightsPointer`.
+ *
+ * Same-origin design fixes two browser blocks that hit the earlier
+ * cross-origin Express backend on `http://localhost:3001`:
+ *   • Mixed content: HTTPS page can't fetch HTTP endpoint (blocked
+ *     before CORS check even runs).
+ *   • CORS: cross-origin POST needs Access-Control-Allow-Origin matching
+ *     + preflight OPTIONS roundtrip.
+ *
+ * `NEXT_PUBLIC_BACKEND_URL` is still honoured for legacy local dev where
+ * the user prefers the standalone Express service, but production no
+ * longer requires a separate backend.
  */
 
-const BACKEND_URL =
-    (process.env.NEXT_PUBLIC_BACKEND_URL as string | undefined) ?? "http://localhost:3001";
+// "" → same-origin /api/storage/upload (production happy path).
+// Set NEXT_PUBLIC_BACKEND_URL=http://localhost:3001 to route through the
+// standalone Express backend during local dev if preferred.
+const UPLOAD_ENDPOINT = (() => {
+    const override = process.env.NEXT_PUBLIC_BACKEND_URL as string | undefined;
+    if (override) return `${override}/api/storage/upload`;
+    return "/api/storage/upload";
+})();
 
 export type StorageUploadResult = {
     rootHash: `0x${string}`;
@@ -47,7 +63,7 @@ export async function uploadToZGStorage(
         payload = { data: btoa(binary), encoding: "base64" };
     }
 
-    const res = await fetch(`${BACKEND_URL}/api/storage/upload`, {
+    const res = await fetch(UPLOAD_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, tag, tier: "log" }),
@@ -60,8 +76,4 @@ export async function uploadToZGStorage(
     return (await res.json()) as StorageUploadResult;
 }
 
-export function isBackendConfigured(): boolean {
-    return Boolean(BACKEND_URL);
-}
-
-export const STORAGE_BACKEND_URL = BACKEND_URL;
+export const STORAGE_UPLOAD_ENDPOINT = UPLOAD_ENDPOINT;

@@ -73,10 +73,22 @@ function MintPageInner() {
     const [storageUpload, setStorageUpload] = useState<StorageUploadResult | null>(null);
 
     const { address } = useAccount();
-    const { nodes } = useLineageData();
+    const { nodes, refetch: refetchLineage } = useLineageData();
 
     const { writeContract, data: txHash, isPending } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+
+    // Auto-refresh the lineage cache the moment the mint tx confirms. Without
+    // this, freshly minted agents don't appear in the fork/compose parent
+    // picker until the user does a full page reload — confusing UX during
+    // the demo where mint → re-mint flow is common.
+    useEffect(() => {
+        if (isSuccess) {
+            refetchLineage().catch(() => {
+                /* silent — pickers will still update on next natural refetch */
+            });
+        }
+    }, [isSuccess, refetchLineage]);
 
     const seed = useMemo(
         () => `${name || "untitled"}-${mode}-${address ?? "anon"}-${Date.now()}`,

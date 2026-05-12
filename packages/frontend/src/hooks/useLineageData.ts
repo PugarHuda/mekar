@@ -32,9 +32,16 @@ export function useLineageData(): {
   edges: LineageEdge[];
   isLoading: boolean;
   totalAgents: number;
+  /** Force-refetch totalAgents + all lineages. Call after a mint tx
+   *  confirms so the new bloom shows up immediately in pickers etc. */
+  refetch: () => Promise<void>;
 } {
   // First read: total agent count
-  const { data: countData, isLoading: loadingCount } = useReadContracts({
+  const {
+    data: countData,
+    isLoading: loadingCount,
+    refetch: refetchCount,
+  } = useReadContracts({
     contracts: [
       {
         address: CONTRACT_ADDRESSES.MekarRegistry,
@@ -66,7 +73,11 @@ export function useLineageData(): {
     ];
   }).flat();
 
-  const { data: lineageData, isLoading: loadingLineages } = useReadContracts({
+  const {
+    data: lineageData,
+    isLoading: loadingLineages,
+    refetch: refetchLineages,
+  } = useReadContracts({
     contracts: lineageContracts,
     query: { enabled: isDeployed && totalAgents > 0 },
   });
@@ -104,10 +115,21 @@ export function useLineageData(): {
     }
   }
 
+  // Refetch totalAgents first (new mints bump it), then per-agent reads.
+  // Two-step matters: if totalAgents goes 5→6, lineageContracts[10..11]
+  // didn't exist on the previous render, so refetching the old contracts
+  // array alone won't pull data for the new agent. The count refetch
+  // re-runs the hook, which rebuilds lineageContracts to length 12.
+  const refetch = async () => {
+    await refetchCount();
+    await refetchLineages();
+  };
+
   return {
     nodes,
     edges,
     isLoading: loadingCount || loadingLineages,
     totalAgents,
+    refetch,
   };
 }

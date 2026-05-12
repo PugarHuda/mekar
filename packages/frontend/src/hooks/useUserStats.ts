@@ -26,6 +26,17 @@ const ROYALTY_PAID_EVENT = parseAbiItem(
 const SCAN_BLOCK_RANGE = 50_000n; // chunk size for getLogs (some RPCs cap)
 
 /**
+ * Lower bound for scans — block at which the v2 RoyaltyVault was deployed.
+ * Scanning back from `latestBlock - N` blocks miscounts when settlements
+ * are old enough to fall outside that window (Galileo at ~1 block/sec
+ * means a 5-day-old settlement is already ~430k blocks behind).
+ *
+ * Bumping the literal here when redeploying the vault avoids over-scanning
+ * pre-deploy noise.
+ */
+const VAULT_V2_DEPLOY_BLOCK = 32160000n;
+
+/**
  * Aggregates `RoyaltyPaid` events to compute a user's earnings + inference count.
  * Falls back gracefully if the RPC limits log range.
  */
@@ -55,8 +66,11 @@ export function useUserStats(address: `0x${string}` | undefined): UserStats {
     (async () => {
       try {
         const latestBlock = await publicClient.getBlockNumber();
+        // Start from the vault's deploy block so any historical settlement
+        // is included no matter how old — the previous floor of
+        // `latestBlock - 200k` silently dropped events older than ~55 hours.
         const fromBlock =
-          latestBlock > SCAN_BLOCK_RANGE * 4n ? latestBlock - SCAN_BLOCK_RANGE * 4n : BigInt(0);
+          latestBlock > VAULT_V2_DEPLOY_BLOCK ? VAULT_V2_DEPLOY_BLOCK : BigInt(0);
 
         // Scan in chunks to respect RPC limits
         const allLogs: Array<{
@@ -162,8 +176,11 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
     (async () => {
       try {
         const latestBlock = await publicClient.getBlockNumber();
+        // Start from the vault's deploy block so any historical settlement
+        // is included no matter how old — the previous floor of
+        // `latestBlock - 200k` silently dropped events older than ~55 hours.
         const fromBlock =
-          latestBlock > SCAN_BLOCK_RANGE * 4n ? latestBlock - SCAN_BLOCK_RANGE * 4n : BigInt(0);
+          latestBlock > VAULT_V2_DEPLOY_BLOCK ? VAULT_V2_DEPLOY_BLOCK : BigInt(0);
 
         const all: Array<{
           txHash: `0x${string}`;

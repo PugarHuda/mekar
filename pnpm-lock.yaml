@@ -78,6 +78,9 @@ importers:
 
   packages/frontend:
     dependencies:
+      '@0gfoundation/0g-ts-sdk':
+        specifier: ^1.2.8
+        version: 1.2.8(bufferutil@4.1.0)(ethers@6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10))(utf-8-validate@5.0.10)
       '@radix-ui/react-dialog':
         specifier: ^1.1.2
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -111,6 +114,9 @@ importers:
       d3:
         specifier: ^7.9.0
         version: 7.9.0
+      ethers:
+        specifier: ^6.13.4
+        version: 6.16.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       framer-motion:
         specifier: ^11.11.9
         version: 11.18.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
