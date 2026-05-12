@@ -14,6 +14,9 @@ const UploadSchema = z.object({
 });
 
 storageRouter.post("/upload", async (req, res) => {
+  // Two failure modes worth distinguishing: bad input (Zod) and upload
+  // failure (0G SDK / RPC). The first is a client error → 400; the second
+  // is the server failing to deliver → 500.
   try {
     const body = UploadSchema.parse(req.body);
     const buffer =
@@ -26,6 +29,10 @@ storageRouter.post("/upload", async (req, res) => {
     });
     res.json(result);
   } catch (err) {
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: "invalid request", details: err.errors });
+      return;
+    }
     logger.error({ err: (err as Error).message }, "storage upload failed");
     res.status(500).json({ error: (err as Error).message });
   }
@@ -41,6 +48,10 @@ storageRouter.post("/merkle", async (req, res) => {
     const root = computeTrainingMerkle(body.hashes);
     res.json({ root });
   } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
+    if (err instanceof z.ZodError) {
+      res.status(400).json({ error: "invalid request", details: err.errors });
+      return;
+    }
+    res.status(500).json({ error: (err as Error).message });
   }
 });
