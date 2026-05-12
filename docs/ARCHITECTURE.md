@@ -165,25 +165,32 @@ Aristotle Mainnet (production):
 mekar/
 ├── packages/
 │   ├── contracts/           # Foundry workspace
-│   │   ├── contracts/       # Solidity sources
-│   │   ├── test/            # 25 unit tests
-│   │   ├── script/          # Deploy + Seed
+│   │   ├── contracts/       # 5 Solidity contracts
+│   │   ├── test/            # 33 unit tests (incl. Q2/Q4/Q5 fix coverage)
 │   │   └── lib/             # OZ + forge-std
 │   ├── frontend/            # Next.js 15 dApp
 │   │   └── src/
-│   │       ├── app/         # Pages: /, /explorer, /mint
-│   │       ├── components/  # LineageTree, Header
-│   │       ├── hooks/       # useLineageData
-│   │       ├── lib/         # chains, wagmi, utils
+│   │       ├── app/         # Pages: /, /explorer, /mint, /agent/[id], /dashboard
+│   │       ├── components/  # LineageGarden, Header, NetworkBanner, InferencePay
+│   │       ├── hooks/       # useLineageData, useAgent, useUserStats
+│   │       ├── lib/         # chains, wagmi, utils, agentNaming, storage
 │   │       └── contracts/   # ABIs + addresses
 │   └── backend/             # Express + 0G SDKs
 │       └── src/
-│           ├── services/    # storage, compute
+│           ├── services/    # storage (real Indexer.upload), compute (stub)
 │           ├── routes/      # /api/storage, /api/compute
 │           └── lib/         # config, logger
 ├── docs/
 │   ├── ARCHITECTURE.md      # This file
-│   └── DEPLOY_GUIDE.md      # Deploy walkthrough
+│   ├── DEPLOY_GUIDE.md      # Deploy walkthrough
+│   ├── HACKATHON_SUBMISSION.md
+│   ├── HACKQUEST_FORM.md
+│   ├── DEMO_VIDEO_SCRIPT.md
+│   └── X_POST_DRAFT.md
+├── scripts/
+│   ├── deploy-v2-fix.sh     # verified-code re-deploy
+│   ├── multi-wallet-seed.sh # 3 ephemeral wallets + cascade demo
+│   └── seed-more-royalty.sh # multi-agent inference top-up
 ├── 0g-whitepaper.pdf        # Reference
 ├── README.md
 └── CLAUDE.md

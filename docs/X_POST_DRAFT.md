@@ -72,33 +72,32 @@ It's "Mekar" — Indonesian for "to bloom" 🌸
 
 ### Tweet 4/8 — Live Proof
 ```
-Not vapor. 4 agents live on 0G Galileo testnet:
+Not vapor. 5 agents live across 4 wallets on 0G Galileo:
 
-1. Genesis #1 — IndoLlama base
-2. Fork #2 — medical
-3. Fork #3 — legal
-4. Compose #4 — medical+legal merge
+• Genesis #1 — base model
+• Fork #2 (alice, alignment 100%)
+• Fork #3 (bob, alignment slashed → 50%)
+• Compose #4 (carol, multi-parent)
+• Genesis #5 — weights anchored to real 0G Storage
 
-3 inferences settled. Every RoyaltyPaid event verifiable on-chain.
+14 settlements, treasury accrued matches the math wei-for-wei.
 
-→ chainscan-galileo.0g.ai/address/0xA00A7641FEE39753fFdd1cECA5b73336a68699e3
+→ chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3
 ```
 **Attach:** screenshot of explorer or chainscan events tab.
 
 ---
 
-### Tweet 5/8 — Tech Stack (0G Native)
+### Tweet 5/8 — Tech Stack (0G Native, what's live)
 ```
-6 native 0G modules:
+0G modules actually live:
 
-⛓ 0G Chain (16602) — 4 contracts
-🌳 INFT (ERC-7857) — composition primitive
-📦 0G Storage Specialized Flow — encrypted weights
-🧠 0G Compute (TEE) — sealed inference
-🛡 Alignment Nodes — drift audit
-💸 Data Serving Network — auto-billing
+⛓ Chain (16602) — 5 contracts deployed
+🌳 INFT (ERC-7857) — mint/fork/compose
+📦 Storage Log — real Indexer.upload() anchored on Flow contract
+🛡 Alignment Auditor — score scales ancestor royalty (real economic effect)
 
-This stack doesn't exist on any other chain.
+Phase 2: Specialized Flow encryption, TEE compute, Data Serving auto-billing.
 ```
 
 ---
@@ -123,10 +122,11 @@ You can't build MEKAR cleanly on Ethereum or Solana.
 Try it now:
 
 🔗 mekar.vercel.app
-🌳 mekar.vercel.app/explorer (the lineage tree)
-🪙 mekar.vercel.app/agent/4 (run inference + watch royalty distribute)
+🌳 /explorer — D3 lineage tree, 5 agents with names + focus
+🪙 /agent/4 — pay 0.0012 OG inference, watch 4 wallets receive royalty automatically (push-based, no claim button)
+📤 /mint — upload a file in Step 2, get a real 0G Storage rootHash anchored on chain
 
-Connect a wallet on 0G Galileo testnet, hit the faucet at faucet.0g.ai, and try it yourself.
+Faucet: faucet.0g.ai
 ```
 **Attach:** GIF or screen recording of the inference flow.
 

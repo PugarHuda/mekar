@@ -29,13 +29,18 @@ The AI industry is in a provenance crisis. NYT vs OpenAI ($7.5B), Getty vs Stabi
 
 ### Which 0G components are used?
 ```
-1. 0G Chain (Galileo testnet, chain 16602) — all 4 smart contracts deployed
-2. INFT / ERC-7857 — flagship 0G innovation; AgentINFT.sol extends it for composition
-3. 0G Storage Specialized Flow — encrypted weights pointer + training data Merkle root
-4. 0G Storage Log Layer — permanent genealogy event log
-5. 0G Compute (TEE) — sealed inference + training attestations
-6. Alignment Nodes — lineage health audit hook (updateAlignmentHealth)
-7. Data Serving Network — provider registry + auto-billing settlement flow
+LIVE (real integration, verified on-chain):
+1. 0G Chain (Galileo testnet, chain 16602) — 5 smart contracts deployed
+2. INFT / ERC-7857 — AgentINFT extends with mint/fork/compose composition
+3. 0G Storage Log — real Indexer.upload() via @0gfoundation/0g-ts-sdk;
+   the rootHash returned is anchored as `weightsPointer` on chain (Q3)
+4. Alignment Nodes — AlignmentAuditor contract; score directly scales
+   ancestor royalty share, slashing is a real economic penalty (Q4)
+
+PHASE 2 (plumbing in place, real wiring next):
+5. 0G Storage Specialized Flow — premium permanence + ECIES encryption
+6. 0G Compute (TEE) — backend stub uses @0glabs/0g-serving-broker shape
+7. Data Serving Network — provider registry + escrow built, auto-billing next
 ```
 
 ---
@@ -46,48 +51,64 @@ https://github.com/PugarHuda/mekar
 ```
 
 The repo includes:
-- `packages/contracts/` — 4 Solidity contracts + 25 Foundry tests, 100% passing
-- `packages/frontend/` — Next.js 15 dApp with lineage explorer and inference UI
-- `packages/backend/` — Express service wrapping 0G Storage and Compute SDKs
+- `packages/contracts/` — 5 Solidity contracts + 33 Foundry tests, all passing
+- `packages/frontend/` — Next.js 15 dApp with lineage explorer, mint flow, dashboard
+- `packages/backend/` — Express service wrapping 0G Storage SDK (real upload)
 - `docs/` — architecture, deploy guide, demo script, hackathon submission notes
-- `scripts/seed-galileo.sh` — reproducible end-to-end seeding script
+- `scripts/deploy-v2-fix.sh` — verified-code re-deploy (Galileo RPC-quirk safe)
+- `scripts/multi-wallet-seed.sh` — generates 3 fresh wallets + end-to-end cascade demo
 
-Substantial commits during the hackathon period (every contract, page, and integration was authored during the event).
+30+ commits during the hackathon period, multi-day iteration covering contract
+hardening (Q2/Q4/Q5 fixes), real 0G Storage integration, multi-wallet seeding,
+and frontend UX (D3 explorer, parent picker, dashboard).
 
 ---
 
 ## 0G Integration Proof
 
-### Mainnet Contract Address
-> Note: deployed to **0G Galileo Testnet (chain 16602)** as the active demo network. Mainnet (Aristotle, chain 16661) deployment ready, pending audit.
+### Contract Addresses
+> Deployed to **0G Galileo Testnet (chain 16602)** as the active demo network.
+> Mainnet (Aristotle, chain 16661) deployment ready, pending audit.
+> v2 deployment includes Q2/Q4/Q5 honesty fixes (replaces v1).
 
 ```
-TrainingDataRegistry: 0xdBE4397f3e4CCafDA7bfbeD264448577249513e8
-AgentINFT (ERC-7857): 0xA00A7641FEE39753fFdd1cECA5b73336a68699e3
-MekarRegistry:        0x66b2F33bF34081b48046e713457fa3912363E779
-RoyaltyVault:         0x1D62B1D60375D325C3362073e12806A7DF20FBDa
+AgentINFT (ERC-7857):  0x2B429feAe5d2732fF126F964D5786C0c51A844f3
+MekarRegistry:         0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92
+RoyaltyVault:          0x49eCE891AeA76aad967A83B53DC160328036BABc
+AlignmentAuditor:      0x4C399b1f2DBD4028d39E21A512E90930375910eB
+TrainingDataRegistry:  0xdBE4397f3e4CCafDA7bfbeD264448577249513e8
 ```
 
 ### 0G Explorer Links Showing On-Chain Activity
 ```
-AgentINFT (4 agents minted):
-https://chainscan-galileo.0g.ai/address/0xA00A7641FEE39753fFdd1cECA5b73336a68699e3
+AgentINFT (5 agents minted across 4 distinct wallets):
+https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3
 
-RoyaltyVault (3 inference settlements with full distribution):
-https://chainscan-galileo.0g.ai/address/0x1D62B1D60375D325C3362073e12806A7DF20FBDa
+RoyaltyVault (14 inference settlements; treasury accrual wei-perfect):
+https://chainscan-galileo.0g.ai/address/0x49eCE891AeA76aad967A83B53DC160328036BABc
 
-Sample settlement tx (4 RoyaltyPaid events in one transaction):
-https://chainscan-galileo.0g.ai/tx/0xd4c01777f7908c7b175e1720eab800e32d5f16aab44fe0543c4cb8974a451d3b
+AlignmentAuditor (agent #3 slashed to 50% alignment, lowering its parents' share):
+https://chainscan-galileo.0g.ai/address/0x4C399b1f2DBD4028d39E21A512E90930375910eB
+
+Sample settlement (Q1+Q2+Q4+Q5 demonstrated in one tx — stuck-escrow recovery):
+https://chainscan-galileo.0g.ai/tx/0xe99986c000a6f81c3aabe70c843907c0b587f559bb279f9e1c021892a01d96bb
+
+Q3 storage anchor (rootHash of agent #5 weights uploaded to 0G Storage):
+https://chainscan-galileo.0g.ai/tx/0x973ff6949b0289b197351587d439b393e39891a58a613e8701e798be2e1134b2
 ```
 
-### Components Integrated
+### Components Integrated (with honesty audit)
 ```
-✓ 0G Chain (smart contract deployment + interaction)
-✓ 0G Storage (Specialized Flow + Log Layer references)
-✓ 0G Compute (TEE attestation field on every mint and settlement)
-✓ INFT / ERC-7857 (AgentINFT extends with composition primitive)
-✓ Privacy / TEE features (sealed inference architecture, attestation hash on-chain)
-✓ Alignment Nodes (health score hook)
+✓ 0G Chain — 5 contracts deployed, wired, and exercised
+✓ 0G Storage Log — REAL Indexer.upload() with on-chain rootHash anchor (Q3 live)
+✓ INFT / ERC-7857 — composition primitive (mint/fork/compose) all working
+✓ Alignment Auditor — score affects royalty distribution (Q4 live)
+✓ Royalty cascade — 14 settlements with wei-perfect math (Q1 + Q2 sweep)
+✓ Burned-ancestor safety — try/catch fallback to treasury (Q5)
+
+🟡 0G Storage Specialized Flow + ECIES encryption — Phase 2
+🟡 0G Compute (TEE sealed inference) — backend stub, broker account next
+🟡 Multi-auditor oracle network — single-auditor for demo
 ```
 
 ---
@@ -188,10 +209,19 @@ Solo builder
 
 ```
 1. ZEITGEIST FIT: AI lawsuits + EU AI Act enforcement = perfect 2026 timing
-2. NATIVE 0G EXPLOIT: Uses ERC-7857 (0G's flagship innovation) as a genuine composition primitive — not an identity badge
+2. NATIVE 0G EXPLOIT: Uses ERC-7857 (0G's flagship innovation) as a genuine
+   composition primitive — not an identity badge
 3. WHITE SPACE: No comparable project across the entire 0G ecosystem
-4. LIVE PROOF: 4 agents minted, 3 inference settlements, all verifiable on Galileo testnet right now
-5. PRODUCTION POLISH: deployed to Vercel, OG image + sitemap + responsive design + 25 unit tests passing
-6. FOUNDATION DARLING: ERC-7857 was announced by 0G; MEKAR is the literal use case the announcement described
-7. PUBLIC GOOD: addresses creator economy + EU compliance — aligns with 0G's "AI as public good" mission
+4. LIVE PROOF: 5 agents across 4 wallets, 14 inference settlements, alignment
+   slashing demonstrated on-chain (bob 50% earns half of alice 100%) — all
+   verifiable on Galileo right now
+5. HONEST AUDIT: every landing-page FAQ claim maps to a code path + on-chain
+   tx hash; treasury math is wei-perfect across three independent rounds
+6. PRODUCTION POLISH: Vercel deploy + OG image + responsive design + 33 unit
+   tests + real 0G Storage upload + multi-wallet demo script
+7. FOUNDATION DARLING: ERC-7857 was announced by 0G; MEKAR is the literal use
+   case the announcement described — and one of the first projects to wire
+   the storage Indexer.upload SDK end-to-end with actual on-chain anchors
+8. PUBLIC GOOD: addresses creator economy + EU compliance — aligns with 0G's
+   "AI as public good" mission
 ```

@@ -41,10 +41,7 @@ DEPLOYER_PRIVATE_KEY=0x<your-private-key-here>
    cast balance 0xYOUR_ADDRESS --rpc-url https://evmrpc-testnet.0g.ai
    ```
 
-## Step 3: Deploy MEKAR Contracts
-
-`forge script` has chain-detection issues for chain 16602 on some platforms.
-Use `forge create` for each contract instead:
+## Step 3: Compile + Test
 
 ```bash
 cd packages/contracts
@@ -52,77 +49,77 @@ cd packages/contracts
 # Compile
 forge build
 
-# Run all tests (25 tests, all must pass)
+# Run all tests (33 tests, all must pass — includes Q2/Q4/Q5 fix coverage)
 forge test
-
-# Deploy each contract individually
-DEPLOYER=$(cast wallet address --private-key $DEPLOYER_PRIVATE_KEY)
-
-forge create --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --evm-version cancun --legacy --broadcast \
-  contracts/TrainingDataRegistry.sol:TrainingDataRegistry \
-  --constructor-args $DEPLOYER
-
-forge create --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --evm-version cancun --legacy --broadcast \
-  contracts/AgentINFT.sol:AgentINFT \
-  --constructor-args $DEPLOYER
-
-forge create --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --evm-version cancun --legacy --broadcast \
-  contracts/MekarRegistry.sol:MekarRegistry \
-  --constructor-args $DEPLOYER
-
-forge create --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --evm-version cancun --legacy --broadcast \
-  contracts/RoyaltyVault.sol:RoyaltyVault \
-  --constructor-args $DEPLOYER $AGENT_INFT $REGISTRY $TRAINING_REGISTRY
 ```
 
-## Step 4: Wire Up Contracts
+## Step 4: Deploy (use the shell helper)
+
+`forge script` and naive `cast send` both hit intermittent `null-response`
+errors on Galileo RPC. The verified-deploy script handles both gotchas:
+
+1. Each `forge create` is followed by a `cast code` check to confirm bytecode
+   landed — silent no-op deploys (which happened in early attempts) get
+   caught immediately.
+2. All `cast send` calls use `--async` + receipt polling with backoff.
+
+From the monorepo root:
 
 ```bash
-# AgentINFT.setRegistry
-cast send $AGENT_INFT "setRegistry(address)" $REGISTRY \
-  --rpc-url https://evmrpc-testnet.0g.ai \
-  --private-key $DEPLOYER_PRIVATE_KEY --legacy
-
-# Registry references
-cast send $REGISTRY "setAgentInftContract(address)" $AGENT_INFT --rpc-url ... --legacy
-cast send $REGISTRY "setRoyaltyVaultContract(address)" $VAULT --rpc-url ... --legacy
-cast send $REGISTRY "setTrainingDataRegistry(address)" $TRAINING --rpc-url ... --legacy
+bash scripts/deploy-v2-fix.sh
 ```
+
+The script deploys:
+- `AgentINFT` (ERC-7857 with mint/fork/compose)
+- `MekarRegistry`
+- `RoyaltyVault`
+- `AlignmentAuditor` (new in v2 — allowlist-gated alignment scoring)
+
+then wires everything up and writes the addresses to
+`packages/contracts/deployments/galileo-testnet-v2.json` and
+`packages/frontend/.env.production`.
+
+> `TrainingDataRegistry` is **reused from the previous deployment**
+> (`0xdBE4397f...513e8`) — no state shared with AgentINFT or Registry, so
+> the new contracts can plug into the existing one without conflict.
 
 ## Step 5: Save Deployment Addresses
 
-Copy the addresses from your output into `.env`:
+`deploy-v2-fix.sh` already populates `packages/frontend/.env.production`.
+For local backend dev, copy the same values into root `.env`:
 
 ```bash
-NEXT_PUBLIC_TRAINING_DATA_REGISTRY_ADDRESS=0x...
 NEXT_PUBLIC_AGENT_INFT_ADDRESS=0x...
 NEXT_PUBLIC_REGISTRY_ADDRESS=0x...
 NEXT_PUBLIC_ROYALTY_VAULT_ADDRESS=0x...
+NEXT_PUBLIC_ALIGNMENT_AUDITOR_ADDRESS=0x...
+NEXT_PUBLIC_TRAINING_DATA_REGISTRY_ADDRESS=0xdBE4397f3e4CCafDA7bfbeD264448577249513e8
 ```
 
-## Step 6: Seed Demo Data
+For Vercel production, set these via `vercel env add ... production` —
+**Vercel dashboard env vars override `.env.production`** during build, so
+syncing the repo file alone is not enough.
 
-A bash helper is provided that runs the full seed flow via `cast send`:
+## Step 6: Seed Demo Data (multi-wallet cascade)
 
 ```bash
-bash scripts/seed-galileo.sh
+bash scripts/multi-wallet-seed.sh
 ```
 
 It will:
+- Generate 3 fresh ephemeral wallets (alice, bob, carol)
+- Fund each with 0.005 OG from the deployer
 - Register a training dataset
-- Mint Genesis #1
-- Mint Forks #2 (medical) and #3 (legal)
-- Mint Compose #4 (medical+legal)
-- Register the deployer as a compute provider
-- Pay + settle 3 inferences (triggering full royalty distribution)
+- Mint Genesis #1 (deployer)
+- Alice forks #1 → token #2
+- Bob forks #1 → token #3
+- Carol composes [#2, #3] → token #4
+- Slash agent #3 alignment to 50% via AlignmentAuditor.flagAgent
+- Register deployer as a compute provider (0.001 OG stake)
+- Pay + settle 3 inferences against #4, distributing royalty across all 4 wallets
+
+The private keys for the 3 generated wallets are written to
+`.test-wallets.json` at the repo root (gitignored).
 
 ## Step 7: Verify on Explorer
 
@@ -147,8 +144,37 @@ You should see:
 - Make sure you pass the `--legacy` flag
 
 ### "Chain 16602 not supported" (forge script)
-- Use `forge create` per contract (workaround documented above)
+- Use `scripts/deploy-v2-fix.sh` which calls `forge create` per contract
 - Make sure `evm_version = "cancun"` is set in `foundry.toml`
+
+### `cast send` returns "server returned a null response..."
+- Galileo RPC sometimes drops the receipt fetch while the tx is still mined.
+  Use `--async --gas-limit 800000`, then poll `cast receipt <tx>` with
+  backoff. See `scripts/multi-wallet-seed.sh:send_and_wait()` for the pattern.
+
+### `forge create` returns "Deployed to: 0x…" but address has no code
+- This happens silently when the broadcast didn't land on-chain.
+  Use `scripts/deploy-v2-fix.sh` which calls `cast code` after each deploy
+  to verify the bytecode actually landed; abort + retry otherwise.
+
+### Vercel prod still shows old contract addresses after redeploy
+- Vercel dashboard env vars **override** `.env.production` at build time.
+  Updating the repo file alone isn't enough.
+
+```bash
+vercel env rm  NEXT_PUBLIC_AGENT_INFT_ADDRESS production --yes
+echo "0xNEW…" | vercel env add NEXT_PUBLIC_AGENT_INFT_ADDRESS production
+vercel --prod  # trigger fresh build with new env
+```
+
+### Backend `/health` returns old contract addresses after `.env` update
+- `tsx watch` does **not** hot-reload `.env` (only source files).
+  Kill the node process and restart:
+
+```powershell
+Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
+pnpm --filter @mekar/backend dev
+```
 
 ### Compile error related to transfer lock
 - Run `forge clean && forge build`

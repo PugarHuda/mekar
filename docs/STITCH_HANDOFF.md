@@ -124,7 +124,7 @@ The new `tokenURI` ships only after a redeploy. Steps:
 ## Time Hold
 
 While waiting for Stitch:
-- Smart contracts: ✅ tokenURI added, 28 tests pass
+- Smart contracts: ✅ tokenURI added, 33 tests pass (incl. Q2/Q4/Q5 fix coverage)
 - Bloom generator: ✅ done
 - Bloom API: ✅ deployed
 - Demo video script: ✅ done
