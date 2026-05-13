@@ -23,14 +23,49 @@ import { ExternalLink, Loader2 } from "lucide-react";
 
 type Mode = "genesis" | "fork" | "compose";
 
-const DEFAULT_SCHEMA = {
-    directOwnerBps: 5_000,
-    gen1Bps: 2_500,
-    gen2Bps: 1_500,
-    gen3PlusBps: 700,
-    trainingDataBps: 300,
-    maxGenerationsPaid: 10,
-} as const;
+/**
+ * Royalty config the user can tune in Step 3 (Genesis only). Values are
+ * integer percentages 0-100 for human-friendly input; conversion to BPS
+ * (×100) happens at mint time. The contract requires
+ * directOwnerBps + gen1Bps + gen2Bps + gen3PlusBps + trainingDataBps == 10000,
+ * so we keep the percent-sum invariant in the UI as well.
+ */
+type RoyaltyConfig = {
+    directOwnerPct: number;
+    gen1Pct: number;
+    gen2Pct: number;
+    gen3PlusPct: number;
+    trainingPct: number;
+};
+
+const DEFAULT_ROYALTY: RoyaltyConfig = {
+    directOwnerPct: 50,
+    gen1Pct: 25,
+    gen2Pct: 15,
+    gen3PlusPct: 7,
+    trainingPct: 3,
+};
+
+const MAX_GENERATIONS_PAID = 10;
+
+function royaltyConfigSum(cfg: RoyaltyConfig): number {
+    return cfg.directOwnerPct + cfg.gen1Pct + cfg.gen2Pct + cfg.gen3PlusPct + cfg.trainingPct;
+}
+
+function royaltyConfigValid(cfg: RoyaltyConfig): boolean {
+    return royaltyConfigSum(cfg) === 100;
+}
+
+function royaltyConfigToBps(cfg: RoyaltyConfig) {
+    return {
+        directOwnerBps: cfg.directOwnerPct * 100,
+        gen1Bps: cfg.gen1Pct * 100,
+        gen2Bps: cfg.gen2Pct * 100,
+        gen3PlusBps: cfg.gen3PlusPct * 100,
+        trainingDataBps: cfg.trainingPct * 100,
+        maxGenerationsPaid: MAX_GENERATIONS_PAID,
+    } as const;
+}
 
 export default function MintPage() {
     return (
@@ -71,6 +106,11 @@ function MintPageInner() {
     // Real 0G Storage upload state — replaces the keccak256 stub. Once a file
     // is uploaded the returned rootHash is what we send on-chain.
     const [storageUpload, setStorageUpload] = useState<StorageUploadResult | null>(null);
+
+    // Tunable royalty schema (Genesis only — forks + composes inherit).
+    const [royalty, setRoyalty] = useState<RoyaltyConfig>(DEFAULT_ROYALTY);
+    const royaltySum = royaltyConfigSum(royalty);
+    const royaltyValid = royaltyConfigValid(royalty);
 
     const { address } = useAccount();
     const { nodes, refetch: refetchLineage } = useLineageData();
@@ -114,6 +154,10 @@ function MintPageInner() {
             toast.error("Connect a wallet first");
             return;
         }
+        if (!royaltyValid) {
+            toast.error(`Royalty must sum to 100% (current: ${royaltySum}%)`);
+            return;
+        }
         const weightsPtr = resolveWeightsPointer("weights");
         const trainingMerkle = keccak256(toHex(`training:${datasetNote || seed}`));
         const teeProof = keccak256(toHex(`tee:${seed}`));
@@ -123,7 +167,13 @@ function MintPageInner() {
                 address: CONTRACT_ADDRESSES.AgentINFT,
                 abi: AGENT_INFT_ABI,
                 functionName: "mintGenesis",
-                args: [weightsPtr, trainingMerkle, teeProof, DEFAULT_SCHEMA, 1],
+                args: [
+                    weightsPtr,
+                    trainingMerkle,
+                    teeProof,
+                    royaltyConfigToBps(royalty),
+                    1,
+                ],
             },
             {
                 onSuccess: () =>
@@ -303,12 +353,15 @@ function MintPageInner() {
                             )}
                             {step === 3 && (
                                 <Step3
+                                    mode={mode}
                                     name={name}
                                     setName={setName}
                                     description={description}
                                     setDescription={setDescription}
                                     license={license}
                                     setLicense={setLicense}
+                                    royalty={royalty}
+                                    setRoyalty={setRoyalty}
                                 />
                             )}
                             {step === 4 && (
@@ -353,10 +406,24 @@ function MintPageInner() {
                                     <button
                                         type="button"
                                         onClick={handleMint}
-                                        disabled={!address || !isDeployed || isPending}
+                                        disabled={
+                                            !address ||
+                                            !isDeployed ||
+                                            isPending ||
+                                            (mode === "genesis" && !royaltyValid)
+                                        }
                                         className="btn"
+                                        title={
+                                            mode === "genesis" && !royaltyValid
+                                                ? `Royalty must sum to 100% (current: ${royaltySum}%)`
+                                                : undefined
+                                        }
                                     >
-                                        {isPending ? "Confirming…" : "Mint bloom →"}
+                                        {isPending
+                                            ? "Confirming…"
+                                            : mode === "genesis" && !royaltyValid
+                                              ? `Royalty ${royaltySum}% / 100%`
+                                              : "Mint bloom →"}
                                     </button>
                                 )}
                             </div>
@@ -438,7 +505,7 @@ function MintPageInner() {
                             >
                                 Royalty cascade
                             </div>
-                            <RoyaltyBars />
+                            <RoyaltyBars royalty={mode === "genesis" ? royalty : undefined} />
                         </aside>
                     </div>
                 </div>
@@ -929,19 +996,25 @@ function ManifestRow({
 /* ─────────────── Step 3: name & price ─────────────── */
 
 function Step3({
+    mode,
     name,
     setName,
     description,
     setDescription,
     license,
     setLicense,
+    royalty,
+    setRoyalty,
 }: {
+    mode: Mode;
     name: string;
     setName: (v: string) => void;
     description: string;
     setDescription: (v: string) => void;
     license: string;
     setLicense: (v: string) => void;
+    royalty: RoyaltyConfig;
+    setRoyalty: (r: RoyaltyConfig) => void;
 }) {
     const licenses = [
         "MIT",
@@ -995,7 +1068,244 @@ function Step3({
                     ))}
                 </div>
             </Field>
+
+            {mode === "genesis" ? (
+                <RoyaltyEditor royalty={royalty} setRoyalty={setRoyalty} />
+            ) : (
+                <InheritedRoyaltyNotice mode={mode} />
+            )}
         </div>
+    );
+}
+
+/**
+ * Genesis-only royalty configurator. Five percentage inputs that must sum
+ * to exactly 100. We render a live stacked bar so users can see how the
+ * cascade redistributes as they tune — and gate the mint button on
+ * royaltyConfigValid() so the contract's SchemaSumOverflow revert is
+ * never hit at the wallet step.
+ */
+function RoyaltyEditor({
+    royalty,
+    setRoyalty,
+}: {
+    royalty: RoyaltyConfig;
+    setRoyalty: (r: RoyaltyConfig) => void;
+}) {
+    const sum = royaltyConfigSum(royalty);
+    const ok = sum === 100;
+    const update =
+        (key: keyof RoyaltyConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
+            const v = Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10) || 0));
+            setRoyalty({ ...royalty, [key]: v });
+        };
+
+    const rows: {
+        key: keyof RoyaltyConfig;
+        label: string;
+        hint: string;
+        color: string;
+    }[] = [
+        {
+            key: "directOwnerPct",
+            label: "Direct owner",
+            hint: "Goes to whoever owns this token at settle time",
+            color: "var(--gold)",
+        },
+        {
+            key: "gen1Pct",
+            label: "Generation 1 (parents)",
+            hint: "Split equally among direct parents on fork/compose",
+            color: "var(--pink)",
+        },
+        {
+            key: "gen2Pct",
+            label: "Generation 2 (grandparents)",
+            hint: "Deduplicated across multi-path lineages",
+            color: "var(--coral)",
+        },
+        {
+            key: "gen3PlusPct",
+            label: "Generation 3+",
+            hint: `Capped at depth ${MAX_GENERATIONS_PAID}; beyond → protocol treasury`,
+            color: "var(--forest)",
+        },
+        {
+            key: "trainingPct",
+            label: "Training contributors",
+            hint: "Splits via TrainingDataRegistry contributor list",
+            color: "var(--ink-soft)",
+        },
+    ];
+
+    return (
+        <Field label={`Royalty schema  (${sum}% / 100%)`}>
+            <p
+                style={{
+                    fontSize: 12,
+                    color: ok ? "var(--ink-soft)" : "#c25a4a",
+                    marginTop: -4,
+                    marginBottom: 14,
+                    fontFamily: "var(--mono)",
+                }}
+            >
+                {ok
+                    ? "✓ Sum is 100% — ready to mint."
+                    : `Adjust until the five rows sum to 100% (off by ${sum - 100 > 0 ? "+" : ""}${sum - 100}).`}
+                {" "}Genesis-only. Forks + composes inherit this from the genesis.
+            </p>
+
+            {/* Live stacked bar — visual feedback on the cascade shape */}
+            <div
+                style={{
+                    display: "flex",
+                    height: 10,
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    border: "1px solid var(--rule)",
+                    marginBottom: 16,
+                }}
+            >
+                {rows.map((r) => {
+                    const v = royalty[r.key];
+                    if (v === 0) return null;
+                    return (
+                        <div
+                            key={r.key}
+                            style={{
+                                width: `${v}%`,
+                                background: r.color,
+                                height: "100%",
+                            }}
+                            title={`${r.label}: ${v}%`}
+                        />
+                    );
+                })}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {rows.map((r) => (
+                    <div
+                        key={r.key}
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "minmax(0, 1fr) 84px",
+                            gap: 12,
+                            alignItems: "center",
+                        }}
+                    >
+                        <div>
+                            <div
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 12,
+                                    color: "var(--ink)",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        display: "inline-block",
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: 2,
+                                        background: r.color,
+                                    }}
+                                />
+                                {r.label}
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    color: "var(--ink-soft)",
+                                    marginTop: 2,
+                                }}
+                            >
+                                {r.hint}
+                            </div>
+                        </div>
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                            }}
+                        >
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={royalty[r.key]}
+                                onChange={update(r.key)}
+                                style={{
+                                    ...inputStyle,
+                                    padding: "8px 10px",
+                                    width: 60,
+                                    textAlign: "right",
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 13,
+                                }}
+                            />
+                            <span
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 13,
+                                    color: "var(--ink-soft)",
+                                }}
+                            >
+                                %
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={() => setRoyalty(DEFAULT_ROYALTY)}
+                style={{
+                    marginTop: 12,
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    color: "var(--ink-soft)",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    textDecorationColor: "var(--rule)",
+                    padding: 0,
+                }}
+            >
+                Reset to default 50/25/15/7/3
+            </button>
+        </Field>
+    );
+}
+
+function InheritedRoyaltyNotice({ mode }: { mode: Mode }) {
+    return (
+        <Field label="Royalty schema">
+            <div
+                style={{
+                    border: "1px solid var(--rule)",
+                    background: "var(--bg-alt)",
+                    borderRadius: 4,
+                    padding: "12px 14px",
+                    fontFamily: "var(--mono)",
+                    fontSize: 12,
+                    color: "var(--ink-soft)",
+                    lineHeight: 1.5,
+                }}
+            >
+                <strong style={{ color: "var(--ink)" }}>Inherited from parent.</strong>{" "}
+                {mode === "fork"
+                    ? "Forks adopt the parent's royalty terms by contract — protects the original creator's economics from being unilaterally rewritten downstream."
+                    : "Composed agents adopt the first parent's schema. Schema becomes immutable per lineage once minted."}
+            </div>
+        </Field>
     );
 }
 
@@ -1132,13 +1442,14 @@ function Step4({
 
 /* ─────────────── Royalty bars ─────────────── */
 
-function RoyaltyBars() {
+function RoyaltyBars({ royalty }: { royalty?: RoyaltyConfig }) {
+    const cfg = royalty ?? DEFAULT_ROYALTY;
     const rows = [
-        { label: "Direct owner", pct: 50, color: "var(--gold)" },
-        { label: "Generation 1", pct: 25, color: "var(--pink)" },
-        { label: "Generation 2", pct: 15, color: "var(--coral)" },
-        { label: "Generation 3+", pct: 7, color: "var(--forest)" },
-        { label: "Training data", pct: 3, color: "var(--ink-soft)" },
+        { label: "Direct owner", pct: cfg.directOwnerPct, color: "var(--gold)" },
+        { label: "Generation 1", pct: cfg.gen1Pct, color: "var(--pink)" },
+        { label: "Generation 2", pct: cfg.gen2Pct, color: "var(--coral)" },
+        { label: "Generation 3+", pct: cfg.gen3PlusPct, color: "var(--forest)" },
+        { label: "Training data", pct: cfg.trainingPct, color: "var(--ink-soft)" },
     ];
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

@@ -125,3 +125,47 @@ export function agentFocus(id: number, parentCount: number): string {
     const rng = hashSeed(`focus-${id}-${kind}`);
     return pool[Math.floor(rng() * pool.length)];
 }
+
+/**
+ * Stable category derived from a focus phrase. Used by the explorer
+ * filter chips so users can narrow the lineage tree by capability
+ * (translate / code / vision / etc.) instead of just by kind
+ * (genesis / fork / compose).
+ *
+ * Priority order matters: first-match-wins from specific → generic.
+ * "code + math hybrid" lands in `code`; "vision-language base" lands
+ * in `vision` rather than `base`.
+ */
+export type AgentCategory =
+    | "translate"
+    | "code"
+    | "math"
+    | "vision"
+    | "retrieval"
+    | "reasoning"
+    | "general";
+
+export const CATEGORY_LABELS: Record<AgentCategory, string> = {
+    translate: "Translate",
+    code: "Code",
+    math: "Math",
+    vision: "Vision",
+    retrieval: "Retrieval",
+    reasoning: "Reasoning",
+    general: "General",
+};
+
+export function categoryFromFocus(focus: string): AgentCategory {
+    const f = focus.toLowerCase();
+    if (/translat|multilingual|indo language/.test(f)) return "translate";
+    if (/code|codegen/.test(f)) return "code";
+    if (/math/.test(f)) return "math";
+    if (/vision|image|multi-modal/.test(f)) return "vision";
+    if (/retrieval|rag|search|summariz|doc/.test(f)) return "retrieval";
+    if (/reasoning|reasoner/.test(f)) return "reasoning";
+    return "general";
+}
+
+export function agentCategory(id: number, parentCount: number): AgentCategory {
+    return categoryFromFocus(agentFocus(id, parentCount));
+}

@@ -11,24 +11,55 @@ import { shortAddress, formatTimeAgo } from "@/lib/utils";
 import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
 import { LineageGarden, type LineageGardenHandle } from "@/components/LineageGarden";
 import { Bloom } from "@/components/Bloom";
-import { agentName, agentFocus } from "@/lib/agentNaming";
+import {
+    agentName,
+    agentFocus,
+    agentCategory,
+    CATEGORY_LABELS,
+    type AgentCategory,
+} from "@/lib/agentNaming";
 
 type Filter = "All" | "Genesis" | "Forks" | "Composed";
 const FILTERS: Filter[] = ["All", "Genesis", "Forks", "Composed"];
+
+type CategoryFilter = "all" | AgentCategory;
+const CATEGORY_FILTERS: CategoryFilter[] = [
+    "all",
+    "translate",
+    "code",
+    "math",
+    "vision",
+    "retrieval",
+    "reasoning",
+    "general",
+];
 
 export default function ExplorerPage() {
     const { nodes, edges, isLoading, totalAgents } = useLineageData();
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<Filter>("All");
+    const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
     const [selected, setSelected] = useState<LineageNode | null>(null);
     const gardenRef = useRef<LineageGardenHandle>(null);
 
     const visible = nodes.filter((n) => {
+        // Kind filter (genesis/fork/composed)
         if (filter === "Genesis" && n.parents.length !== 0) return false;
         if (filter === "Forks" && n.parents.length !== 1) return false;
         if (filter === "Composed" && n.parents.length < 2) return false;
+
+        // Category filter (translate/code/vision/...)
+        if (categoryFilter !== "all") {
+            const cat = agentCategory(n.id, n.parents.length);
+            if (cat !== categoryFilter) return false;
+        }
+
+        // Search — id, owner/creator address, AND synthesised name + focus
         if (!search) return true;
-        const haystack = `${n.id} ${n.creator ?? ""} ${n.owner ?? ""}`.toLowerCase();
+        const name = agentName(n.id, n.parents.length).toLowerCase();
+        const focus = agentFocus(n.id, n.parents.length).toLowerCase();
+        const haystack =
+            `${n.id} ${n.creator ?? ""} ${n.owner ?? ""} ${name} ${focus}`.toLowerCase();
         return haystack.includes(search.toLowerCase());
     });
     const visibleIds = new Set(visible.map((n) => n.id));
@@ -130,7 +161,7 @@ export default function ExplorerPage() {
                                     <div className="explorer-search">
                                         <Search size={14} style={{ opacity: 0.6 }} />
                                         <input
-                                            placeholder="Search by name, hash, or 0x address…"
+                                            placeholder="Search name, focus, hash, or 0x address…"
                                             value={search}
                                             onChange={(e) => setSearch(e.target.value)}
                                         />
@@ -231,6 +262,51 @@ export default function ExplorerPage() {
                                         <Hand size={12} /> drag a bloom · scroll empty area to pan
                                         · ⌘/ctrl+scroll to zoom
                                     </span>
+                                </div>
+
+                                {/* Secondary filter row — capability category.
+                                    Orthogonal to the kind pills above: a Genesis
+                                    can be Code, a Fork can be Translate, a Compose
+                                    can be Multi-modal. */}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        gap: 6,
+                                        padding: "10px 16px",
+                                        borderTop: "1px solid var(--rule)",
+                                        background: "var(--bg-alt)",
+                                        alignItems: "center",
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 10.5,
+                                            letterSpacing: "0.16em",
+                                            textTransform: "uppercase",
+                                            color: "var(--ink-soft)",
+                                            marginRight: 8,
+                                        }}
+                                    >
+                                        Capability
+                                    </span>
+                                    {CATEGORY_FILTERS.map((c) => {
+                                        const label =
+                                            c === "all" ? "All" : CATEGORY_LABELS[c];
+                                        const active = categoryFilter === c;
+                                        return (
+                                            <button
+                                                key={c}
+                                                type="button"
+                                                onClick={() => setCategoryFilter(c)}
+                                                className={`pill ${active ? "active" : ""}`}
+                                                style={{ fontSize: 11.5, padding: "3px 10px" }}
+                                            >
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
 
                                 <div
