@@ -1,108 +1,175 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
-  <!-- Background gradient -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Mekar — Spotify-style royalty for AI agents on 0G">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0a0e0c"/>
-      <stop offset="100%" stop-color="#064e3b"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.7" cy="0.3" r="0.5">
-      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    <!-- Cream background with a subtle gold halo on the upper right -->
+    <radialGradient id="warm" cx="0.78" cy="0.22" r="0.78">
+      <stop offset="0%" stop-color="#f6e4ad" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#fbf6ec" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#f3ead7" stop-opacity="1"/>
     </radialGradient>
-    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#10b981"/>
-      <stop offset="50%" stop-color="#34d399"/>
-      <stop offset="100%" stop-color="#f59e0b"/>
+    <linearGradient id="gold-line" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d4a437"/>
+      <stop offset="100%" stop-color="#b9882c"/>
     </linearGradient>
+    <filter id="paper" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="3"/>
+      <feColorMatrix values="0 0 0 0 0.86  0 0 0 0 0.78  0 0 0 0 0.62  0 0 0 0.08 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
   </defs>
 
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
+  <!-- Cream paper background -->
+  <rect width="1200" height="630" fill="url(#warm)"/>
+  <rect width="1200" height="630" fill="#fbf6ec" filter="url(#paper)" opacity="0.6"/>
 
-  <!-- Grid pattern subtle -->
-  <g stroke="#1a2e25" stroke-width="1" opacity="0.4">
+  <!-- Subtle decorative grid lines (woodcut typographic frame feel) -->
+  <g stroke="#3d2817" stroke-width="0.6" opacity="0.06">
     <line x1="0" y1="100" x2="1200" y2="100"/>
-    <line x1="0" y1="200" x2="1200" y2="200"/>
-    <line x1="0" y1="300" x2="1200" y2="300"/>
-    <line x1="0" y1="400" x2="1200" y2="400"/>
-    <line x1="0" y1="500" x2="1200" y2="500"/>
+    <line x1="0" y1="530" x2="1200" y2="530"/>
+    <line x1="80"   y1="0" x2="80"   y2="630"/>
+    <line x1="1120" y1="0" x2="1120" y2="630"/>
   </g>
 
-  <!-- Lineage tree visualization on right side -->
-  <g transform="translate(880, 80)">
-    <!-- Genesis node -->
-    <circle cx="120" cy="80" r="32" fill="#10b981"/>
-    <text x="120" y="86" text-anchor="middle" fill="white" font-family="monospace" font-size="18" font-weight="bold">#1</text>
-
-    <!-- Branches from genesis -->
-    <line x1="120" y1="112" x2="60" y2="200" stroke="#10b981" stroke-width="3" opacity="0.7"/>
-    <line x1="120" y1="112" x2="180" y2="200" stroke="#10b981" stroke-width="3" opacity="0.7"/>
-
-    <!-- Fork nodes -->
-    <circle cx="60" cy="220" r="26" fill="#059669"/>
-    <text x="60" y="226" text-anchor="middle" fill="white" font-family="monospace" font-size="14" font-weight="bold">#2</text>
-
-    <circle cx="180" cy="220" r="26" fill="#059669"/>
-    <text x="180" y="226" text-anchor="middle" fill="white" font-family="monospace" font-size="14" font-weight="bold">#3</text>
-
-    <!-- Composed node -->
-    <line x1="60" y1="246" x2="120" y2="320" stroke="#f59e0b" stroke-width="3" opacity="0.7"/>
-    <line x1="180" y1="246" x2="120" y2="320" stroke="#f59e0b" stroke-width="3" opacity="0.7"/>
-
-    <circle cx="120" cy="340" r="32" fill="#f59e0b"/>
-    <text x="120" y="346" text-anchor="middle" fill="white" font-family="monospace" font-size="18" font-weight="bold">#4</text>
-
-    <!-- Royalty stream lines -->
-    <g opacity="0.5">
-      <line x1="120" y1="372" x2="60" y2="450" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
-      <line x1="120" y1="372" x2="180" y2="450" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
-      <line x1="120" y1="372" x2="120" y2="480" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"/>
-    </g>
-
-    <!-- $0G coin icons at endpoints -->
-    <g fill="#10b981">
-      <circle cx="60" cy="465" r="10"/>
-      <circle cx="180" cy="465" r="10"/>
-      <circle cx="120" cy="495" r="10"/>
-    </g>
-  </g>
-
-  <!-- Logo + brand on left -->
-  <g transform="translate(80, 80)">
-    <!-- Tree icon -->
-    <rect x="0" y="0" width="64" height="64" rx="14" fill="#10b981"/>
+  <!-- ───────── Left column: brand + headline ───────── -->
+  <g transform="translate(80, 100)">
+    <!-- Bloom logo (4-petal woodcut, gold + cocoa) -->
     <g transform="translate(0, 0)">
-      <rect x="29" y="38" width="6" height="16" rx="2" fill="#064e3b"/>
-      <circle cx="32" cy="20" r="8" fill="#064e3b"/>
-      <circle cx="20" cy="30" r="6" fill="#064e3b"/>
-      <circle cx="44" cy="30" r="6" fill="#064e3b"/>
+      <g stroke="#3d2817" stroke-width="1.6" fill="#d4a437" stroke-linejoin="round">
+        <path d="M 28 0 C 18 -8, 18 -22, 28 -38 C 38 -22, 38 -8, 28 0 Z"/>
+        <path d="M 28 0 C 38 -8, 52 -8, 66 0 C 52 8, 38 8, 28 0 Z"/>
+        <path d="M 28 0 C 38 8, 38 22, 28 38 C 18 22, 18 8, 28 0 Z"/>
+        <path d="M 28 0 C 18 8, 4 8, -10 0 C 4 -8, 18 -8, 28 0 Z"/>
+      </g>
+      <circle cx="28" cy="0" r="5" fill="#3d2817"/>
     </g>
-    <text x="80" y="42" font-family="system-ui, -apple-system, sans-serif" font-size="32" font-weight="bold" fill="white">MEKAR</text>
+    <!-- Wordmark -->
+    <text x="86" y="10" font-family="Georgia, 'Cormorant Garamond', serif" font-style="italic" font-size="44" font-weight="500" fill="#3d2817">Mekar</text>
+    <text x="86" y="38" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" letter-spacing="3" fill="#5a3f2a" opacity="0.7">A I  ·  G E N E A L O G Y  ·  R O Y A L T Y</text>
+
+    <!-- Headline -->
+    <text x="0" y="160" font-family="Georgia, 'Cormorant Garamond', serif" font-size="72" font-weight="500" fill="#3d2817">Every AI has</text>
+    <text x="0" y="234" font-family="Georgia, 'Cormorant Garamond', serif" font-style="italic" font-size="72" font-weight="500" fill="#3d2817">a lineage.</text>
+
+    <text x="0" y="304" font-family="Georgia, 'Cormorant Garamond', serif" font-size="40" font-weight="400" fill="#5a3f2a">Every inference pays</text>
+    <text x="0" y="350" font-family="Georgia, 'Cormorant Garamond', serif" font-style="italic" font-size="40" font-weight="400" fill="#5a3f2a">its ancestors.</text>
+
+    <!-- Pill: live on 0G Galileo -->
+    <g transform="translate(0, 400)">
+      <rect x="0" y="0" width="320" height="40" rx="20" fill="#fbf6ec" stroke="#3d2817" stroke-width="1.4"/>
+      <circle cx="22" cy="20" r="6" fill="#6b8a4b"/>
+      <text x="40" y="26" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="12" letter-spacing="2" fill="#3d2817" font-weight="600">LIVE · 0G GALILEO · TRACK 3</text>
+    </g>
   </g>
 
-  <!-- Main headline -->
-  <text x="80" y="280" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="white">
-    Every AI has
-  </text>
-  <text x="80" y="360" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="bold" fill="url(#title)">
-    a lineage.
-  </text>
-  <text x="80" y="440" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="500" fill="#a7f3d0" opacity="0.85">
-    Every inference pays
-  </text>
-  <text x="80" y="490" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="500" fill="#a7f3d0" opacity="0.85">
-    its ancestors.
-  </text>
+  <!-- ───────── Right column: lineage tree (3 blooms + cascade arrows) ───────── -->
+  <g transform="translate(820, 90)">
+    <!-- connector lines (woodcut: shadow under, main on top, sage pod midpoint) -->
+    <g stroke="#3d2817" stroke-linecap="round">
+      <!-- Genesis → Fork -->
+      <line x1="140" y1="100" x2="60"  y2="240" stroke-width="6" opacity="0.10"/>
+      <line x1="140" y1="100" x2="60"  y2="240" stroke-width="1.8"/>
+      <!-- Genesis → Fork -->
+      <line x1="140" y1="100" x2="220" y2="240" stroke-width="6" opacity="0.10"/>
+      <line x1="140" y1="100" x2="220" y2="240" stroke-width="1.8"/>
+      <!-- both → Compose -->
+      <line x1="60"  y1="280" x2="140" y2="400" stroke-width="6" opacity="0.10"/>
+      <line x1="60"  y1="280" x2="140" y2="400" stroke-width="1.8"/>
+      <line x1="220" y1="280" x2="140" y2="400" stroke-width="6" opacity="0.10"/>
+      <line x1="220" y1="280" x2="140" y2="400" stroke-width="1.8"/>
+    </g>
+    <!-- sage pod markers on each edge midpoint -->
+    <g fill="#6b8a4b" stroke="#3d2817" stroke-width="0.9">
+      <ellipse cx="100" cy="170" rx="4.5" ry="2.2"/>
+      <ellipse cx="180" cy="170" rx="4.5" ry="2.2"/>
+      <ellipse cx="100" cy="340" rx="4.5" ry="2.2"/>
+      <ellipse cx="180" cy="340" rx="4.5" ry="2.2"/>
+    </g>
 
-  <!-- Bottom badge -->
-  <g transform="translate(80, 540)">
-    <rect x="0" y="0" width="220" height="40" rx="20" fill="#10b981" opacity="0.15" stroke="#10b981" stroke-width="1"/>
-    <text x="110" y="26" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#10b981">
-      BUILT ON 0G — TRACK 3
-    </text>
+    <!-- Genesis bloom (top, gold lotus) -->
+    <g transform="translate(140, 80)">
+      <g stroke="#3d2817" stroke-width="1.6" fill="#d4a437" stroke-linejoin="round">
+        <g transform="rotate(0)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+        <g transform="rotate(60)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+        <g transform="rotate(120)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+        <g transform="rotate(180)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+        <g transform="rotate(240)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+        <g transform="rotate(300)"><path d="M 0 0 C -10 -14, -4 -38, 0 -54 C 4 -38, 10 -14, 0 0 Z"/></g>
+      </g>
+      <circle r="9" fill="#3d2817"/>
+      <!-- label -->
+      <rect x="-44" y="58" width="88" height="22" rx="3" fill="#fbf6ec" stroke="#3d2817" stroke-width="1"/>
+      <text x="0" y="74" text-anchor="middle" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="10" fill="#3d2817">Genesis #1</text>
+    </g>
+
+    <!-- Fork left (pink jasmine) -->
+    <g transform="translate(60, 260)">
+      <g stroke="#3d2817" stroke-width="1.4" fill="#f5b7a0" stroke-linejoin="round">
+        <g transform="rotate(0)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(60)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(120)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(180)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(240)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(300)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+      </g>
+      <circle r="6" fill="#3d2817"/>
+      <rect x="-40" y="44" width="80" height="20" rx="3" fill="#fbf6ec" stroke="#3d2817" stroke-width="1"/>
+      <text x="0" y="58" text-anchor="middle" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="10" fill="#3d2817">Fork #2</text>
+    </g>
+
+    <!-- Fork right (pink jasmine) -->
+    <g transform="translate(220, 260)">
+      <g stroke="#3d2817" stroke-width="1.4" fill="#f5b7a0" stroke-linejoin="round">
+        <g transform="rotate(0)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(60)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(120)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(180)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(240)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+        <g transform="rotate(300)"><path d="M 0 0 C -7 -10, -2 -28, 0 -38 C 2 -28, 7 -10, 0 0 Z"/></g>
+      </g>
+      <circle r="6" fill="#3d2817"/>
+      <rect x="-40" y="44" width="80" height="20" rx="3" fill="#fbf6ec" stroke="#3d2817" stroke-width="1"/>
+      <text x="0" y="58" text-anchor="middle" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="10" fill="#3d2817">Fork #3</text>
+    </g>
+
+    <!-- Compose (bottom, marigold gold+coral) -->
+    <g transform="translate(140, 420)">
+      <g stroke="#3d2817" stroke-width="1.6" fill="#c25a4a" stroke-linejoin="round">
+        <g transform="rotate(15)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+        <g transform="rotate(75)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+        <g transform="rotate(135)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+        <g transform="rotate(195)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+        <g transform="rotate(255)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+        <g transform="rotate(315)"><path d="M 0 0 C -9 -12, -3 -32, 0 -44 C 3 -32, 9 -12, 0 0 Z"/></g>
+      </g>
+      <g stroke="#3d2817" stroke-width="1.4" fill="#d4a437" stroke-linejoin="round">
+        <g transform="rotate(0)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+        <g transform="rotate(60)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+        <g transform="rotate(120)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+        <g transform="rotate(180)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+        <g transform="rotate(240)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+        <g transform="rotate(300)"><path d="M 0 0 C -6 -8, -2 -22, 0 -30 C 2 -22, 6 -8, 0 0 Z"/></g>
+      </g>
+      <circle r="8" fill="#3d2817"/>
+      <rect x="-50" y="46" width="100" height="22" rx="3" fill="#fbf6ec" stroke="#3d2817" stroke-width="1"/>
+      <text x="0" y="62" text-anchor="middle" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="10" fill="#3d2817">Compose #4</text>
+    </g>
   </g>
 
-  <text x="320" y="566" font-family="monospace" font-size="14" fill="#64748b">
-    mekar.vercel.app · #0GHackathon · #BuildOn0G
-  </text>
+  <!-- ───────── Footer bar ───────── -->
+  <g transform="translate(80, 565)">
+    <text x="0" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a">mekar.vercel.app</text>
+    <text x="200" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a" opacity="0.5">·</text>
+    <text x="220" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a">5 contracts</text>
+    <text x="340" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a" opacity="0.5">·</text>
+    <text x="360" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a">33 tests</text>
+    <text x="450" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a" opacity="0.5">·</text>
+    <text x="470" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="13" fill="#5a3f2a">push-based royalty cascade</text>
+  </g>
+  <g transform="translate(80, 593)">
+    <text x="0" y="14" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="11" letter-spacing="2" fill="#5a3f2a" opacity="0.7">#0GHACKATHON  ·  #BUILDON0G</text>
+  </g>
+
+  <!-- Right edge: 0G credit -->
+  <g transform="translate(1120, 593)">
+    <text x="0" y="14" text-anchor="end" font-family="ui-monospace, 'JetBrains Mono', monospace" font-size="11" letter-spacing="2" fill="#5a3f2a" opacity="0.7">B U I L T   O N   0 G   /   E R C - 7 8 5 7</text>
+  </g>
 </svg>

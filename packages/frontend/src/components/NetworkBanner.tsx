@@ -6,55 +6,102 @@ import { AlertTriangle, ExternalLink, Coins } from "lucide-react";
 import Link from "next/link";
 
 /**
- * Banner that warns when user is on wrong network or has no balance.
- * Auto-prompts to switch to 0G Galileo.
+ * Renders nothing in the happy path. Surfaces a wrong-network warning
+ * (with a one-click switch button) when the connected wallet is on a
+ * chain other than `ACTIVE_CHAIN`. Wired into the top of `Header` so
+ * every page picks it up site-wide.
+ *
+ * Styled with inline CSS variables to match the woodcut palette used
+ * across the rest of the app rather than the legacy Tailwind classes
+ * the early scaffold shipped with.
  */
 export function NetworkBanner() {
-  const { isConnected } = useAccount();
-  const currentChainId = useChainId();
-  const { switchChain, isPending } = useSwitchChain();
+    const { isConnected } = useAccount();
+    const currentChainId = useChainId();
+    const { switchChain, isPending } = useSwitchChain();
 
-  if (!isConnected) return null;
+    if (!isConnected) return null;
+    const isWrongChain = currentChainId !== ACTIVE_CHAIN.id;
+    if (!isWrongChain) return null;
 
-  const isWrongChain = currentChainId !== ACTIVE_CHAIN.id;
-
-  if (isWrongChain) {
     return (
-      <div className="border-b border-mekar-gold/30 bg-mekar-gold/10">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-mekar-gold" />
-            <span className="font-semibold text-mekar-gold">Wrong network</span>
-            <span className="text-muted-foreground">
-              Switch to {ACTIVE_CHAIN.name} (chain {ACTIVE_CHAIN.id})
-            </span>
-          </div>
-          <button
-            onClick={() => switchChain({ chainId: ACTIVE_CHAIN.id })}
-            disabled={isPending}
-            className="rounded-md bg-mekar-gold px-3 py-1 text-xs font-semibold text-background hover:bg-amber-400 disabled:opacity-50"
-          >
-            {isPending ? "Switching..." : "Switch to 0G"}
-          </button>
+        <div
+            role="status"
+            style={{
+                borderBottom: "1.5px solid var(--cocoa)",
+                background: "var(--coral, #f5b7a0)",
+                color: "var(--cocoa)",
+                padding: "10px 0",
+                fontFamily: "var(--mono)",
+                fontSize: 13,
+            }}
+        >
+            <div
+                style={{
+                    maxWidth: "var(--max-w)",
+                    margin: "0 auto",
+                    padding: "0 var(--pad-edge)",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 14,
+                }}
+            >
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <AlertTriangle size={14} aria-hidden />
+                    <span style={{ fontWeight: 600 }}>Wrong network.</span>
+                    <span style={{ opacity: 0.85 }}>
+                        Connect on{" "}
+                        <strong style={{ fontWeight: 600 }}>
+                            {ACTIVE_CHAIN.name} (chain {ACTIVE_CHAIN.id})
+                        </strong>{" "}
+                        to interact with MEKAR contracts.
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => switchChain({ chainId: ACTIVE_CHAIN.id })}
+                    disabled={isPending}
+                    style={{
+                        background: "var(--cocoa)",
+                        color: "var(--surface)",
+                        border: "1.5px solid var(--cocoa)",
+                        borderRadius: 999,
+                        padding: "5px 14px",
+                        fontFamily: "var(--mono)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: isPending ? "wait" : "pointer",
+                        opacity: isPending ? 0.6 : 1,
+                    }}
+                >
+                    {isPending ? "Switching…" : `Switch to ${ACTIVE_CHAIN.name}`}
+                </button>
+            </div>
         </div>
-      </div>
     );
-  }
-
-  return null;
 }
 
 export function FaucetReminder() {
-  return (
-    <Link
-      href={FAUCET_URL}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-mekar-green transition-colors"
-    >
-      <Coins className="h-3.5 w-3.5" />
-      Need testnet $0G? Get from faucet
-      <ExternalLink className="h-3 w-3" />
-    </Link>
-  );
+    return (
+        <Link
+            href={FAUCET_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: "var(--mono)",
+                fontSize: 12,
+                color: "var(--ink-soft)",
+                textDecoration: "none",
+            }}
+        >
+            <Coins size={12} />
+            Need testnet OG? Get from faucet
+            <ExternalLink size={11} />
+        </Link>
+    );
 }

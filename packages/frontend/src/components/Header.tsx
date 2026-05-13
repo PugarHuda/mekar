@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { BloomLogo } from "@/components/Bloom";
+import { NetworkBanner } from "@/components/NetworkBanner";
 import { Menu, X, AlertTriangle } from "lucide-react";
 
 // Primary top-bar nav — kept tight (5 items) so the bar doesn't feel like
@@ -54,8 +55,10 @@ export function Header() {
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
-        <nav className="nav">
-            <div className="nav__inner">
+        <>
+            <NetworkBanner />
+            <nav className="nav">
+                <div className="nav__inner">
                 <Link href="/" className="nav__brand">
                     <BloomLogo size={36} sw={1.6} />
                     <span>
@@ -191,7 +194,8 @@ export function Header() {
                     </div>
                 </div>
             )}
-        </nav>
+            </nav>
+        </>
     );
 }
 
