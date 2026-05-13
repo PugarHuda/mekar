@@ -47,17 +47,25 @@ export type StorageUploadResult = {
     storagePointer: `0x${string}`;
     txHash: `0x${string}`;
     size: number;
+    encryption?: "none" | "aes256";
+    /** Present only when encryption !== "none". Hex-encoded AES-256 key
+     *  the user must persist to recover the encrypted payload. */
+    aesKey?: `0x${string}`;
 };
 
 /**
  * Upload an arbitrary blob (file bytes or text) to 0G Storage.
  *
- * @param bytes  Browser File, Blob, ArrayBuffer, or string.
- * @param tag    Free-form label (logged backend-side, not stored on chain).
+ * @param bytes      Browser File, Blob, ArrayBuffer, or string.
+ * @param tag        Free-form label (logged backend-side, not stored on chain).
+ * @param encryption "none" (default) or "aes256". With "aes256" the SDK
+ *   encrypts the payload client-side before chunks ship to storage nodes —
+ *   the returned `aesKey` is the only way to decrypt it later.
  */
 export async function uploadToZGStorage(
     bytes: Blob | ArrayBuffer | string,
-    tag?: string
+    tag?: string,
+    encryption: "none" | "aes256" = "none"
 ): Promise<StorageUploadResult> {
     let payload: { data: string; encoding: "utf8" | "base64" };
 
@@ -82,7 +90,7 @@ export async function uploadToZGStorage(
     const res = await fetch(UPLOAD_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, tag, tier: "log" }),
+        body: JSON.stringify({ ...payload, tag, tier: "log", encryption }),
     });
 
     if (!res.ok) {

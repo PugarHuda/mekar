@@ -847,6 +847,7 @@ function Step2({
     const [file, setFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [encrypt, setEncrypt] = useState(false);
 
     async function handleUpload() {
         setUploadError(null);
@@ -867,9 +868,17 @@ function Step2({
                       null,
                       2
                   );
-            const result = await uploadToZGStorage(payload, `mekar-mint-${seed}`);
+            const result = await uploadToZGStorage(
+                payload,
+                `mekar-mint-${seed}`,
+                encrypt ? "aes256" : "none"
+            );
             setStorageUpload(result);
-            toast.success("Anchored to 0G Storage");
+            toast.success(
+                encrypt
+                    ? "Encrypted + anchored to 0G Storage — save the AES key!"
+                    : "Anchored to 0G Storage"
+            );
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             setUploadError(msg);
@@ -924,6 +933,45 @@ function Step2({
                 </p>
             </Field>
 
+            <Field label="Encryption">
+                <label
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 14px",
+                        border: "1px solid var(--rule)",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        background: encrypt ? "var(--gold)" : "var(--bg)",
+                        color: encrypt ? "var(--cocoa)" : "var(--ink)",
+                        fontSize: 13,
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        checked={encrypt}
+                        onChange={(e) => setEncrypt(e.target.checked)}
+                        style={{ accentColor: "var(--cocoa)" }}
+                    />
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 12 }}>
+                        Encrypt with AES-256 via 0G SDK before upload
+                    </span>
+                </label>
+                <p
+                    style={{
+                        fontSize: 11,
+                        color: "var(--ink-soft)",
+                        marginTop: 6,
+                        fontFamily: "var(--mono)",
+                    }}
+                >
+                    {encrypt
+                        ? "Server generates a fresh AES-256 key, SDK encrypts client-side before chunks reach storage nodes. Key returned with the rootHash — save it, only key-holders can decrypt the weights later."
+                        : "Plaintext upload to the Log tier — anyone with the rootHash can read."}
+                </p>
+            </Field>
+
             <button
                 type="button"
                 onClick={handleUpload}
@@ -938,6 +986,8 @@ function Step2({
                     </>
                 ) : storageUpload ? (
                     "Re-upload"
+                ) : encrypt ? (
+                    "Encrypt + upload to 0G Storage"
                 ) : (
                     "Upload to 0G Storage"
                 )}
@@ -994,6 +1044,65 @@ function Step2({
                         label="Size"
                         value={`${storageUpload.size} bytes`}
                     />
+                    {storageUpload.encryption === "aes256" && storageUpload.aesKey && (
+                        <div
+                            style={{
+                                marginTop: 12,
+                                padding: "12px 14px",
+                                background: "rgba(212,164,55,0.12)",
+                                border: "1.5px solid var(--gold-deep, #b9882c)",
+                                borderRadius: 4,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 10.5,
+                                    letterSpacing: "0.14em",
+                                    textTransform: "uppercase",
+                                    color: "var(--cocoa)",
+                                    marginBottom: 4,
+                                    fontWeight: 600,
+                                }}
+                            >
+                                ⚠ AES-256 key — save this, only way to decrypt
+                            </div>
+                            <code
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    color: "var(--ink)",
+                                    wordBreak: "break-all",
+                                    display: "block",
+                                    background: "var(--surface)",
+                                    padding: "6px 8px",
+                                    borderRadius: 3,
+                                }}
+                                onClick={(e) => {
+                                    const range = document.createRange();
+                                    range.selectNodeContents(e.currentTarget);
+                                    const sel = window.getSelection();
+                                    sel?.removeAllRanges();
+                                    sel?.addRange(range);
+                                }}
+                            >
+                                {storageUpload.aesKey}
+                            </code>
+                            <p
+                                style={{
+                                    fontSize: 10.5,
+                                    color: "var(--ink-soft)",
+                                    marginTop: 6,
+                                    fontFamily: "var(--mono)",
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                Click the key to select it. Production swaps this
+                                for an INFT-bound re-encryption oracle so the key
+                                transfers with the token.
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

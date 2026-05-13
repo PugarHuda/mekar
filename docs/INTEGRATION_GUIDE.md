@@ -273,6 +273,35 @@ if (err) throw err;
 That call signs a Flow contract anchor tx (cost ~30 microO at current
 rates) and pushes the file segments to a quorum of storage nodes.
 
+### Encrypt before upload (AES-256 via SDK)
+
+`UploadOption.encryption` lets you turn on client-side encryption directly
+in the SDK — chunks are encrypted before they ever reach storage nodes,
+and the rootHash anchored on chain references encrypted bytes.
+
+```ts
+// Generate a fresh AES-256 key per upload (or derive from a stable secret)
+const aesKey = new Uint8Array(32);
+crypto.getRandomValues(aesKey);
+
+const [result, err] = await indexer.upload(
+    new MemData(Array.from(buf)),
+    "https://evmrpc-testnet.0g.ai",
+    signer,
+    { encryption: { type: "aes256", key: aesKey } }   // <-- this is the addition
+);
+// result.rootHash is still the bytes32 you anchor on chain
+// Persist aesKey separately — only key-holders can decrypt the payload.
+```
+
+ECIES (public-key) encryption is also supported:
+`{ type: "ecies", recipientPubKey: pubBytesOrHex }`. Production setups
+typically pair this with an INFT-bound re-encryption oracle so the
+decryption right transfers atomically with the token.
+
+The MEKAR `/mint` flow exposes this as an "Encrypt with AES-256" toggle
+in Step 2 — the resulting key is shown once for the user to save.
+
 ---
 
 ## Read royalty schema before paying
@@ -297,6 +326,60 @@ const health = await agentInft.read.getAlignmentHealth([4n]);
 When an ancestor's alignment is below 10000, **its share is scaled
 proportionally** during settle (`shareAfter = share * health / 10000`).
 The slashed remainder routes to `protocolFeesAccrued` (Q4 fix).
+
+---
+
+## 0G Compute Network (broker SDK)
+
+`@0glabs/0g-serving-broker` is the SDK access to 0G's Data Serving
+Network — fund a ledger, list services, send inference requests with
+attested responses. Verified callable from MEKAR's backend against
+Galileo testnet:
+
+```ts
+// ESM import is currently broken on @0glabs/0g-serving-broker@0.4.4
+// (named exports re-exported from a sub-chunk don't resolve). Use the
+// CJS entry point via createRequire as a workaround:
+import { createRequire } from "node:module";
+const brokerRequire = createRequire(import.meta.url);
+const { createZGComputeNetworkBroker } =
+    brokerRequire("@0glabs/0g-serving-broker");
+
+const broker = await createZGComputeNetworkBroker(signer);
+// broker.ledger    — fund + manage your DSN account balance
+// broker.inference — list services + send requests
+// broker.fineTuning— submit fine-tuning jobs
+
+const services = await broker.inference.listService();
+```
+
+Smoke test in `packages/backend/src/smoke-compute.ts` confirms:
+- `createZGComputeNetworkBroker(signer)` returns a broker with all 3
+  modules (`ledger`, `inference`, `fineTuning`)
+- `broker.inference.listService()` returns the current registered
+  service set (often `[]` on testnet — providers haven't moved their
+  inventory there yet)
+- `broker.ledger.getLedger()` returns `"Account does not exist"` until
+  you call `broker.ledger.addLedger(amount)` to initialise + fund
+
+### Wiring DSN into MEKAR
+
+The natural composition: a 0G DSN compute provider also registers
+itself as a MEKAR `RoyaltyVault` compute provider via
+`registerProvider(...)`. Same wallet handles two parallel settlement
+layers in one inference:
+
+1. End user calls `RoyaltyVault.payInference(agentId)` → MEKAR
+   escrow + (later) royalty cascade.
+2. The provider performs the actual inference through 0G DSN
+   (`broker.inference.processResponse(...)`) — getting a signed,
+   attested response.
+3. Provider calls `settleInference(requestId, outputHash, attestation)`
+   where `attestation` carries the DSN provider's signed response
+   header. MEKAR contract verifies the signature, then runs the
+   royalty cascade.
+
+That's the Phase 2 wire-up the smoke test sets us up for.
 
 ---
 

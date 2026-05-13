@@ -31,6 +31,14 @@ const UploadSchema = z.object({
     encoding: z.enum(["utf8", "base64"]).default("utf8"),
     tier: z.enum(["log", "specialized"]).optional(),
     tag: z.string().optional(),
+    /**
+     * Encrypt the payload client-side via the SDK before upload.
+     * - "none" (default): payload anchored in plaintext (current behavior)
+     * - "aes256": SDK generates / accepts an AES-256 key; only key-holders
+     *   can decrypt. We auto-generate the key and return it in the
+     *   response so the caller can persist it next to the rootHash.
+     */
+    encryption: z.enum(["none", "aes256"]).default("none"),
 });
 
 // Cache the Indexer + signer between invocations (Vercel Fluid Compute
@@ -85,7 +93,28 @@ export async function POST(req: NextRequest) {
         const indexer = getIndexer();
         const file = new MemData(Array.from(buffer));
 
-        const [result, err] = await indexer.upload(file, RPC_URL, signer);
+        // Encryption: AES-256 via the SDK's UploadOption.encryption hook.
+        // The SDK encrypts client-side (server-side here) before chunks are
+        // pushed to storage nodes, so only key-holders can reconstruct the
+        // original payload. We generate the key fresh per upload and ship
+        // it back to the caller so they can persist it alongside the
+        // rootHash on chain.
+        let aesKey: Uint8Array | undefined;
+        const uploadOpts: Parameters<typeof indexer.upload>[3] | undefined =
+            body.encryption === "aes256"
+                ? (() => {
+                      aesKey = new Uint8Array(32);
+                      crypto.getRandomValues(aesKey);
+                      return { encryption: { type: "aes256", key: aesKey } };
+                  })()
+                : undefined;
+
+        const [result, err] = await indexer.upload(
+            file,
+            RPC_URL,
+            signer,
+            uploadOpts
+        );
         if (err) throw err;
 
         if (Array.isArray((result as { rootHashes?: string[] }).rootHashes)) {
@@ -109,11 +138,21 @@ export async function POST(req: NextRequest) {
             )
         ) as `0x${string}`;
 
+        // When encryption is enabled, the AES key is the ONLY way to recover
+        // the original payload. We return it as a hex string so the caller
+        // can save it. Production should escrow this via an INFT-bound
+        // re-encryption oracle so the key is transferable with the token.
+        const aesKeyHex = aesKey
+            ? `0x${Buffer.from(aesKey).toString("hex")}`
+            : undefined;
+
         return NextResponse.json({
             rootHash,
             storagePointer,
             txHash,
             size: buffer.length,
+            encryption: body.encryption,
+            ...(aesKeyHex ? { aesKey: aesKeyHex } : {}),
         });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
