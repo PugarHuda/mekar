@@ -7,20 +7,32 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { BloomLogo } from "@/components/Bloom";
 import { Menu, X, AlertTriangle } from "lucide-react";
 
-// Primary top-bar nav — kept tight (4 items) so the bar doesn't feel like
+// Primary top-bar nav — kept tight (5 items) so the bar doesn't feel like
 // a sitemap. The brand logo on the left already links Home, and Manifesto
 // is reachable from the footer + mobile menu so we don't need to spend a
-// top-bar slot on it.
-const NAV = [
+// top-bar slot on it. Docs links externally to GitHub so developers can
+// see the integration guide without a wallet on file.
+const DOCS_URL =
+    "https://github.com/PugarHuda/mekar/blob/main/docs/INTEGRATION_GUIDE.md";
+
+type NavItem = {
+    href: string;
+    label: string;
+    k: string;
+    external?: boolean;
+};
+
+const NAV: NavItem[] = [
     { href: "/explorer", label: "Explorer", k: "explorer" },
     { href: "/mint", label: "Mint", k: "mint" },
     { href: "/trending", label: "Trending", k: "trending" },
     { href: "/dashboard", label: "Dashboard", k: "dashboard" },
+    { href: DOCS_URL, label: "Docs", k: "docs", external: true },
 ];
 
 // Mobile menu shows everything; phone users get a full sheet so there's
 // no compelling reason to hide items there.
-const MOBILE_NAV = [
+const MOBILE_NAV: NavItem[] = [
     { href: "/", label: "Home", k: "home" },
     ...NAV,
     { href: "/manifesto", label: "Manifesto", k: "manifesto" },
@@ -72,6 +84,8 @@ export function Header() {
                             <Link
                                 key={l.k}
                                 href={l.href}
+                                target={l.external ? "_blank" : undefined}
+                                rel={l.external ? "noreferrer" : undefined}
                                 className={isActive ? "active" : ""}
                                 style={{
                                     position: "relative",
@@ -88,6 +102,18 @@ export function Header() {
                                 }}
                             >
                                 {l.label}
+                                {l.external && (
+                                    <span
+                                        aria-hidden
+                                        style={{
+                                            marginLeft: 4,
+                                            fontSize: 10,
+                                            opacity: 0.6,
+                                        }}
+                                    >
+                                        ↗
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}
@@ -131,6 +157,8 @@ export function Header() {
                                 <Link
                                     key={l.k}
                                     href={l.href}
+                                    target={l.external ? "_blank" : undefined}
+                                    rel={l.external ? "noreferrer" : undefined}
                                     onClick={() => setMobileOpen(false)}
                                     style={{
                                         padding: "10px 14px",
@@ -142,6 +170,18 @@ export function Header() {
                                     }}
                                 >
                                     {l.label}
+                                    {l.external && (
+                                        <span
+                                            aria-hidden
+                                            style={{
+                                                marginLeft: 4,
+                                                fontSize: 11,
+                                                opacity: 0.6,
+                                            }}
+                                        >
+                                            ↗
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}

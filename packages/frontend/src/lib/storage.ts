@@ -18,12 +18,28 @@
  */
 
 // "" → same-origin /api/storage/upload (production happy path).
-// Set NEXT_PUBLIC_BACKEND_URL=http://localhost:3001 to route through the
-// standalone Express backend during local dev if preferred.
+// Set NEXT_PUBLIC_BACKEND_URL=http://localhost:3001 in .env.local only to
+// route through a standalone Express backend during local dev.
+//
+// Safety: even if someone accidentally bakes the localhost URL into a
+// production build, we strip it client-side when running on https or a
+// non-localhost host. The browser would block the http:// fetch from a
+// https page anyway (mixed-content); this just gives a cleaner error
+// path that falls back to same-origin.
 const UPLOAD_ENDPOINT = (() => {
     const override = process.env.NEXT_PUBLIC_BACKEND_URL as string | undefined;
-    if (override) return `${override}/api/storage/upload`;
-    return "/api/storage/upload";
+    if (!override) return "/api/storage/upload";
+
+    const isLocalhost = /localhost|127\.0\.0\.1/.test(override);
+    if (isLocalhost && typeof window !== "undefined") {
+        const onLocalhostHost = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+        if (!onLocalhostHost) {
+            // Bake-time override was localhost but we're served from a real
+            // domain — ignore and fall back to same-origin API route.
+            return "/api/storage/upload";
+        }
+    }
+    return `${override}/api/storage/upload`;
 })();
 
 export type StorageUploadResult = {
