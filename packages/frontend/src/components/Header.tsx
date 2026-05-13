@@ -7,12 +7,22 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { BloomLogo } from "@/components/Bloom";
 import { Menu, X, AlertTriangle } from "lucide-react";
 
+// Primary top-bar nav — kept tight (4 items) so the bar doesn't feel like
+// a sitemap. The brand logo on the left already links Home, and Manifesto
+// is reachable from the footer + mobile menu so we don't need to spend a
+// top-bar slot on it.
 const NAV = [
-    { href: "/", label: "Home", k: "home" },
     { href: "/explorer", label: "Explorer", k: "explorer" },
-    { href: "/trending", label: "Trending", k: "trending" },
     { href: "/mint", label: "Mint", k: "mint" },
+    { href: "/trending", label: "Trending", k: "trending" },
     { href: "/dashboard", label: "Dashboard", k: "dashboard" },
+];
+
+// Mobile menu shows everything; phone users get a full sheet so there's
+// no compelling reason to hide items there.
+const MOBILE_NAV = [
+    { href: "/", label: "Home", k: "home" },
+    ...NAV,
     { href: "/manifesto", label: "Manifesto", k: "manifesto" },
 ];
 
@@ -115,7 +125,7 @@ export function Header() {
                             fontSize: 14,
                         }}
                     >
-                        {NAV.map((l) => {
+                        {MOBILE_NAV.map((l) => {
                             const isActive = active === l.k;
                             return (
                                 <Link

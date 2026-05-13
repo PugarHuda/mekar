@@ -504,11 +504,49 @@ function MintPageInner() {
                             >
                                 {name || "Untitled bloom"}
                             </h3>
+                            <div
+                                style={{
+                                    marginTop: 8,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    flexWrap: "wrap",
+                                    gap: 6,
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    letterSpacing: "0.04em",
+                                    color: "var(--ink-soft)",
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        padding: "2px 8px",
+                                        background: "var(--gold)",
+                                        color: "var(--cocoa)",
+                                        borderRadius: 999,
+                                        fontWeight: 600,
+                                        textTransform: "uppercase",
+                                        fontSize: 10,
+                                        letterSpacing: "0.1em",
+                                    }}
+                                >
+                                    {CATEGORY_LABELS[category]}
+                                </span>
+                                <span>·</span>
+                                <span style={{ textTransform: "capitalize" }}>{mode}</span>
+                                {address && (
+                                    <>
+                                        <span>·</span>
+                                        <span title={address}>
+                                            {address.slice(0, 6)}…{address.slice(-4)}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                             <p
                                 style={{
                                     color: "var(--ink-soft)",
                                     fontSize: 13,
-                                    marginTop: 6,
+                                    marginTop: 10,
                                     minHeight: 40,
                                 }}
                             >
@@ -1144,10 +1182,12 @@ function Step3({
 
 /**
  * Genesis-only royalty configurator. Five percentage inputs that must sum
- * to exactly 100. We render a live stacked bar so users can see how the
- * cascade redistributes as they tune — and gate the mint button on
- * royaltyConfigValid() so the contract's SchemaSumOverflow revert is
- * never hit at the wallet step.
+ * to exactly 100. Hidden behind an "Customize royalty" disclosure by
+ * default — the 50/25/15/7/3 split fits the vast majority of creators,
+ * and surfacing the full editor up-front buried the simpler license +
+ * capability fields above it.
+ *
+ * Power users who want to tune still get the full UI with one click.
  */
 function RoyaltyEditor({
     royalty,
@@ -1158,6 +1198,15 @@ function RoyaltyEditor({
 }) {
     const sum = royaltyConfigSum(royalty);
     const ok = sum === 100;
+    const isDefault =
+        royalty.directOwnerPct === DEFAULT_ROYALTY.directOwnerPct &&
+        royalty.gen1Pct === DEFAULT_ROYALTY.gen1Pct &&
+        royalty.gen2Pct === DEFAULT_ROYALTY.gen2Pct &&
+        royalty.gen3PlusPct === DEFAULT_ROYALTY.gen3PlusPct &&
+        royalty.trainingPct === DEFAULT_ROYALTY.trainingPct;
+    // Start expanded if the user already deviated from default (e.g. they
+    // hit Back from Step 4 and want to keep tuning).
+    const [expanded, setExpanded] = useState(!isDefault);
     const update =
         (key: keyof RoyaltyConfig) => (e: React.ChangeEvent<HTMLInputElement>) => {
             const v = Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10) || 0));
@@ -1202,22 +1251,138 @@ function RoyaltyEditor({
         },
     ];
 
+    // Collapsed summary view — shows the current split as a compact bar +
+    // the cumulative percent breakdown, with a single button to expand
+    // the full editor. Keeps Step 3 visually tight for the 80% of users
+    // who'd rather just accept the default.
+    if (!expanded) {
+        return (
+            <Field label={`Royalty schema  (${sum}% / 100%)`}>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                        padding: "12px 14px",
+                        border: "1px solid var(--rule)",
+                        borderRadius: 4,
+                        background: "var(--bg-alt)",
+                    }}
+                >
+                    {/* Inline stacked bar */}
+                    <div
+                        style={{
+                            flex: 1,
+                            display: "flex",
+                            height: 8,
+                            borderRadius: 999,
+                            overflow: "hidden",
+                            border: "1px solid var(--rule)",
+                            background: "var(--surface)",
+                        }}
+                    >
+                        {rows.map((r) => {
+                            const v = royalty[r.key];
+                            if (v === 0) return null;
+                            return (
+                                <div
+                                    key={r.key}
+                                    style={{
+                                        width: `${v}%`,
+                                        background: r.color,
+                                    }}
+                                    title={`${r.label}: ${v}%`}
+                                />
+                            );
+                        })}
+                    </div>
+                    <code
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 12,
+                            color: "var(--ink)",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {royalty.directOwnerPct}/{royalty.gen1Pct}/{royalty.gen2Pct}/
+                        {royalty.gen3PlusPct}/{royalty.trainingPct}
+                    </code>
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(true)}
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 11,
+                            color: "var(--ink)",
+                            background: "transparent",
+                            border: "1px solid var(--rule)",
+                            borderRadius: 4,
+                            padding: "5px 10px",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        Customize →
+                    </button>
+                </div>
+                <p
+                    style={{
+                        fontSize: 11,
+                        color: "var(--ink-soft)",
+                        marginTop: 6,
+                        fontFamily: "var(--mono)",
+                    }}
+                >
+                    Default cascade: owner / gen1 / gen2 / gen3+ / training. Forks +
+                    composes inherit this from the genesis.
+                </p>
+            </Field>
+        );
+    }
+
     return (
         <Field label={`Royalty schema  (${sum}% / 100%)`}>
-            <p
+            <div
                 style={{
-                    fontSize: 12,
-                    color: ok ? "var(--ink-soft)" : "#c25a4a",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    gap: 12,
                     marginTop: -4,
                     marginBottom: 14,
-                    fontFamily: "var(--mono)",
                 }}
             >
-                {ok
-                    ? "✓ Sum is 100% — ready to mint."
-                    : `Adjust until the five rows sum to 100% (off by ${sum - 100 > 0 ? "+" : ""}${sum - 100}).`}
-                {" "}Genesis-only. Forks + composes inherit this from the genesis.
-            </p>
+                <p
+                    style={{
+                        fontSize: 12,
+                        color: ok ? "var(--ink-soft)" : "#c25a4a",
+                        margin: 0,
+                        fontFamily: "var(--mono)",
+                        flex: 1,
+                    }}
+                >
+                    {ok
+                        ? "✓ Sum is 100% — ready to mint."
+                        : `Adjust until the five rows sum to 100% (off by ${sum - 100 > 0 ? "+" : ""}${sum - 100}).`}
+                </p>
+                <button
+                    type="button"
+                    onClick={() => setExpanded(false)}
+                    style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 11,
+                        color: "var(--ink-soft)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        textDecorationColor: "var(--rule)",
+                        padding: 0,
+                    }}
+                >
+                    Collapse
+                </button>
+            </div>
 
             {/* Live stacked bar — visual feedback on the cascade shape */}
             <div

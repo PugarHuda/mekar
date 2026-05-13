@@ -8,12 +8,14 @@ import { Bloom } from "@/components/Bloom";
 import { InferencePay, RegisterProviderButton } from "@/components/InferencePay";
 import { useAgent, modeLabel } from "@/hooks/useAgent";
 import { useAgentInferenceHistory } from "@/hooks/useUserStats";
+import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
 import { explorerLink } from "@/lib/chains";
 import { formatOG, formatTimeAgo, shortAddress } from "@/lib/utils";
 import {
     agentName,
     agentFocus,
     agentCategory,
+    kindFromParents,
     CATEGORY_LABELS,
 } from "@/lib/agentNaming";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
@@ -24,6 +26,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     const { agent, isLoading } = useAgent(agentId);
     const history = useAgentInferenceHistory(Number.isFinite(agentId) ? agentId : undefined);
     const [selectedTx, setSelectedTx] = useState<(typeof history.inferences)[number] | null>(null);
+
+    // Pull the full lineage list so we can resolve parent + descendant
+    // ids back to real identity (name + category + owner) for the
+    // lineage strip render below. Without this each parent/descendant
+    // ends up labelled "Agent bloom #N" with no signal about what it does.
+    const { nodes: allNodes } = useLineageData();
+    const lookupNode = (id: number): LineageNode | undefined =>
+        allNodes.find((n) => n.id === id);
 
     const sparkData = useMemo(() => proceduralSeries(agentId, 30), [agentId]);
     const earningsSeries = useMemo(
@@ -326,34 +336,60 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                         borderBottom: "1px solid var(--rule)",
                                     }}
                                 >
-                                    {agent.parents.map((p) => (
-                                        <Link
-                                            key={p}
-                                            href={`/agent/${p}`}
-                                            style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                alignItems: "center",
-                                                gap: 6,
-                                                textDecoration: "none",
-                                                color: "var(--ink)",
-                                                opacity: 0.85,
-                                            }}
-                                        >
-                                            <Bloom
-                                                kind="genesis"
-                                                seed={`parent-${p}`}
-                                                size={70}
-                                                sw={1.2}
-                                            />
-                                            <span style={{ fontSize: 12, fontWeight: 600 }}>
-                                                #{p}
-                                            </span>
-                                            <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-soft)" }}>
-                                                ancestor
-                                            </code>
-                                        </Link>
-                                    ))}
+                                    {agent.parents.map((p) => {
+                                        const pNode = lookupNode(p);
+                                        const pParentCount = pNode?.parents.length ?? 0;
+                                        const pName = agentName(p, pParentCount);
+                                        const pCat = CATEGORY_LABELS[agentCategory(p, pParentCount)];
+                                        const pFocus = agentFocus(p, pParentCount);
+                                        const tip = `${pName}\n${pCat} · ${pFocus}\nToken #${p} · gen ${pNode?.generation ?? "?"}${pNode?.owner ? `\nowner ${shortAddress(pNode.owner, 4)}` : ""}`;
+                                        return (
+                                            <Link
+                                                key={p}
+                                                href={`/agent/${p}`}
+                                                title={tip}
+                                                style={{
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    gap: 4,
+                                                    textDecoration: "none",
+                                                    color: "var(--ink)",
+                                                    opacity: 0.9,
+                                                    maxWidth: 140,
+                                                }}
+                                            >
+                                                <Bloom
+                                                    kind={kindFromParents(pParentCount)}
+                                                    seed={String(p)}
+                                                    size={70}
+                                                    sw={1.2}
+                                                />
+                                                <span
+                                                    style={{
+                                                        fontSize: 12,
+                                                        fontWeight: 600,
+                                                        fontFamily: "var(--mono)",
+                                                        whiteSpace: "nowrap",
+                                                        overflow: "hidden",
+                                                        textOverflow: "ellipsis",
+                                                        maxWidth: 130,
+                                                    }}
+                                                >
+                                                    {pName}
+                                                </span>
+                                                <code
+                                                    style={{
+                                                        fontFamily: "var(--mono)",
+                                                        fontSize: 10,
+                                                        color: "var(--ink-soft)",
+                                                    }}
+                                                >
+                                                    {pCat} · ancestor
+                                                </code>
+                                            </Link>
+                                        );
+                                    })}
 
                                     {agent.parents.length > 0 && (
                                         <span
@@ -368,34 +404,49 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                     )}
 
                                     <div
+                                        title={`${agentName(agent.id, agent.parents.length)}\n${CATEGORY_LABELS[agentCategory(agent.id, agent.parents.length)]} · ${agentFocus(agent.id, agent.parents.length)}\nToken #${agent.id} · gen ${agent.generation}`}
                                         style={{
                                             display: "flex",
                                             flexDirection: "column",
                                             alignItems: "center",
-                                            gap: 6,
+                                            gap: 4,
                                             padding: "12px 18px",
                                             background: "var(--bg-alt)",
                                             border: "1.5px solid var(--cocoa)",
                                             borderRadius: 8,
+                                            maxWidth: 180,
                                         }}
                                     >
                                         <Bloom
-                                            kind={
-                                                agent.parents.length === 0
-                                                    ? "genesis"
-                                                    : agent.parents.length === 1
-                                                      ? "fork"
-                                                      : "compose"
-                                            }
+                                            kind={kindFromParents(agent.parents.length)}
                                             seed={String(agent.id)}
                                             size={88}
                                             sw={1.4}
                                         />
-                                        <span style={{ fontSize: 13, fontWeight: 600 }}>
-                                            #{agent.id}
+                                        <span
+                                            style={{
+                                                fontSize: 13,
+                                                fontWeight: 600,
+                                                fontFamily: "var(--mono)",
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                maxWidth: 160,
+                                            }}
+                                        >
+                                            {agentName(agent.id, agent.parents.length)}
                                         </span>
-                                        <code style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-soft)" }}>
-                                            this bloom
+                                        <code
+                                            style={{
+                                                fontFamily: "var(--mono)",
+                                                fontSize: 10,
+                                                color: "var(--ink-soft)",
+                                            }}
+                                        >
+                                            {CATEGORY_LABELS[
+                                                agentCategory(agent.id, agent.parents.length)
+                                            ]}{" "}
+                                            · this bloom
                                         </code>
                                     </div>
 
@@ -418,31 +469,60 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                             flexWrap: "wrap",
                                         }}
                                     >
-                                        {agent.descendants.map((d) => (
-                                            <Link
-                                                key={d}
-                                                href={`/agent/${d}`}
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    alignItems: "center",
-                                                    gap: 4,
-                                                    textDecoration: "none",
-                                                    color: "var(--ink)",
-                                                    opacity: 0.8,
-                                                }}
-                                            >
-                                                <Bloom
-                                                    kind="fork"
-                                                    seed={`child-${d}`}
-                                                    size={56}
-                                                    sw={1}
-                                                />
-                                                <span style={{ fontSize: 11, fontWeight: 600 }}>
-                                                    #{d}
-                                                </span>
-                                            </Link>
-                                        ))}
+                                        {agent.descendants.map((d) => {
+                                            const dNode = lookupNode(d);
+                                            const dParentCount = dNode?.parents.length ?? 1;
+                                            const dName = agentName(d, dParentCount);
+                                            const dCat = CATEGORY_LABELS[agentCategory(d, dParentCount)];
+                                            const dFocus = agentFocus(d, dParentCount);
+                                            const tip = `${dName}\n${dCat} · ${dFocus}\nToken #${d} · gen ${dNode?.generation ?? "?"}${dNode?.owner ? `\nowner ${shortAddress(dNode.owner, 4)}` : ""}`;
+                                            return (
+                                                <Link
+                                                    key={d}
+                                                    href={`/agent/${d}`}
+                                                    title={tip}
+                                                    style={{
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        alignItems: "center",
+                                                        gap: 2,
+                                                        textDecoration: "none",
+                                                        color: "var(--ink)",
+                                                        opacity: 0.9,
+                                                        maxWidth: 110,
+                                                    }}
+                                                >
+                                                    <Bloom
+                                                        kind={kindFromParents(dParentCount)}
+                                                        seed={String(d)}
+                                                        size={56}
+                                                        sw={1}
+                                                    />
+                                                    <span
+                                                        style={{
+                                                            fontSize: 11,
+                                                            fontWeight: 600,
+                                                            fontFamily: "var(--mono)",
+                                                            whiteSpace: "nowrap",
+                                                            overflow: "hidden",
+                                                            textOverflow: "ellipsis",
+                                                            maxWidth: 100,
+                                                        }}
+                                                    >
+                                                        {dName}
+                                                    </span>
+                                                    <code
+                                                        style={{
+                                                            fontFamily: "var(--mono)",
+                                                            fontSize: 9,
+                                                            color: "var(--ink-soft)",
+                                                        }}
+                                                    >
+                                                        {dCat}
+                                                    </code>
+                                                </Link>
+                                            );
+                                        })}
                                         {agent.descendants.length === 0 && (
                                             <span
                                                 style={{
