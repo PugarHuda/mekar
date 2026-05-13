@@ -10,6 +10,12 @@ import { useAgent, modeLabel } from "@/hooks/useAgent";
 import { useAgentInferenceHistory } from "@/hooks/useUserStats";
 import { explorerLink } from "@/lib/chains";
 import { formatOG, formatTimeAgo, shortAddress } from "@/lib/utils";
+import {
+    agentName,
+    agentFocus,
+    agentCategory,
+    CATEGORY_LABELS,
+} from "@/lib/agentNaming";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -146,26 +152,50 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                     </span>
                                     <h1
                                         style={{
-                                            fontSize: "clamp(48px, 6vw, 84px)",
+                                            fontSize: "clamp(40px, 5vw, 64px)",
                                             marginTop: 12,
+                                            lineHeight: 1.05,
                                         }}
                                     >
-                                        Agent <em>#{agent.id}</em>
+                                        <em>{agentName(agent.id, agent.parents.length)}</em>
                                     </h1>
                                     <code
                                         style={{
                                             fontFamily: "var(--mono)",
                                             fontSize: 13,
                                             color: "var(--ink-soft)",
-                                            background: "var(--bg-alt)",
-                                            padding: "4px 10px",
-                                            borderRadius: 4,
-                                            display: "inline-block",
-                                            marginTop: 12,
+                                            display: "block",
+                                            marginTop: 8,
                                         }}
                                     >
-                                        gen {agent.generation} · {modeLabel(agent.mode)}
+                                        Token #{agent.id} · gen {agent.generation} ·{" "}
+                                        {modeLabel(agent.mode)}
                                     </code>
+                                    <div
+                                        style={{
+                                            marginTop: 14,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 10,
+                                            padding: "6px 14px",
+                                            border: "1.5px solid var(--cocoa)",
+                                            borderRadius: 999,
+                                            background: "var(--gold)",
+                                            color: "var(--cocoa)",
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 12,
+                                            letterSpacing: "0.08em",
+                                            textTransform: "uppercase",
+                                        }}
+                                    >
+                                        <span style={{ fontWeight: 600 }}>
+                                            {CATEGORY_LABELS[
+                                                agentCategory(agent.id, agent.parents.length)
+                                            ]}
+                                        </span>
+                                        <span style={{ opacity: 0.6 }}>·</span>
+                                        <span>{agentFocus(agent.id, agent.parents.length)}</span>
+                                    </div>
                                     <p
                                         style={{
                                             color: "var(--ink-soft)",
@@ -191,10 +221,21 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                         <span className="chip">
                                             {agent.descendants.length} descendants
                                         </span>
+                                        <span
+                                            className="chip"
+                                            title="Inference count from RoyaltyPaid events"
+                                        >
+                                            {history.totalInferences} inferences
+                                        </span>
+                                        <span
+                                            className="chip"
+                                            title="Lifetime royalty distributed through this agent"
+                                        >
+                                            {formatOG(history.totalDistributed, 6)} OG distributed
+                                        </span>
                                         <span className="chip">
                                             alignment {(agent.alignmentHealth / 100).toFixed(0)}%
                                         </span>
-                                        <span className="chip">{modeLabel(agent.mode)}</span>
                                     </div>
                                 </div>
 

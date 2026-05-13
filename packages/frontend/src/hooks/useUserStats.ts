@@ -24,6 +24,7 @@ const ROYALTY_PAID_EVENT = parseAbiItem(
 );
 
 const SCAN_BLOCK_RANGE = 50_000n; // chunk size for getLogs (some RPCs cap)
+const SCAN_CONCURRENCY = 5;       // parallel getLogs calls per batch
 
 /**
  * Lower bound for scans — block at which the v2 RoyaltyVault was deployed.
@@ -35,6 +36,71 @@ const SCAN_BLOCK_RANGE = 50_000n; // chunk size for getLogs (some RPCs cap)
  * pre-deploy noise.
  */
 const VAULT_V2_DEPLOY_BLOCK = 32160000n;
+
+// --------------- localStorage cache for historical event scans ----------
+// Settlements happened up to 700k+ blocks ago at the moment, so the first
+// page load otherwise sequences ~14 getLogs calls and stalls the UI for
+// 10–20s. Cache keeps the result keyed by (vault, scope), then the next
+// load only scans the delta from the cached lastBlock to the current head.
+//
+// Versioned on VAULT_V2_DEPLOY_BLOCK so a future v3 deploy auto-invalidates
+// every browser without manual cache flush.
+
+type CacheEntryV1<L> = {
+  vault: string;
+  fromAnchor: string;          // VAULT_V2_DEPLOY_BLOCK as string (cache version key)
+  lastBlock: string;           // BigInt as string
+  logs: L[];                   // logs with bigint fields already stringified
+};
+
+function cacheRead<L>(key: string): CacheEntryV1<L> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CacheEntryV1<L>;
+    if (parsed.fromAnchor !== VAULT_V2_DEPLOY_BLOCK.toString()) return null;
+    if (parsed.vault !== CONTRACT_ADDRESSES.RoyaltyVault.toLowerCase()) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function cacheWrite<L>(key: string, entry: CacheEntryV1<L>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(entry));
+  } catch {
+    // Quota / disabled — silent. Next load will just re-scan from anchor.
+  }
+}
+
+// Promise.all but with concurrency limit so the public Galileo RPC isn't
+// hammered with 14 connections in parallel. 5 at a time keeps the parallel
+// speedup (~3-5x) without blowing rate limits.
+async function withConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  const out: T[] = new Array(tasks.length);
+  let next = 0;
+  async function worker() {
+    for (;;) {
+      const i = next++;
+      if (i >= tasks.length) return;
+      try {
+        out[i] = await tasks[i]();
+      } catch {
+        out[i] = [] as unknown as T;
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, worker)
+  );
+  return out;
+}
 
 /**
  * Aggregates `RoyaltyPaid` events to compute a user's earnings + inference count.
@@ -66,54 +132,114 @@ export function useUserStats(address: `0x${string}` | undefined): UserStats {
     (async () => {
       try {
         const latestBlock = await publicClient.getBlockNumber();
-        // Start from the vault's deploy block so any historical settlement
-        // is included no matter how old — the previous floor of
-        // `latestBlock - 200k` silently dropped events older than ~55 hours.
-        const fromBlock =
-          latestBlock > VAULT_V2_DEPLOY_BLOCK ? VAULT_V2_DEPLOY_BLOCK : BigInt(0);
 
-        // Scan in chunks to respect RPC limits
-        const allLogs: Array<{
+        // Cache lookup — start the new scan from the last cached block + 1
+        // when we already have a partial history for this user.
+        type StoredLog = {
           txHash: `0x${string}`;
           agentId: number;
           generation: number;
-          amount: bigint;
-          blockNumber: bigint;
-        }> = [];
+          amount: string; // bigint as string (JSON-safe)
+          blockNumber: string;
+        };
+        const cacheKey = `mekar:logs:user:${address.toLowerCase()}`;
+        const cached = cacheRead<StoredLog>(cacheKey);
+        const cachedLogs = (cached?.logs ?? []).map((l) => ({
+          txHash: l.txHash,
+          agentId: l.agentId,
+          generation: l.generation,
+          amount: BigInt(l.amount),
+          blockNumber: BigInt(l.blockNumber),
+        }));
 
+        const fromBlock = cached
+          ? BigInt(cached.lastBlock) + 1n
+          : latestBlock > VAULT_V2_DEPLOY_BLOCK
+            ? VAULT_V2_DEPLOY_BLOCK
+            : BigInt(0);
+
+        // Surface what we have from cache immediately so the UI isn't blank
+        // while the delta-scan runs. The delta itself completes in 1-3s.
+        if (cachedLogs.length > 0 && !cancelled) {
+          const cachedTotal = cachedLogs.reduce((s, l) => s + l.amount, BigInt(0));
+          const distinctCachedTxs = new Set(cachedLogs.map((l) => l.txHash));
+          setStats({
+            totalRoyaltyEarned: cachedTotal,
+            totalInferences: distinctCachedTxs.size,
+            inferencesAsRecipient: cachedLogs
+              .slice()
+              .sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1)),
+            isLoading: true, // still scanning the delta
+          });
+        }
+
+        // Build chunk ranges for the (possibly delta-only) scan.
+        const ranges: Array<{ from: bigint; to: bigint }> = [];
         for (let cursor = fromBlock; cursor <= latestBlock; cursor += SCAN_BLOCK_RANGE) {
-          if (cancelled) return;
-          const toBlock =
-            cursor + SCAN_BLOCK_RANGE > latestBlock ? latestBlock : cursor + SCAN_BLOCK_RANGE;
+          const to =
+            cursor + SCAN_BLOCK_RANGE > latestBlock
+              ? latestBlock
+              : cursor + SCAN_BLOCK_RANGE;
+          ranges.push({ from: cursor, to });
+        }
 
-          try {
-            const logs = await publicClient.getLogs({
+        // Parallelize. Public Galileo RPC tolerates ~5 concurrent getLogs
+        // without rate-limiting; full 14-chunk sequential scan goes from
+        // ~20s → ~5s on a cold load.
+        const tasks = ranges.map(
+          (r) => () =>
+            publicClient.getLogs({
               address: CONTRACT_ADDRESSES.RoyaltyVault,
               event: ROYALTY_PAID_EVENT,
               args: { recipient: address },
-              fromBlock: cursor,
-              toBlock,
-            });
-
-            for (const log of logs) {
-              allLogs.push({
-                txHash: log.transactionHash,
-                agentId: Number(log.args.agentId ?? BigInt(0)),
-                generation: Number(log.args.generation ?? 0),
-                amount: log.args.amount ?? BigInt(0),
-                blockNumber: log.blockNumber,
-              });
-            }
-          } catch {
-            // Skip range on error, continue scanning
-          }
-        }
+              fromBlock: r.from,
+              toBlock: r.to,
+            }) as Promise<
+              {
+                transactionHash: `0x${string}`;
+                blockNumber: bigint;
+                args: { agentId?: bigint; generation?: number; amount?: bigint };
+              }[]
+            >
+        );
+        const batched = await withConcurrency(tasks, SCAN_CONCURRENCY);
 
         if (cancelled) return;
 
-        const total = allLogs.reduce((sum, l) => sum + l.amount, BigInt(0));
+        const freshLogs = batched.flat().map((log) => ({
+          txHash: log.transactionHash,
+          agentId: Number(log.args.agentId ?? BigInt(0)),
+          generation: Number(log.args.generation ?? 0),
+          amount: log.args.amount ?? BigInt(0),
+          blockNumber: log.blockNumber,
+        }));
 
-        // Count distinct (agentId × tx) for inferences
+        // Merge — dedupe by (txHash + amount + agentId) so a re-scan
+        // overlap doesn't double-count.
+        const seen = new Set<string>();
+        const allLogs: typeof freshLogs = [];
+        for (const l of [...cachedLogs, ...freshLogs]) {
+          const key = `${l.txHash}:${l.agentId}:${l.amount.toString()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          allLogs.push(l);
+        }
+
+        // Write cache for next visit. Store bigints as strings.
+        cacheWrite<StoredLog>(cacheKey, {
+          vault: CONTRACT_ADDRESSES.RoyaltyVault.toLowerCase(),
+          fromAnchor: VAULT_V2_DEPLOY_BLOCK.toString(),
+          lastBlock: latestBlock.toString(),
+          logs: allLogs.map((l) => ({
+            txHash: l.txHash,
+            agentId: l.agentId,
+            generation: l.generation,
+            amount: l.amount.toString(),
+            blockNumber: l.blockNumber.toString(),
+          })),
+        });
+
+        const total = allLogs.reduce((sum, l) => sum + l.amount, BigInt(0));
         const distinctTxs = new Set(allLogs.map((l) => l.txHash));
 
         setStats({
@@ -176,49 +302,103 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
     (async () => {
       try {
         const latestBlock = await publicClient.getBlockNumber();
-        // Start from the vault's deploy block so any historical settlement
-        // is included no matter how old — the previous floor of
-        // `latestBlock - 200k` silently dropped events older than ~55 hours.
-        const fromBlock =
-          latestBlock > VAULT_V2_DEPLOY_BLOCK ? VAULT_V2_DEPLOY_BLOCK : BigInt(0);
 
-        const all: Array<{
+        // Cache lookup keyed by agentId — mirror of useUserStats cache so
+        // /agent/[id] re-visits skip the ~14-chunk historical scan.
+        type StoredLog = {
           txHash: `0x${string}`;
           recipient: `0x${string}`;
           generation: number;
-          amount: bigint;
-          blockNumber: bigint;
-        }> = [];
+          amount: string;
+          blockNumber: string;
+        };
+        const cacheKey = `mekar:logs:agent:${agentId}`;
+        const cached = cacheRead<StoredLog>(cacheKey);
+        const cachedLogs = (cached?.logs ?? []).map((l) => ({
+          txHash: l.txHash,
+          recipient: l.recipient,
+          generation: l.generation,
+          amount: BigInt(l.amount),
+          blockNumber: BigInt(l.blockNumber),
+        }));
 
+        const fromBlock = cached
+          ? BigInt(cached.lastBlock) + 1n
+          : latestBlock > VAULT_V2_DEPLOY_BLOCK
+            ? VAULT_V2_DEPLOY_BLOCK
+            : BigInt(0);
+
+        if (cachedLogs.length > 0 && !cancelled) {
+          const cachedTotal = cachedLogs.reduce((s, l) => s + l.amount, BigInt(0));
+          const cachedTxs = new Set(cachedLogs.map((l) => l.txHash));
+          setState({
+            inferences: cachedLogs
+              .slice()
+              .sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1)),
+            totalDistributed: cachedTotal,
+            totalInferences: cachedTxs.size,
+            isLoading: true,
+          });
+        }
+
+        const ranges: Array<{ from: bigint; to: bigint }> = [];
         for (let cursor = fromBlock; cursor <= latestBlock; cursor += SCAN_BLOCK_RANGE) {
-          if (cancelled) return;
-          const toBlock =
-            cursor + SCAN_BLOCK_RANGE > latestBlock ? latestBlock : cursor + SCAN_BLOCK_RANGE;
+          const to =
+            cursor + SCAN_BLOCK_RANGE > latestBlock
+              ? latestBlock
+              : cursor + SCAN_BLOCK_RANGE;
+          ranges.push({ from: cursor, to });
+        }
 
-          try {
-            const logs = await publicClient.getLogs({
+        const tasks = ranges.map(
+          (r) => () =>
+            publicClient.getLogs({
               address: CONTRACT_ADDRESSES.RoyaltyVault,
               event: ROYALTY_PAID_EVENT,
               args: { agentId: BigInt(agentId) },
-              fromBlock: cursor,
-              toBlock,
-            });
-
-            for (const log of logs) {
-              all.push({
-                txHash: log.transactionHash,
-                recipient: log.args.recipient ?? "0x0000000000000000000000000000000000000000",
-                generation: Number(log.args.generation ?? 0),
-                amount: log.args.amount ?? BigInt(0),
-                blockNumber: log.blockNumber,
-              });
-            }
-          } catch {
-            // ignore range errors
-          }
-        }
+              fromBlock: r.from,
+              toBlock: r.to,
+            }) as Promise<
+              {
+                transactionHash: `0x${string}`;
+                blockNumber: bigint;
+                args: { recipient?: `0x${string}`; generation?: number; amount?: bigint };
+              }[]
+            >
+        );
+        const batched = await withConcurrency(tasks, SCAN_CONCURRENCY);
 
         if (cancelled) return;
+
+        const freshLogs = batched.flat().map((log) => ({
+          txHash: log.transactionHash,
+          recipient: log.args.recipient ?? ("0x0000000000000000000000000000000000000000" as `0x${string}`),
+          generation: Number(log.args.generation ?? 0),
+          amount: log.args.amount ?? BigInt(0),
+          blockNumber: log.blockNumber,
+        }));
+
+        const seen = new Set<string>();
+        const all: typeof freshLogs = [];
+        for (const l of [...cachedLogs, ...freshLogs]) {
+          const key = `${l.txHash}:${l.recipient}:${l.amount.toString()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          all.push(l);
+        }
+
+        cacheWrite<StoredLog>(cacheKey, {
+          vault: CONTRACT_ADDRESSES.RoyaltyVault.toLowerCase(),
+          fromAnchor: VAULT_V2_DEPLOY_BLOCK.toString(),
+          lastBlock: latestBlock.toString(),
+          logs: all.map((l) => ({
+            txHash: l.txHash,
+            recipient: l.recipient,
+            generation: l.generation,
+            amount: l.amount.toString(),
+            blockNumber: l.blockNumber.toString(),
+          })),
+        });
 
         const total = all.reduce((s, l) => s + l.amount, BigInt(0));
         const txs = new Set(all.map((l) => l.txHash));

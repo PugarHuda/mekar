@@ -18,7 +18,14 @@ import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { AGENT_INFT_ABI } from "@/contracts/abis";
 import { explorerLink } from "@/lib/chains";
 import { uploadToZGStorage, type StorageUploadResult } from "@/lib/storage";
-import { agentName, agentFocus, kindFromParents } from "@/lib/agentNaming";
+import {
+    agentName,
+    agentFocus,
+    kindFromParents,
+    CATEGORY_LABELS,
+    type AgentCategory,
+} from "@/lib/agentNaming";
+import { saveAgentMetadata } from "@/lib/agentMetadata";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 type Mode = "genesis" | "fork" | "compose";
@@ -112,23 +119,38 @@ function MintPageInner() {
     const royaltySum = royaltyConfigSum(royalty);
     const royaltyValid = royaltyConfigValid(royalty);
 
+    // Capability category the user picks at mint. Stored in localStorage on
+    // success keyed by the next tokenId so display surfaces (explorer,
+    // dashboard, agent detail) can show "this agent is for code" instead
+    // of guessing from the random focus pool.
+    const [category, setCategory] = useState<AgentCategory>("general");
+
     const { address } = useAccount();
-    const { nodes, refetch: refetchLineage } = useLineageData();
+    const { nodes, totalAgents, refetch: refetchLineage } = useLineageData();
 
     const { writeContract, data: txHash, isPending } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
-    // Auto-refresh the lineage cache the moment the mint tx confirms. Without
-    // this, freshly minted agents don't appear in the fork/compose parent
-    // picker until the user does a full page reload — confusing UX during
-    // the demo where mint → re-mint flow is common.
+    // Auto-refresh the lineage cache the moment the mint tx confirms.
+    // We also persist the user-picked metadata (name, category, etc.) to
+    // localStorage keyed by the expected new tokenId so display surfaces
+    // pick up the choices immediately. Phase 2: encode this same shape
+    // into the 0G Storage manifest so cross-device + multi-user works.
     useEffect(() => {
-        if (isSuccess) {
-            refetchLineage().catch(() => {
-                /* silent — pickers will still update on next natural refetch */
-            });
-        }
-    }, [isSuccess, refetchLineage]);
+        if (!isSuccess) return;
+
+        const newTokenId = totalAgents + 1;
+        saveAgentMetadata(newTokenId, {
+            name: name || undefined,
+            category,
+            description: description || undefined,
+            license,
+        });
+
+        refetchLineage().catch(() => {
+            /* silent — pickers will still update on next natural refetch */
+        });
+    }, [isSuccess, refetchLineage, totalAgents, name, category, description, license]);
 
     const seed = useMemo(
         () => `${name || "untitled"}-${mode}-${address ?? "anon"}-${Date.now()}`,
@@ -362,6 +384,8 @@ function MintPageInner() {
                                     setLicense={setLicense}
                                     royalty={royalty}
                                     setRoyalty={setRoyalty}
+                                    category={category}
+                                    setCategory={setCategory}
                                 />
                             )}
                             {step === 4 && (
@@ -1005,6 +1029,8 @@ function Step3({
     setLicense,
     royalty,
     setRoyalty,
+    category,
+    setCategory,
 }: {
     mode: Mode;
     name: string;
@@ -1015,6 +1041,8 @@ function Step3({
     setLicense: (v: string) => void;
     royalty: RoyaltyConfig;
     setRoyalty: (r: RoyaltyConfig) => void;
+    category: AgentCategory;
+    setCategory: (c: AgentCategory) => void;
 }) {
     const licenses = [
         "MIT",
@@ -1023,6 +1051,15 @@ function Step3({
         "CC-BY-SA",
         "CC0",
         "Mekar-Commercial",
+    ];
+    const categories: AgentCategory[] = [
+        "translate",
+        "code",
+        "math",
+        "vision",
+        "retrieval",
+        "reasoning",
+        "general",
     ];
     return (
         <div>
@@ -1042,6 +1079,33 @@ function Step3({
                     placeholder="e.g. Jasmine-Indo-7B"
                     style={inputStyle}
                 />
+            </Field>
+
+            <Field label="Capability (what this agent does)">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {categories.map((c) => (
+                        <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCategory(c)}
+                            className={`pill ${category === c ? "active" : ""}`}
+                            style={{ textTransform: "none" }}
+                        >
+                            {CATEGORY_LABELS[c]}
+                        </button>
+                    ))}
+                </div>
+                <p
+                    style={{
+                        fontSize: 11,
+                        color: "var(--ink-soft)",
+                        marginTop: 6,
+                        fontFamily: "var(--mono)",
+                    }}
+                >
+                    Used for explorer search + filter. Stored client-side until 0G KV
+                    metadata writeback ships in Phase 2.
+                </p>
             </Field>
 
             <Field label="Description">

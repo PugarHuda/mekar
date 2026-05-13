@@ -6,6 +6,12 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
 import { useLineageData } from "@/hooks/useLineageData";
+import {
+    agentName,
+    agentCategory,
+    CATEGORY_LABELS,
+} from "@/lib/agentNaming";
+import { shortAddress } from "@/lib/utils";
 
 type Mode = "earners" | "growing" | "forked" | "fresh";
 
@@ -156,8 +162,8 @@ export default function TrendingPage() {
                                             sw={1.4}
                                         />
                                     </div>
-                                    <h3 style={{ marginTop: 16, fontSize: 28 }}>
-                                        Agent #{n.id}
+                                    <h3 style={{ marginTop: 16, fontSize: 24 }}>
+                                        {agentName(n.id, n.parents.length)}
                                     </h3>
                                     <code
                                         style={{
@@ -169,8 +175,21 @@ export default function TrendingPage() {
                                             marginTop: 4,
                                         }}
                                     >
+                                        {CATEGORY_LABELS[agentCategory(n.id, n.parents.length)]} ·
                                         gen {n.generation} ·{" "}
                                         {(n.alignmentHealth / 100).toFixed(0)}% aligned
+                                    </code>
+                                    <code
+                                        style={{
+                                            fontFamily: "var(--mono)",
+                                            fontSize: 10,
+                                            color: i === 0 ? "var(--cocoa)" : "var(--ink-soft)",
+                                            display: "block",
+                                            marginTop: 4,
+                                            opacity: 0.7,
+                                        }}
+                                    >
+                                        owner {shortAddress(n.owner ?? n.creator, 4)}
                                     </code>
                                 </Link>
                             ))}
@@ -201,9 +220,11 @@ export default function TrendingPage() {
                                 <tr>
                                     <th style={{ padding: 14, width: 60 }}>#</th>
                                     <th style={{ padding: 14 }}>Agent</th>
+                                    <th style={{ padding: 14 }}>Capability</th>
                                     <th style={{ padding: 14 }}>Kind</th>
+                                    <th style={{ padding: 14 }}>Owner</th>
                                     <th style={{ padding: 14 }}>Alignment</th>
-                                    <th style={{ padding: 14 }}>Generation</th>
+                                    <th style={{ padding: 14 }}>Gen</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -229,8 +250,23 @@ export default function TrendingPage() {
                                                     textDecorationColor: "var(--rule)",
                                                 }}
                                             >
-                                                Agent #{n.id}
+                                                {agentName(n.id, n.parents.length)}
                                             </Link>
+                                            <div
+                                                style={{
+                                                    fontSize: 10,
+                                                    color: "var(--ink-soft)",
+                                                    marginTop: 2,
+                                                    opacity: 0.7,
+                                                }}
+                                            >
+                                                #{n.id}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: 14, color: "var(--ink-soft)" }}>
+                                            {CATEGORY_LABELS[
+                                                agentCategory(n.id, n.parents.length)
+                                            ]}
                                         </td>
                                         <td style={{ padding: 14, color: "var(--ink-soft)" }}>
                                             {n.parents.length === 0
@@ -238,6 +274,15 @@ export default function TrendingPage() {
                                                 : n.parents.length === 1
                                                   ? "Fork"
                                                   : "Composed"}
+                                        </td>
+                                        <td
+                                            style={{
+                                                padding: 14,
+                                                color: "var(--ink-soft)",
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            {shortAddress(n.owner ?? n.creator, 4)}
                                         </td>
                                         <td style={{ padding: 14 }}>
                                             {(n.alignmentHealth / 100).toFixed(0)}%

@@ -112,7 +112,31 @@ export function kindFromParents(parentCount: number): Kind {
     return "compose";
 }
 
+// Canonical focus phrase per category — used when the user explicitly
+// picks a capability at mint time. Without a user override we still
+// fall back to the deterministic random pool below so legacy agents
+// (and seed data minted before the picker shipped) keep their identity.
+const CATEGORY_FOCUS: Record<AgentCategory, string> = {
+    translate: "indo translation",
+    code: "code generation",
+    math: "math reasoning",
+    vision: "image understanding",
+    retrieval: "doc retrieval",
+    reasoning: "general reasoning",
+    general: "general assistant",
+};
+
 export function agentName(id: number, parentCount: number): string {
+    // Lazy-require to avoid circular type imports during SSR.
+    let userMeta = null;
+    try {
+        const { getAgentMetadata } = require("./agentMetadata") as typeof import("./agentMetadata");
+        userMeta = getAgentMetadata(id);
+    } catch {
+        // Ignore — fall through to deterministic name below.
+    }
+    if (userMeta?.name) return userMeta.name;
+
     const kind = kindFromParents(parentCount);
     const pool = NAMES[kind];
     const rng = hashSeed(`name-${id}-${kind}`);
@@ -120,6 +144,18 @@ export function agentName(id: number, parentCount: number): string {
 }
 
 export function agentFocus(id: number, parentCount: number): string {
+    // If user picked a category at mint, prefer the canonical phrase for
+    // that category — keeps name + capability consistent rather than the
+    // pool sometimes spitting out a focus that doesn't match the badge.
+    let userMeta = null;
+    try {
+        const { getAgentMetadata } = require("./agentMetadata") as typeof import("./agentMetadata");
+        userMeta = getAgentMetadata(id);
+    } catch {
+        // Ignore — fall through to deterministic pool below.
+    }
+    if (userMeta?.category) return CATEGORY_FOCUS[userMeta.category];
+
     const kind = kindFromParents(parentCount);
     const pool = FOCUS[kind];
     const rng = hashSeed(`focus-${id}-${kind}`);
@@ -167,5 +203,15 @@ export function categoryFromFocus(focus: string): AgentCategory {
 }
 
 export function agentCategory(id: number, parentCount: number): AgentCategory {
+    // User-picked category short-circuits the derived path.
+    let userMeta = null;
+    try {
+        const { getAgentMetadata } = require("./agentMetadata") as typeof import("./agentMetadata");
+        userMeta = getAgentMetadata(id);
+    } catch {
+        // Ignore — fall through to focus-derived category.
+    }
+    if (userMeta?.category) return userMeta.category;
+
     return categoryFromFocus(agentFocus(id, parentCount));
 }
