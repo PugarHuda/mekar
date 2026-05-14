@@ -666,7 +666,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                 marginBottom: 12,
                                             }}
                                         >
-                                            Demo prompt (mock)
+                                            Sample prompt · UI demo
                                         </div>
                                         <p
                                             style={{

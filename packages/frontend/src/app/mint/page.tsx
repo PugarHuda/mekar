@@ -850,6 +850,29 @@ function Step2({
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [encrypt, setEncrypt] = useState(false);
 
+    // Load a realistic sample manifest from /public/sample-weights/.
+    // Lets users test the full upload flow without needing their own model
+    // file, while showing what a production manifest actually looks like
+    // (model config, weight file shards, training data merkle, eval scores).
+    async function loadSample(name: "jasmine" | "genesis") {
+        const url =
+            name === "jasmine"
+                ? "/sample-weights/jasmine-7b-manifest.json"
+                : "/sample-weights/genesis-base-manifest.json";
+        try {
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const fname =
+                name === "jasmine"
+                    ? "jasmine-7b-manifest.json"
+                    : "genesis-base-manifest.json";
+            setFile(new File([blob], fname, { type: "application/json" }));
+            toast.success(`Loaded sample ${name === "jasmine" ? "Jasmine-7B" : "Lotus-Base-3B"} manifest`);
+        } catch {
+            toast.error("Could not load sample manifest");
+        }
+    }
+
     async function handleUpload() {
         setUploadError(null);
         setUploading(true);
@@ -932,6 +955,41 @@ function Step2({
                         ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB`
                         : "No file picked — a JSON manifest will be uploaded instead."}
                 </p>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 8,
+                        marginTop: 10,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    <span
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 11,
+                            color: "var(--ink-soft)",
+                            alignSelf: "center",
+                        }}
+                    >
+                        or load sample:
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => loadSample("genesis")}
+                        className="pill"
+                        style={{ fontSize: 11, padding: "3px 10px" }}
+                    >
+                        Lotus-Base-3B (Genesis)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => loadSample("jasmine")}
+                        className="pill"
+                        style={{ fontSize: 11, padding: "3px 10px" }}
+                    >
+                        Jasmine-7B (Fork)
+                    </button>
+                </div>
             </Field>
 
             <Field label="Encryption">

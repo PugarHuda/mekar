@@ -1,0 +1,63 @@
+{
+  "kind": "mekar-agent-manifest",
+  "version": "v1.0.0",
+  "name": "Lotus-Base-3B",
+  "description": "A compact 3B-parameter multilingual base model. Trained from scratch on 800B tokens covering English, Indonesian, Spanish, Mandarin, and Hindi. Intended as a genesis bloom for downstream fine-tuners.",
+  "category": "general",
+  "license": "MIT",
+  "lineage": null,
+  "model": {
+    "architecture": "LlamaForCausalLM",
+    "params": "3B",
+    "format": "safetensors",
+    "quantization": "bf16",
+    "context_length": 4096,
+    "vocab_size": 32000,
+    "hidden_size": 3200,
+    "num_hidden_layers": 26,
+    "num_attention_heads": 32
+  },
+  "weights": [
+    {
+      "file": "model.safetensors",
+      "size_bytes": 6_400_000_000,
+      "sha256": "0xa1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+    }
+  ],
+  "tokenizer": {
+    "type": "SentencePieceBPETokenizer",
+    "file": "tokenizer.json",
+    "sha256": "0xb2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1"
+  },
+  "training_data": {
+    "merkle_root": "0xc3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2",
+    "datasets": [
+      { "name": "common-crawl-clean", "size_gb": 280, "license": "Common Crawl ToS" },
+      { "name": "wikipedia-multi", "size_gb": 18, "license": "CC-BY-SA" },
+      { "name": "books3-cleaned", "size_gb": 96, "license": "Mixed" },
+      { "name": "github-code-permissive", "size_gb": 41, "license": "Permissive only" }
+    ],
+    "total_tokens": 800_000_000_000,
+    "languages": ["en", "id", "es", "zh", "hi"]
+  },
+  "evaluation": {
+    "mmlu_5shot": 42.8,
+    "hellaswag_0shot": 65.1,
+    "arc_challenge": 36.4,
+    "test_date": "2026-05-01"
+  },
+  "tee_attestation": null,
+  "inference": {
+    "recommended_temperature": 0.8,
+    "max_tokens": 1024,
+    "stop_tokens": ["</s>"],
+    "system_prompt_template": "You are a helpful multilingual assistant."
+  },
+  "creator": {
+    "name": "Mekar Foundation (example)",
+    "address": "0xA30930a4b4978b970C61CB7e27c67328471C60b7",
+    "url": "https://mekar.vercel.app"
+  },
+  "created_at": "2026-04-15T00:00:00Z",
+  "mekar_format_version": 1
+}

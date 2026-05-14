@@ -103,14 +103,34 @@ export function InferencePay({ agentId, inferencePrice }: Props) {
             </div>
 
             <div>
-                <label style={{ ...labelStyle, display: "block", marginBottom: 6 }}>
-                    Prompt (mock)
-                </label>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        marginBottom: 6,
+                    }}
+                >
+                    <label style={labelStyle}>Prompt</label>
+                    <span
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 10,
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                            color: "var(--ink-soft)",
+                            opacity: 0.7,
+                        }}
+                        title="The royalty cascade is real and settles on chain. The AI response itself is Phase 2 — wires up when 0G Compute providers ship the TEE inference path. See /docs."
+                    >
+                        UI demo · royalty real
+                    </span>
+                </div>
                 <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     rows={2}
-                    placeholder="Ask the agent something…"
+                    placeholder="Ask the agent something… (royalty cascades on chain even though the inference response is Phase 2)"
                     style={{
                         width: "100%",
                         padding: "10px 12px",

@@ -11,11 +11,9 @@ import { Menu, X, AlertTriangle } from "lucide-react";
 // Primary top-bar nav — kept tight (5 items) so the bar doesn't feel like
 // a sitemap. The brand logo on the left already links Home, and Manifesto
 // is reachable from the footer + mobile menu so we don't need to spend a
-// top-bar slot on it. Docs links to the developer Quickstart on GitHub
-// (copy-paste recipes for the common integration patterns) so devs
-// can get to runnable snippets in one click without a wallet on file.
-const DOCS_URL =
-    "https://github.com/PugarHuda/mekar/blob/main/docs/QUICKSTART.md";
+// top-bar slot on it. Docs links to the in-app /docs page so devs get
+// a MEKAR-branded experience with copy-paste recipes; that page links
+// out to the raw markdown on GitHub for the full reference.
 
 type NavItem = {
     href: string;
@@ -29,7 +27,7 @@ const NAV: NavItem[] = [
     { href: "/mint", label: "Mint", k: "mint" },
     { href: "/trending", label: "Trending", k: "trending" },
     { href: "/dashboard", label: "Dashboard", k: "dashboard" },
-    { href: DOCS_URL, label: "Docs", k: "docs", external: true },
+    { href: "/docs", label: "Docs", k: "docs" },
 ];
 
 // Mobile menu shows everything; phone users get a full sheet so there's
@@ -46,6 +44,7 @@ function detectActive(pathname: string): string {
     if (pathname.startsWith("/trending")) return "trending";
     if (pathname.startsWith("/mint")) return "mint";
     if (pathname.startsWith("/dashboard")) return "dashboard";
+    if (pathname.startsWith("/docs")) return "docs";
     if (pathname.startsWith("/manifesto")) return "manifesto";
     return "home";
 }

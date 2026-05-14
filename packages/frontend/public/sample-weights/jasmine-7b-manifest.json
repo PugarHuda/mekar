@@ -1,0 +1,83 @@
+{
+  "kind": "mekar-agent-manifest",
+  "version": "v1.0.0",
+  "name": "Jasmine-Indo-7B",
+  "description": "Fine-tuned Llama-3 derivative specialised in Indonesian translation. Trained on 12GB of CC-BY Indonesian text corpus from Wikipedia, OSCAR, and the Common Crawl ID slice.",
+  "category": "translate",
+  "license": "Apache-2.0",
+  "lineage": {
+    "parent_pointer": "0xa3f1c8d7e5b6f4a2c1e8d9f3b7a5e4d2c1f8b6a4e3d2f1c8b6a4e3d2f1c8b6a4",
+    "training_strategy": "lora_rank16",
+    "epochs": 3,
+    "learning_rate": 0.0002
+  },
+  "model": {
+    "architecture": "LlamaForCausalLM",
+    "params": "7B",
+    "format": "safetensors",
+    "quantization": "bf16",
+    "context_length": 8192,
+    "vocab_size": 32000,
+    "hidden_size": 4096,
+    "num_hidden_layers": 32,
+    "num_attention_heads": 32
+  },
+  "weights": [
+    {
+      "file": "model-00001-of-00003.safetensors",
+      "size_bytes": 4886512128,
+      "sha256": "0x7f8a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a"
+    },
+    {
+      "file": "model-00002-of-00003.safetensors",
+      "size_bytes": 4886512128,
+      "sha256": "0x8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
+    },
+    {
+      "file": "model-00003-of-00003.safetensors",
+      "size_bytes": 1872768000,
+      "sha256": "0x9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c"
+    }
+  ],
+  "tokenizer": {
+    "type": "SentencePieceBPETokenizer",
+    "file": "tokenizer.json",
+    "sha256": "0xc1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2"
+  },
+  "training_data": {
+    "merkle_root": "0xd2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
+    "datasets": [
+      { "name": "wikipedia-id", "size_gb": 4.2, "license": "CC-BY-SA" },
+      { "name": "oscar-id", "size_gb": 6.8, "license": "CC-BY" },
+      { "name": "cc100-id", "size_gb": 1.5, "license": "Common Crawl" }
+    ],
+    "total_tokens": 18_400_000_000,
+    "filter_pipeline": ["lang_detect_id", "perplexity_filter", "dedup_minhash"]
+  },
+  "evaluation": {
+    "id_to_en_bleu": 38.7,
+    "en_to_id_bleu": 41.2,
+    "test_set": "FLORES-200 (id-en)",
+    "human_eval_score": 4.3,
+    "eval_date": "2026-05-10"
+  },
+  "tee_attestation": {
+    "platform": "Intel TDX",
+    "measurement_hash": "0xe3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4",
+    "attestation_url": "ipfs://Qm.../attestation.json"
+  },
+  "inference": {
+    "recommended_temperature": 0.7,
+    "max_tokens": 2048,
+    "stop_tokens": ["</s>", "<|im_end|>"],
+    "system_prompt_template": "You are Jasmine, an Indonesian translation assistant."
+  },
+  "creator": {
+    "name": "alice.eth",
+    "address": "0x74F6EBBA27101f97EeE40CE31F8351Ddd54b6F62",
+    "contact": "alice@example.com",
+    "url": "https://example.com/jasmine"
+  },
+  "created_at": "2026-05-08T07:30:00Z",
+  "mekar_format_version": 1
+}
