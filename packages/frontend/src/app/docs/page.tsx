@@ -41,7 +41,8 @@ const SECTIONS: DocSection[] = [
     { id: "encryption", label: "4 · Encrypt weights", eyebrow: "AES-256 · SDK" },
     { id: "errors", label: "5 · Error patterns", eyebrow: "Galileo gotchas" },
     { id: "gas", label: "6 · Gas & fees", eyebrow: "Cost table" },
-    { id: "status", label: "7 · Live vs Phase 2", eyebrow: "Honesty audit" },
+    { id: "safety", label: "7 · Safety & limits", eyebrow: "DoS · gas bounds" },
+    { id: "status", label: "8 · Live vs Phase 2", eyebrow: "Honesty audit" },
     { id: "more", label: "Full reference", eyebrow: "Repo links" },
 ];
 
@@ -83,6 +84,27 @@ export default function DocsPage() {
                             Mekar is on-chain royalty infrastructure on 0G — not a closed product. Pay
                             an agent from a Discord bot, index the cascade for analytics, mint INFTs
                             from your own UI. Same on-chain contract, same atomic royalty distribution.
+                        </p>
+                        <p
+                            style={{
+                                marginTop: 14,
+                                padding: "12px 16px",
+                                background: "var(--bg-alt)",
+                                border: "1px solid var(--rule)",
+                                borderRadius: 6,
+                                fontFamily: "var(--mono)",
+                                fontSize: 13,
+                                color: "var(--ink-soft)",
+                                maxWidth: "62ch",
+                            }}
+                        >
+                            <span style={{ color: "var(--ink)", fontWeight: 600 }}>
+                                Integration TL;DR:
+                            </span>{" "}
+                            one <code>writeContract({"{"} address: VAULT, fn: "payInference",
+                            args: [agentId], value{"}"})</code>. That single call walks the
+                            lineage, splits royalty across 4 generations, sweeps dust to
+                            treasury — all in one atomic tx.
                         </p>
 
                         <div
@@ -384,10 +406,74 @@ done`}</Code>
                         </p>
                     </DocSection>
 
+                    {/* Safety & limits — what protects the protocol when usage
+                        scales. Important for third parties evaluating Mekar as
+                        infrastructure: they need to understand the bounded
+                        guarantees before wiring it into a product. */}
+                    <DocSection
+                        id="safety"
+                        title="7. Safety & limits"
+                        eyebrow="DoS resistance · gas bounds"
+                    >
+                        <p>
+                            Mekar is designed so that hostile or accidental fan-out (mass
+                            fork, mass compose, deep lineage) can't grief the protocol or
+                            blow up the royalty walk. Three bounds enforce this on chain.
+                        </p>
+
+                        <h3 style={subhStyle}>Hard limits (contract-enforced)</h3>
+                        <Table
+                            rows={[
+                                ["MAX_PARENTS (compose)", "8 — revert if parentIds.length < 2 or > 8"],
+                                ["MAX_LINEAGE_DEPTH (royalty walk)", "10 generations — BFS stops here"],
+                                ["MAX_GENERATION (mint)", "100 — circular lineage guard"],
+                                ["MAX_LINEAGE_DEPTH (view query)", "50 — registry getAncestors cap"],
+                            ]}
+                        />
+
+                        <h3 style={subhStyle}>What happens when…</h3>
+                        <ul style={listStyle}>
+                            <li>
+                                <strong>10,000 forks descend from one agent:</strong> safe.
+                                Registration is <code>O(1)</code> per fork (one{" "}
+                                <code>_descendants.push</code>). Parent only earns royalty per
+                                child inference, not in aggregate — no DoS on the parent.
+                            </li>
+                            <li>
+                                <strong>Compose with 8 parents:</strong> safe. Gen-1 share
+                                (25%) splits equally, integer-division dust sweeps to
+                                treasury. Storage cost: 256 bytes for the parent array.
+                            </li>
+                            <li>
+                                <strong>Deep lineage (gen 50+):</strong> royalty walk caps at
+                                gen-10, treasury collects beyond. Gas remains bounded
+                                regardless of chain depth.
+                            </li>
+                            <li>
+                                <strong>Ancestor token burned:</strong> distribution catches
+                                via try/catch (Q5 fix), share routes to treasury.
+                            </li>
+                            <li>
+                                <strong>Alignment-slashed agent:</strong> share is reduced{" "}
+                                <code>amount × alignmentHealth / 10000</code>; reduction goes
+                                to treasury.
+                            </li>
+                        </ul>
+
+                        <Note>
+                            <strong>Known soft limit:</strong> the per-parent{" "}
+                            <code>_descendants[]</code> array is unbounded. This is
+                            read-only — never blocks transactions — but a hyper-popular
+                            parent can make <code>getDescendants()</code> view calls
+                            expensive. Indexer-based readers (option 3 above) sidestep this
+                            entirely.
+                        </Note>
+                    </DocSection>
+
                     {/* Honest status */}
                     <DocSection
                         id="status"
-                        title="7. What's real vs Phase 2"
+                        title="8. What's real vs Phase 2"
                         eyebrow="Honesty audit"
                     >
                         <Status

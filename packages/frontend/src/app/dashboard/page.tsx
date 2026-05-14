@@ -12,8 +12,10 @@ import {
     agentName,
     agentFocus,
     agentCategory,
+    agentCategories,
     CATEGORY_LABELS,
 } from "@/lib/agentNaming";
+import { getAgentMetadata } from "@/lib/agentMetadata";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLineageData } from "@/hooks/useLineageData";
 import { explorerLink } from "@/lib/chains";
@@ -574,12 +576,36 @@ function BloomCard({ agentId }: { agentId: number }) {
                     fontWeight: 600,
                 }}
             >
-                {CATEGORY_LABELS[agentCategory(agent.id, agent.parents.length)]}
+                {agentCategories(agent.id, agent.parents.length).map((c, i, arr) => (
+                    <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        {CATEGORY_LABELS[c]}
+                        {i < arr.length - 1 && <span style={{ opacity: 0.45 }}>+</span>}
+                    </span>
+                ))}
                 <span style={{ opacity: 0.55 }}>·</span>
                 <span style={{ fontWeight: 500 }}>
                     {agentFocus(agent.id, agent.parents.length)}
                 </span>
             </div>
+            {/* License chip — small mono pill, only renders if user set one at mint. */}
+            {(() => {
+                const lic = getAgentMetadata(agent.id)?.license;
+                if (!lic) return null;
+                return (
+                    <div
+                        style={{
+                            marginTop: 6,
+                            fontFamily: "var(--mono)",
+                            fontSize: 9.5,
+                            letterSpacing: "0.06em",
+                            color: "var(--ink-soft)",
+                            textTransform: "uppercase",
+                        }}
+                    >
+                        license · {lic}
+                    </div>
+                );
+            })()}
             <div
                 style={{
                     fontFamily: "var(--mono)",

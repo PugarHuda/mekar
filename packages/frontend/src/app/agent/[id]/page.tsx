@@ -15,9 +15,11 @@ import {
     agentName,
     agentFocus,
     agentCategory,
+    agentCategories,
     kindFromParents,
     CATEGORY_LABELS,
 } from "@/lib/agentNaming";
+import { getAgentMetadata } from "@/lib/agentMetadata";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -226,14 +228,53 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                             textTransform: "uppercase",
                                         }}
                                     >
-                                        <span style={{ fontWeight: 600 }}>
-                                            {CATEGORY_LABELS[
-                                                agentCategory(agent.id, agent.parents.length)
-                                            ]}
-                                        </span>
+                                        {agentCategories(agent.id, agent.parents.length).map(
+                                            (c, i, arr) => (
+                                                <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                                    <span style={{ fontWeight: 600 }}>
+                                                        {CATEGORY_LABELS[c]}
+                                                    </span>
+                                                    {i < arr.length - 1 && (
+                                                        <span style={{ opacity: 0.45 }}>+</span>
+                                                    )}
+                                                </span>
+                                            )
+                                        )}
                                         <span style={{ opacity: 0.6 }}>·</span>
                                         <span>{agentFocus(agent.id, agent.parents.length)}</span>
                                     </div>
+                                    {/* License chip — soft norm, not on-chain.
+                                        Sits right under the capability so downstream
+                                        forkers can see attribution terms at a glance. */}
+                                    {(() => {
+                                        const meta = getAgentMetadata(agent.id);
+                                        const lic = meta?.license;
+                                        if (!lic) return null;
+                                        return (
+                                            <div
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    marginTop: 8,
+                                                    padding: "3px 10px",
+                                                    border: "1px solid var(--rule)",
+                                                    background: "var(--bg-alt)",
+                                                    borderRadius: 999,
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 10.5,
+                                                    color: "var(--ink-soft)",
+                                                    letterSpacing: "0.06em",
+                                                }}
+                                                title="License chosen at mint. Soft norm — not enforced on chain, but inherited as attribution requirement by downstream forks."
+                                            >
+                                                <span style={{ opacity: 0.6 }}>license</span>
+                                                <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+                                                    {lic}
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                     <p
                                         style={{
                                             color: "var(--ink-soft)",
@@ -702,6 +743,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                         <InferencePay
                                             agentId={agent.id}
                                             inferencePrice={agent.inferencePrice}
+                                            onSettled={history.refetch}
                                         />
                                         <div style={{ marginTop: 12 }}>
                                             <RegisterProviderButton />

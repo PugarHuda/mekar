@@ -287,8 +287,14 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
   totalDistributed: bigint;
   totalInferences: number;
   isLoading: boolean;
+  refetch: () => void;
 } {
   const publicClient = usePublicClient();
+  // `nonce` is the refetch trigger — bumping it re-runs the effect even
+  // though `agentId` and `publicClient` didn't change. We bumped instead
+  // of using `refetch` callback semantics (a-la TanStack Query) so we
+  // stayed compatible with the existing useEffect-driven shape.
+  const [nonce, setNonce] = useState(0);
   const [state, setState] = useState({
     inferences: [] as Array<{
       txHash: `0x${string}`;
@@ -426,7 +432,13 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
     return () => {
       cancelled = true;
     };
-  }, [agentId, publicClient]);
+  }, [agentId, publicClient, nonce]);
 
-  return state;
+  // Stable refetch handle — bumping `nonce` re-runs the scan from
+  // `cached.lastBlock + 1`, so a fresh payInference receipt becomes
+  // visible without a hard page reload.
+  return {
+    ...state,
+    refetch: () => setNonce((n) => n + 1),
+  };
 }

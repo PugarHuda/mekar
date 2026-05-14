@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     useAccount,
     useWriteContract,
@@ -19,6 +19,13 @@ import { Loader2, ExternalLink } from "lucide-react";
 type Props = {
     agentId: number;
     inferencePrice: bigint;
+    /**
+     * Optional callback fired once the `payInference` tx receipt lands.
+     * Parents pass `useAgentInferenceHistory().refetch` so the settlement
+     * log table updates without a page reload — fixes the UX gap where
+     * users paid successfully but saw an empty log until manual refresh.
+     */
+    onSettled?: () => void;
 };
 
 const labelStyle: React.CSSProperties = {
@@ -29,7 +36,7 @@ const labelStyle: React.CSSProperties = {
     color: "var(--ink-soft)",
 };
 
-export function InferencePay({ agentId, inferencePrice }: Props) {
+export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
     const { address, isConnected } = useAccount();
     const [prompt, setPrompt] = useState("Hello, agent!");
 
@@ -47,6 +54,17 @@ export function InferencePay({ agentId, inferencePrice }: Props) {
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
         hash: txHash,
     });
+
+    // Tell the parent to re-scan RoyaltyPaid logs once the receipt lands.
+    // We gate on `txHash` so the effect also re-fires for a SECOND payment
+    // in the same session (new hash → new settle → onSettled again).
+    useEffect(() => {
+        if (isSuccess && onSettled) onSettled();
+        // onSettled isn't in the deps on purpose: parents typically pass an
+        // inline arrow, and we don't want every render to re-trigger the
+        // refetch. txHash + isSuccess flipping covers the real signal.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSuccess, txHash]);
 
     function handlePay() {
         if (!address) {

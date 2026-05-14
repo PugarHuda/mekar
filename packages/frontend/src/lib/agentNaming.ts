@@ -204,14 +204,31 @@ export function categoryFromFocus(focus: string): AgentCategory {
 
 export function agentCategory(id: number, parentCount: number): AgentCategory {
     // User-picked category short-circuits the derived path.
-    let userMeta = null;
+    // Prefer categories[] (multi-capability), fall back to legacy single.
     try {
-        const { getAgentMetadata } = require("./agentMetadata") as typeof import("./agentMetadata");
-        userMeta = getAgentMetadata(id);
+        const { getAgentCategories } = require("./agentMetadata") as typeof import("./agentMetadata");
+        const cats = getAgentCategories(id);
+        if (cats && cats[0]) return cats[0];
     } catch {
         // Ignore — fall through to focus-derived category.
     }
-    if (userMeta?.category) return userMeta.category;
 
     return categoryFromFocus(agentFocus(id, parentCount));
+}
+
+/**
+ * Returns up to N capability tags for an agent. If the user picked
+ * multiple at mint time, all are returned in pick order. Otherwise
+ * a single deterministic category is returned so badges always have
+ * something to render.
+ */
+export function agentCategories(id: number, parentCount: number): AgentCategory[] {
+    try {
+        const { getAgentCategories } = require("./agentMetadata") as typeof import("./agentMetadata");
+        const cats = getAgentCategories(id);
+        if (cats && cats.length > 0) return cats;
+    } catch {
+        // fall through
+    }
+    return [categoryFromFocus(agentFocus(id, parentCount))];
 }

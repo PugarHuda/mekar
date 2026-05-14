@@ -22,12 +22,35 @@
 
 import type { AgentCategory } from "./agentNaming";
 
+/**
+ * Agent metadata persisted per token id.
+ *
+ * `categories` is the canonical multi-capability field. `category`
+ * (singular) is kept around for backwards compatibility with metadata
+ * written before the multi-picker shipped — readers should prefer
+ * `getAgentCategories()` which normalises both shapes.
+ */
 export type AgentMeta = {
     name?: string;
-    category?: AgentCategory;
+    category?: AgentCategory;        // legacy single (pre-multi-capability)
+    categories?: AgentCategory[];     // canonical: 1..N capability tags
     description?: string;
     license?: string;
 };
+
+/**
+ * Returns the agent's capability tags as a non-empty array, falling
+ * back to the legacy `category` field if `categories` is missing.
+ * Returns null if the metadata has no capability info — callers should
+ * then derive a category from the deterministic name pool.
+ */
+export function getAgentCategories(id: number): AgentCategory[] | null {
+    const meta = getAgentMetadata(id);
+    if (!meta) return null;
+    if (meta.categories && meta.categories.length > 0) return meta.categories;
+    if (meta.category) return [meta.category];
+    return null;
+}
 
 const KEY_PREFIX = "mekar:agent:";
 

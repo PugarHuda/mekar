@@ -119,11 +119,17 @@ function MintPageInner() {
     const royaltySum = royaltyConfigSum(royalty);
     const royaltyValid = royaltyConfigValid(royalty);
 
-    // Capability category the user picks at mint. Stored in localStorage on
-    // success keyed by the next tokenId so display surfaces (explorer,
-    // dashboard, agent detail) can show "this agent is for code" instead
-    // of guessing from the random focus pool.
-    const [category, setCategory] = useState<AgentCategory>("general");
+    // Capability categories the user picks at mint (multi-select). Stored in
+    // localStorage on success keyed by the next tokenId so display surfaces
+    // (explorer, dashboard, agent detail) can show "this agent is for code +
+    // math" instead of guessing from the random focus pool. Multi was chosen
+    // over single because real models routinely span 2-3 capabilities (e.g.
+    // "code + math hybrid"); single-pick collapses that nuance.
+    const [categories, setCategories] = useState<AgentCategory[]>(["general"]);
+    // First category is treated as the "primary" — drives the deterministic
+    // name pool + focus phrase. Keeping it as a derived var avoids two
+    // sources of truth.
+    const category = categories[0] ?? "general";
 
     const { address } = useAccount();
     const { nodes, totalAgents, refetch: refetchLineage } = useLineageData();
@@ -143,6 +149,7 @@ function MintPageInner() {
         saveAgentMetadata(newTokenId, {
             name: name || undefined,
             category,
+            categories: categories.length > 0 ? categories : undefined,
             description: description || undefined,
             license,
         });
@@ -150,7 +157,7 @@ function MintPageInner() {
         refetchLineage().catch(() => {
             /* silent — pickers will still update on next natural refetch */
         });
-    }, [isSuccess, refetchLineage, totalAgents, name, category, description, license]);
+    }, [isSuccess, refetchLineage, totalAgents, name, category, categories, description, license]);
 
     const seed = useMemo(
         () => `${name || "untitled"}-${mode}-${address ?? "anon"}-${Date.now()}`,
@@ -233,6 +240,10 @@ function MintPageInner() {
     function handleMintCompose() {
         if (!address) return toast.error("Connect a wallet first");
         if (parentIds.length < 2) return toast.error("Pick at least 2 parents");
+        // Mirror the AgentINFT.MAX_PARENTS = 8 contract bound. Catching it
+        // here gives a friendly toast instead of a generic on-chain revert.
+        if (parentIds.length > 8)
+            return toast.error("Compose supports max 8 parents (contract limit)");
         const weightsPtr = resolveWeightsPointer("compose-weights");
         const trainingMerkle = keccak256(toHex(`compose-training:${seed}`));
         const teeProof = keccak256(toHex(`compose-tee:${seed}`));
@@ -385,8 +396,8 @@ function MintPageInner() {
                                     setLicense={setLicense}
                                     royalty={royalty}
                                     setRoyalty={setRoyalty}
-                                    category={category}
-                                    setCategory={setCategory}
+                                    categories={categories}
+                                    setCategories={setCategories}
                                 />
                             )}
                             {step === 4 && (
@@ -697,39 +708,60 @@ function Step1({
                             marginBottom: 10,
                         }}
                     >
-                        Pick parents to merge (≥2)
+                        Pick parents to merge (2–8)
                     </div>
                     {nodes.length < 2 ? (
                         <p style={{ color: "var(--ink-soft)" }}>
                             Need at least 2 existing agents to compose.
                         </p>
                     ) : (
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                                gap: 12,
-                            }}
-                        >
-                            {nodes.map((n) => {
-                                const sel = parentIds.includes(n.id);
-                                return (
-                                    <ParentCard
-                                        key={n.id}
-                                        node={n}
-                                        selected={sel}
-                                        composeMode
-                                        onClick={() =>
-                                            setParentIds(
-                                                sel
-                                                    ? parentIds.filter((p) => p !== n.id)
-                                                    : [...parentIds, n.id]
-                                            )
-                                        }
-                                    />
-                                );
-                            })}
-                        </div>
+                        <>
+                            <div
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    color: parentIds.length >= 8 ? "var(--rose)" : "var(--ink-soft)",
+                                    marginBottom: 10,
+                                }}
+                            >
+                                {parentIds.length} of 8 selected
+                                {parentIds.length >= 8 && " — limit reached"}
+                            </div>
+                            <div
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                                    gap: 12,
+                                }}
+                            >
+                                {nodes.map((n) => {
+                                    const sel = parentIds.includes(n.id);
+                                    const atLimit = !sel && parentIds.length >= 8;
+                                    return (
+                                        <div
+                                            key={n.id}
+                                            style={{
+                                                opacity: atLimit ? 0.4 : 1,
+                                                pointerEvents: atLimit ? "none" : "auto",
+                                            }}
+                                        >
+                                            <ParentCard
+                                                node={n}
+                                                selected={sel}
+                                                composeMode
+                                                onClick={() =>
+                                                    setParentIds(
+                                                        sel
+                                                            ? parentIds.filter((p) => p !== n.id)
+                                                            : [...parentIds, n.id]
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
                     )}
                 </div>
             )}
@@ -1235,8 +1267,8 @@ function Step3({
     setLicense,
     royalty,
     setRoyalty,
-    category,
-    setCategory,
+    categories,
+    setCategories,
 }: {
     mode: Mode;
     name: string;
@@ -1247,8 +1279,8 @@ function Step3({
     setLicense: (v: string) => void;
     royalty: RoyaltyConfig;
     setRoyalty: (r: RoyaltyConfig) => void;
-    category: AgentCategory;
-    setCategory: (c: AgentCategory) => void;
+    categories: AgentCategory[];
+    setCategories: (c: AgentCategory[]) => void;
 }) {
     const licenses = [
         "MIT",
@@ -1258,7 +1290,7 @@ function Step3({
         "CC0",
         "Mekar-Commercial",
     ];
-    const categories: AgentCategory[] = [
+    const allCategories: AgentCategory[] = [
         "translate",
         "code",
         "math",
@@ -1267,6 +1299,18 @@ function Step3({
         "reasoning",
         "general",
     ];
+
+    // Multi-toggle helper. Empty array isn't allowed — at least one
+    // category must remain selected so explorer filters always have
+    // something to bucket the agent under.
+    function toggleCategory(c: AgentCategory) {
+        if (categories.includes(c)) {
+            if (categories.length === 1) return; // keep at least one
+            setCategories(categories.filter((x) => x !== c));
+        } else {
+            setCategories([...categories, c]);
+        }
+    }
     return (
         <div>
             <h2 style={{ fontSize: 32, marginBottom: 8 }}>
@@ -1287,19 +1331,24 @@ function Step3({
                 />
             </Field>
 
-            <Field label="Capability (what this agent does)">
+            <Field label="Capabilities (pick one or more — describes what this agent does)">
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {categories.map((c) => (
-                        <button
-                            key={c}
-                            type="button"
-                            onClick={() => setCategory(c)}
-                            className={`pill ${category === c ? "active" : ""}`}
-                            style={{ textTransform: "none" }}
-                        >
-                            {CATEGORY_LABELS[c]}
-                        </button>
-                    ))}
+                    {allCategories.map((c) => {
+                        const active = categories.includes(c);
+                        return (
+                            <button
+                                key={c}
+                                type="button"
+                                onClick={() => toggleCategory(c)}
+                                className={`pill ${active ? "active" : ""}`}
+                                style={{ textTransform: "none" }}
+                                aria-pressed={active}
+                            >
+                                {active ? "✓ " : ""}
+                                {CATEGORY_LABELS[c]}
+                            </button>
+                        );
+                    })}
                 </div>
                 <p
                     style={{
@@ -1309,8 +1358,8 @@ function Step3({
                         fontFamily: "var(--mono)",
                     }}
                 >
-                    Used for explorer search + filter. Stored client-side until 0G KV
-                    metadata writeback ships in Phase 2.
+                    First pick becomes the primary tag (drives bloom name). Up to 7 tags —
+                    explorer filters and badges show all of them. At least one is required.
                 </p>
             </Field>
 
