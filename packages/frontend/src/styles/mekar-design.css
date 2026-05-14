@@ -2281,3 +2281,70 @@ body[data-season="night"] .footer { background: #1a1612; }
   50% { box-shadow: 0 0 0 6px rgba(217,119,87,0); }
 }
 .upload-progress__hash { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+
+/* ────────────────────────────────────────────────────────────────────
+ * Responsive overrides for inline grid layouts.
+ *
+ * Pages use inline `gridTemplateColumns` for fine-grained desktop
+ * design control (e.g. `260px 1fr auto` for the agent hero). Inline
+ * styles can't be overridden by CSS media queries, so we apply layout
+ * shifts via a class hook: components add `className="agent-hero"`
+ * etc., and these rules collapse multi-column to single-column on
+ * narrow viewports.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/* Agent detail hero: 3-col (bloom / text / actions) → stack on mobile */
+@media (max-width: 900px) {
+  .agent-hero {
+    grid-template-columns: 1fr !important;
+    text-align: left;
+    gap: 28px !important;
+  }
+  .agent-hero > div:nth-child(1) {
+    justify-self: start;
+  }
+}
+
+/* Mint wizard: 1fr + 360px sticky right rail → stack rail below on mobile */
+@media (max-width: 900px) {
+  .mint-grid {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+  .mint-grid > aside {
+    position: static !important;
+  }
+}
+
+/* Agent stats grid: 4 cols → 2x2 → 1 col as viewport shrinks */
+@media (max-width: 900px) {
+  .agent-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 520px) {
+  .agent-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Trending podium: 3 cards → stack on narrow */
+@media (max-width: 720px) {
+  .trending-podium,
+  .trending-stats {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Trending leaderboard table: allow horizontal scroll on narrow */
+.trending-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Generic: agent detail's main + sidebar (1fr + 380px) */
+@media (max-width: 900px) {
+  .agent-body-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

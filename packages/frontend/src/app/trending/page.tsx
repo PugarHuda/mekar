@@ -86,6 +86,7 @@ export default function TrendingPage() {
 
                     {/* Stats strip */}
                     <section
+                        className="trending-stats"
                         style={{
                             display: "grid",
                             gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -108,6 +109,7 @@ export default function TrendingPage() {
                     {/* Podium */}
                     {!isLoading && podium.length > 0 && (
                         <section
+                            className="trending-podium"
                             style={{
                                 display: "grid",
                                 gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -196,14 +198,16 @@ export default function TrendingPage() {
                         </section>
                     )}
 
-                    {/* Leaderboard table */}
+                    {/* Leaderboard table — horizontal scroll wrapper for narrow viewports */}
                     {!isLoading && rest.length > 0 && (
+                        <div className="trending-table-wrap">
                         <table
                             style={{
                                 width: "100%",
                                 borderCollapse: "collapse",
                                 fontFamily: "var(--mono)",
                                 fontSize: 13,
+                                minWidth: 720,
                             }}
                         >
                             <thead
@@ -294,6 +298,7 @@ export default function TrendingPage() {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     )}
 
                     {!isLoading && nodes.length === 0 && (

@@ -35,11 +35,38 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     const lookupNode = (id: number): LineageNode | undefined =>
         allNodes.find((n) => n.id === id);
 
-    const sparkData = useMemo(() => proceduralSeries(agentId, 30), [agentId]);
-    const earningsSeries = useMemo(
-        () => sparkData.map((v) => v * 0.92),
-        [sparkData]
-    );
+    // Real 30-day activity series — replaces the old proceduralSeries
+    // placeholder. Buckets RoyaltyPaid events by approximate day using
+    // block-number deltas (Galileo ≈ 1 block/sec, so 86400 blocks = 1 day).
+    // No extra RPC required: useAgentInferenceHistory already fetched the
+    // events; we just rebucket them client-side.
+    //
+    // Series layout: oldest day at index 0, today at the rightmost edge.
+    // Empty arrays (no royalty earned yet) render as a flat zero line —
+    // the Sparkline component handles min === max gracefully.
+    const { sparkInferences, sparkAmounts } = useMemo(() => {
+        if (history.inferences.length === 0) {
+            return {
+                sparkInferences: new Array<number>(30).fill(0),
+                sparkAmounts: new Array<number>(30).fill(0),
+            };
+        }
+        const BLOCKS_PER_DAY = 86400n; // 1 block/sec * 86400 sec/day
+        const anchor =
+            history.inferences[0].blockNumber + BLOCKS_PER_DAY; // newest event = "yesterday"
+        const counts = new Array<number>(30).fill(0);
+        const amounts = new Array<number>(30).fill(0);
+        for (const inf of history.inferences) {
+            const blocksAgo = anchor > inf.blockNumber ? anchor - inf.blockNumber : 0n;
+            const daysAgo = Number(blocksAgo / BLOCKS_PER_DAY);
+            const idx = 30 - 1 - daysAgo;
+            if (idx >= 0 && idx < 30) {
+                counts[idx] += 1;
+                amounts[idx] += Number(inf.amount) / 1e18;
+            }
+        }
+        return { sparkInferences: counts, sparkAmounts: amounts };
+    }, [history.inferences]);
 
     return (
         <div>
@@ -118,6 +145,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                         <>
                             {/* HERO */}
                             <header
+                                className="agent-hero"
                                 style={{
                                     display: "grid",
                                     gridTemplateColumns: "260px 1fr auto",
@@ -542,6 +570,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
                             {/* STATS GRID */}
                             <section
+                                className="agent-stats"
                                 style={{
                                     display: "grid",
                                     gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
@@ -554,14 +583,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                 <StatCell
                                     big={history.totalInferences.toString()}
                                     label="Total inferences"
-                                    sub={`across ${history.inferences.length} events`}
-                                    spark={sparkData}
+                                    sub={
+                                        history.inferences.length > 0
+                                            ? `${history.inferences.length} RoyaltyPaid events (30-day view)`
+                                            : "No settled activity yet"
+                                    }
+                                    spark={sparkInferences}
                                 />
                                 <StatCell
                                     big={`${formatOG(history.totalDistributed, 5)}`}
                                     label="0G distributed"
-                                    sub={`${(history.totalInferences > 0 ? Number(history.totalDistributed) / 1e18 / history.totalInferences : 0).toFixed(6)} avg / call`}
-                                    spark={earningsSeries}
+                                    sub={
+                                        history.totalInferences > 0
+                                            ? `${(Number(history.totalDistributed) / 1e18 / history.totalInferences).toFixed(6)} avg / call`
+                                            : "Waiting on first settle"
+                                    }
+                                    spark={sparkAmounts}
                                     sparkColor="var(--gold)"
                                 />
                                 <StatCell
@@ -602,6 +639,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                 </div>
 
                                 <div
+                                    className="agent-body-grid"
                                     style={{
                                         display: "grid",
                                         gridTemplateColumns: "1fr 380px",
@@ -904,16 +942,6 @@ function Sparkline({ data, color = "var(--primary)" }: { data: number[]; color?:
             <polyline points={`0,${h} ${pts} ${w},${h}`} fill={color} opacity="0.08" />
         </svg>
     );
-}
-
-function proceduralSeries(seed: number, n: number): number[] {
-    const out = [];
-    let s = (seed * 2654435761) >>> 0;
-    for (let i = 0; i < n; i++) {
-        s = (s * 1664525 + 1013904223) >>> 0;
-        out.push(0.4 + ((s >>> 0) / 0x100000000) * 0.6);
-    }
-    return out;
 }
 
 /* ─────────────── Tx Modal ─────────────── */
