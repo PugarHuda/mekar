@@ -27,15 +27,23 @@ const SCAN_BLOCK_RANGE = 50_000n; // chunk size for getLogs (some RPCs cap)
 const SCAN_CONCURRENCY = 5;       // parallel getLogs calls per batch
 
 /**
- * Lower bound for scans — block at which the v2 RoyaltyVault was deployed.
- * Scanning back from `latestBlock - N` blocks miscounts when settlements
- * are old enough to fall outside that window (Galileo at ~1 block/sec
- * means a 5-day-old settlement is already ~430k blocks behind).
+ * Lower bound for scans — block at which the active RoyaltyVault was
+ * deployed on the active network. Read from
+ * `NEXT_PUBLIC_VAULT_DEPLOY_BLOCK` so the same code works on both
+ * Galileo testnet (~32160000) and Aristotle mainnet (a different number
+ * once redeployed). Falls back to the testnet anchor for backward
+ * compatibility if the env var is missing.
  *
- * Bumping the literal here when redeploying the vault avoids over-scanning
- * pre-deploy noise.
+ * Scanning back from `latestBlock - N` miscounts when settlements are
+ * old enough to fall outside that window (Galileo at ~1 block/sec
+ * means a 5-day-old settlement is already ~430k blocks behind), so the
+ * anchor must be precise per network.
  */
-const VAULT_V2_DEPLOY_BLOCK = 32160000n;
+const VAULT_V2_DEPLOY_BLOCK: bigint = (() => {
+  const raw = process.env.NEXT_PUBLIC_VAULT_DEPLOY_BLOCK;
+  if (raw && /^\d+$/.test(raw)) return BigInt(raw);
+  return 32160000n; // Galileo testnet v2 anchor (default)
+})();
 
 // --------------- localStorage cache for historical event scans ----------
 // Settlements happened up to 700k+ blocks ago at the moment, so the first
