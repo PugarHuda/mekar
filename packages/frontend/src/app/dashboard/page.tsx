@@ -8,7 +8,14 @@ import { Bloom } from "@/components/Bloom";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { MEKAR_REGISTRY_ABI } from "@/contracts/abis";
 import { useAgent, modeLabel } from "@/hooks/useAgent";
+import {
+    agentName,
+    agentFocus,
+    agentCategory,
+    CATEGORY_LABELS,
+} from "@/lib/agentNaming";
 import { useUserStats } from "@/hooks/useUserStats";
+import { useLineageData } from "@/hooks/useLineageData";
 import { explorerLink } from "@/lib/chains";
 import { formatOG, shortAddress } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
@@ -26,6 +33,13 @@ export default function DashboardPage() {
 
     const ids = (myAgentIds as readonly bigint[] | undefined) ?? [];
     const stats = useUserStats(isConnected ? address : undefined);
+
+    // Lookup table so the royalty-stream rows can resolve agent IDs to
+    // synthesised names + categories. useLineageData is already cached
+    // in localStorage by the auto-refresh fix, so this adds zero extra
+    // RPC churn beyond what /explorer already pays for.
+    const { nodes } = useLineageData();
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
     return (
         <div>
@@ -289,17 +303,60 @@ export default function DashboardPage() {
                                                         }}
                                                     >
                                                         <td style={{ padding: 14 }}>
-                                                            <Link
-                                                                href={`/agent/${evt.agentId}`}
-                                                                style={{
-                                                                    color: "var(--gold-deep)",
-                                                                    textDecoration: "underline",
-                                                                    textDecorationColor:
-                                                                        "var(--rule)",
-                                                                }}
-                                                            >
-                                                                #{evt.agentId}
-                                                            </Link>
+                                                            {(() => {
+                                                                const node = nodeById.get(
+                                                                    evt.agentId
+                                                                );
+                                                                const parentCount =
+                                                                    node?.parents.length ?? 0;
+                                                                const name = agentName(
+                                                                    evt.agentId,
+                                                                    parentCount
+                                                                );
+                                                                const cat =
+                                                                    CATEGORY_LABELS[
+                                                                        agentCategory(
+                                                                            evt.agentId,
+                                                                            parentCount
+                                                                        )
+                                                                    ];
+                                                                return (
+                                                                    <Link
+                                                                        href={`/agent/${evt.agentId}`}
+                                                                        style={{
+                                                                            color: "var(--ink)",
+                                                                            textDecoration: "none",
+                                                                            display: "inline-flex",
+                                                                            flexDirection: "column",
+                                                                            gap: 2,
+                                                                        }}
+                                                                    >
+                                                                        <span
+                                                                            style={{
+                                                                                fontWeight: 600,
+                                                                                color:
+                                                                                    "var(--gold-deep)",
+                                                                                textDecoration:
+                                                                                    "underline",
+                                                                                textDecorationColor:
+                                                                                    "var(--rule)",
+                                                                            }}
+                                                                        >
+                                                                            {name}
+                                                                        </span>
+                                                                        <span
+                                                                            style={{
+                                                                                fontSize: 10,
+                                                                                color:
+                                                                                    "var(--ink-soft)",
+                                                                                opacity: 0.85,
+                                                                            }}
+                                                                        >
+                                                                            #{evt.agentId} · {cat}
+                                                                        </span>
+                                                                    </Link>
+                                                                );
+                                                            })()}
                                                         </td>
                                                         <td
                                                             style={{
@@ -489,21 +546,50 @@ function BloomCard({ agentId }: { agentId: number }) {
                 style={{
                     fontFamily: "var(--display)",
                     fontStyle: "italic",
-                    fontSize: 24,
+                    fontSize: 22,
+                    lineHeight: 1.15,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                }}
+                title={agentName(agent.id, agent.parents.length)}
+            >
+                {agentName(agent.id, agent.parents.length)}
+            </div>
+            <div
+                style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 8,
+                    padding: "3px 9px",
+                    background: "var(--gold)",
+                    color: "var(--cocoa)",
+                    borderRadius: 999,
+                    border: "1px solid var(--cocoa)",
+                    fontFamily: "var(--mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontWeight: 600,
                 }}
             >
-                Agent #{agent.id}
+                {CATEGORY_LABELS[agentCategory(agent.id, agent.parents.length)]}
+                <span style={{ opacity: 0.55 }}>·</span>
+                <span style={{ fontWeight: 500 }}>
+                    {agentFocus(agent.id, agent.parents.length)}
+                </span>
             </div>
             <div
                 style={{
                     fontFamily: "var(--mono)",
-                    fontSize: 11,
-                    letterSpacing: "0.06em",
+                    fontSize: 10.5,
+                    letterSpacing: "0.04em",
                     color: "var(--ink-soft)",
-                    marginTop: 6,
+                    marginTop: 8,
                 }}
             >
-                gen {agent.generation} · {modeLabel(agent.mode)}
+                #{agent.id} · gen {agent.generation} · {modeLabel(agent.mode)}
             </div>
         </Link>
     );

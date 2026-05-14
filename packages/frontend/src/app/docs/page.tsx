@@ -16,6 +16,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { DocsSidebar, type DocSection } from "./Sidebar";
 import { ExternalLink } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -28,17 +29,43 @@ const REPO = "https://github.com/PugarHuda/mekar";
 const QUICKSTART_URL = `${REPO}/blob/main/docs/QUICKSTART.md`;
 const GUIDE_URL = `${REPO}/blob/main/docs/INTEGRATION_GUIDE.md`;
 
+// Section index for the sidebar — order must mirror the JSX render order
+// below or scrollspy gets confused. Keep eyebrows short; they're shown
+// as a secondary line under the section title in the sidebar.
+const SECTIONS: DocSection[] = [
+    { id: "intro", label: "Introduction" },
+    { id: "addresses", label: "Contract addresses", eyebrow: "Galileo testnet" },
+    { id: "quickstart", label: "1 · Hello, Mekar", eyebrow: "cast · CLI" },
+    { id: "express-bot", label: "2 · Express bot", eyebrow: "Node · viem" },
+    { id: "indexer", label: "3 · Royalty indexer", eyebrow: "Analytics" },
+    { id: "encryption", label: "4 · Encrypt weights", eyebrow: "AES-256 · SDK" },
+    { id: "errors", label: "5 · Error patterns", eyebrow: "Galileo gotchas" },
+    { id: "gas", label: "6 · Gas & fees", eyebrow: "Cost table" },
+    { id: "status", label: "7 · Live vs Phase 2", eyebrow: "Honesty audit" },
+    { id: "more", label: "Full reference", eyebrow: "Repo links" },
+];
+
 export default function DocsPage() {
     return (
         <div>
             <Header />
             <main className="docs-page" style={{ padding: "var(--pad-section) 0" }}>
-                <div className="container">
-                    <header style={{ marginBottom: 56 }}>
+                <div className="container docs-layout">
+                    {/* Sticky left rail. Sidebar.tsx is a Client Component
+                        because it runs IntersectionObserver to track which
+                        section is in view. */}
+                    <DocsSidebar sections={SECTIONS} />
+
+                    {/* Right column: actual docs content. */}
+                    <div className="docs-content">
+                    <header
+                        id="intro"
+                        style={{ marginBottom: 56, scrollMarginTop: 100 }}
+                    >
                         <span className="eyebrow">/docs</span>
                         <h1
                             style={{
-                                fontSize: "clamp(44px, 5.6vw, 72px)",
+                                fontSize: "clamp(40px, 5vw, 64px)",
                                 marginTop: 12,
                                 lineHeight: 1.05,
                             }}
@@ -50,7 +77,7 @@ export default function DocsPage() {
                                 color: "var(--ink-soft)",
                                 marginTop: 14,
                                 maxWidth: "62ch",
-                                fontSize: 17,
+                                fontSize: 16.5,
                             }}
                         >
                             Mekar is on-chain royalty infrastructure on 0G — not a closed product. Pay
@@ -385,6 +412,7 @@ done`}</Code>
 
                     {/* Full reference link */}
                     <section
+                        id="more"
                         style={{
                             marginTop: 80,
                             padding: "32px 36px",
@@ -392,6 +420,7 @@ done`}</Code>
                             background: "var(--bg-alt)",
                             borderRadius: "var(--radius)",
                             textAlign: "center",
+                            scrollMarginTop: 100,
                         }}
                     >
                         <h2 style={{ fontSize: 28, marginBottom: 12 }}>
@@ -435,6 +464,7 @@ done`}</Code>
                             </Link>
                         </div>
                     </section>
+                    </div>
                 </div>
             </main>
             <Footer />

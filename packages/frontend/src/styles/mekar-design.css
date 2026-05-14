@@ -2348,3 +2348,56 @@ body[data-season="night"] .footer { background: #1a1612; }
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ─────────────── /docs — API-docs 2-column layout ─────────────── */
+/* Sticky left rail with section anchors + right content column.
+   Pattern is the classic Stripe/Tailwind docs shell: sidebar tracks
+   scroll position (via IntersectionObserver in Sidebar.tsx) while the
+   content column owns the reading flow. */
+.docs-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 56px;
+  align-items: start;
+}
+
+.docs-sidebar {
+  position: sticky;
+  top: 100px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-right: 8px;
+  /* Subtle scrollbar so it doesn't fight the woodcut palette */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+
+.docs-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.docs-sidebar::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 3px;
+}
+
+.docs-content {
+  /* min-width:0 prevents the grid track from blowing out on long
+     pre/code blocks (Firefox/Chromium default min-content is "auto"
+     which is the width of the widest child). */
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .docs-sidebar {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 16px;
+    margin-bottom: 8px;
+  }
+}
