@@ -11,10 +11,11 @@ import { Menu, X, AlertTriangle } from "lucide-react";
 // Primary top-bar nav — kept tight (5 items) so the bar doesn't feel like
 // a sitemap. The brand logo on the left already links Home, and Manifesto
 // is reachable from the footer + mobile menu so we don't need to spend a
-// top-bar slot on it. Docs links externally to GitHub so developers can
-// see the integration guide without a wallet on file.
+// top-bar slot on it. Docs links to the developer Quickstart on GitHub
+// (copy-paste recipes for the common integration patterns) so devs
+// can get to runnable snippets in one click without a wallet on file.
 const DOCS_URL =
-    "https://github.com/PugarHuda/mekar/blob/main/docs/INTEGRATION_GUIDE.md";
+    "https://github.com/PugarHuda/mekar/blob/main/docs/QUICKSTART.md";
 
 type NavItem = {
     href: string;

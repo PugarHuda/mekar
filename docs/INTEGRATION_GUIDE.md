@@ -7,6 +7,11 @@ This document shows how a third party can pay for inference, mint
 agents, listen to royalty cascades, and query lineage state directly
 from contracts — using any standard EVM toolchain.
 
+> 👉 **In a hurry?** Skip ahead to [`QUICKSTART.md`](./QUICKSTART.md)
+> for copy-paste recipes (Express bot, Discord slash command, indexer
+> dashboard, React Native, gas table, TypeScript types). This guide is
+> the reference; QUICKSTART is the cookbook.
+
 ---
 
 ## Why this matters
