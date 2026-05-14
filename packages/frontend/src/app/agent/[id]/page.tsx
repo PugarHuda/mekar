@@ -752,6 +752,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                             agentId={agent.id}
                                             inferencePrice={agent.inferencePrice}
                                             onSettled={history.refetch}
+                                            onOptimistic={history.addOptimistic}
                                         />
                                         <div style={{ marginTop: 12 }}>
                                             <RegisterProviderButton />
@@ -866,6 +867,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                         borderBottom: "1px solid var(--rule)",
                                                         cursor: "pointer",
                                                         transition: "background 160ms ease",
+                                                        // Pending rows render slightly faded + with a
+                                                        // pulse so users know they're optimistic until
+                                                        // the on-chain event is picked up.
+                                                        opacity: inf.pending ? 0.7 : 1,
                                                     }}
                                                     onMouseEnter={(e) =>
                                                         (e.currentTarget.style.background =
@@ -881,7 +886,26 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                             color: "var(--ink-soft)",
                                                         }}
                                                     >
-                                                        #{inf.blockNumber.toString()}
+                                                        {inf.pending ? (
+                                                            <span
+                                                                style={{
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    gap: 6,
+                                                                    color: "var(--gold-deep)",
+                                                                    fontWeight: 600,
+                                                                }}
+                                                                title="Optimistic — your tx confirmed; RoyaltyPaid event will replace this row in 1-3s"
+                                                            >
+                                                                <Loader2
+                                                                    className="animate-spin"
+                                                                    size={10}
+                                                                />
+                                                                pending
+                                                            </span>
+                                                        ) : (
+                                                            `#${inf.blockNumber.toString()}`
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: "14px 12px" }}>
                                                         {shortAddress(inf.recipient, 4)}

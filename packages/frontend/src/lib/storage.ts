@@ -53,6 +53,18 @@ export type StorageUploadResult = {
     aesKey?: `0x${string}`;
 };
 
+export type UploadProgress = {
+    /** 0..1 — how much of the request body has been sent. */
+    fraction: number;
+    /** Bytes uploaded so far (including base64 + JSON overhead). */
+    loaded: number;
+    /** Total bytes of the encoded request body. */
+    total: number;
+    /** Phase the upload is in — tells the UI whether to show a determinate
+     *  bar (uploading) vs an indeterminate spinner (server-side anchoring). */
+    phase: "encoding" | "uploading" | "anchoring";
+};
+
 /**
  * Upload an arbitrary blob (file bytes or text) to 0G Storage.
  *
@@ -61,11 +73,15 @@ export type StorageUploadResult = {
  * @param encryption "none" (default) or "aes256". With "aes256" the SDK
  *   encrypts the payload client-side before chunks ship to storage nodes —
  *   the returned `aesKey` is the only way to decrypt it later.
+ * @param onProgress Optional progress callback. Fires during base64 encoding,
+ *   during the POST upload, and once the server starts anchoring. Use it to
+ *   drive an upload bar in the UI.
  */
 export async function uploadToZGStorage(
     bytes: Blob | ArrayBuffer | string,
     tag?: string,
-    encryption: "none" | "aes256" = "none"
+    encryption: "none" | "aes256" = "none",
+    onProgress?: (p: UploadProgress) => void
 ): Promise<StorageUploadResult> {
     let payload: { data: string; encoding: "utf8" | "base64" };
 
@@ -75,29 +91,90 @@ export async function uploadToZGStorage(
         // Convert Blob | ArrayBuffer → base64
         const buffer = bytes instanceof Blob ? await bytes.arrayBuffer() : bytes;
         const u8 = new Uint8Array(buffer);
-        // Chunked btoa for large files (avoid call-stack overflow on 1MB+ inputs)
-        let binary = "";
+        // Chunked btoa for large files (avoid call-stack overflow on 1MB+ inputs).
+        // We tick `onProgress` per chunk so the UI shows encoding progress
+        // for multi-MB uploads where base64 conversion itself takes seconds.
         const chunkSize = 0x8000;
+        const chunks: string[] = [];
         for (let i = 0; i < u8.length; i += chunkSize) {
-            binary += String.fromCharCode.apply(
-                null,
-                Array.from(u8.subarray(i, i + chunkSize))
+            chunks.push(
+                String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + chunkSize)))
             );
+            if (onProgress && i % (chunkSize * 8) === 0) {
+                onProgress({
+                    fraction: 0,
+                    loaded: i,
+                    total: u8.length,
+                    phase: "encoding",
+                });
+            }
         }
-        payload = { data: btoa(binary), encoding: "base64" };
+        payload = { data: btoa(chunks.join("")), encoding: "base64" };
     }
 
-    const res = await fetch(UPLOAD_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, tag, tier: "log", encryption }),
+    const body = JSON.stringify({ ...payload, tag, tier: "log", encryption });
+
+    // Use XMLHttpRequest because `fetch()` has no native upload progress —
+    // ReadableStream-based uploads need keepalive + Content-Length which
+    // breaks on Edge runtimes. XHR's `upload.onprogress` is the reliable
+    // path in 2026 for browser → server upload progress reporting.
+    return new Promise<StorageUploadResult>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", UPLOAD_ENDPOINT, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.responseType = "text";
+
+        const totalBytes = new Blob([body]).size;
+
+        xhr.upload.onprogress = (e) => {
+            if (!onProgress) return;
+            const loaded = e.loaded;
+            const total = e.lengthComputable ? e.total : totalBytes;
+            onProgress({
+                fraction: total > 0 ? loaded / total : 0,
+                loaded,
+                total,
+                phase: "uploading",
+            });
+        };
+
+        xhr.upload.onload = () => {
+            // Body fully sent; the server is now anchoring on 0G Storage +
+            // emitting a Flow tx. Surface an indeterminate "anchoring" tick
+            // so users see something is still happening between 100%
+            // upload and the resolved JSON response.
+            onProgress?.({
+                fraction: 1,
+                loaded: totalBytes,
+                total: totalBytes,
+                phase: "anchoring",
+            });
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const parsed = JSON.parse(xhr.responseText) as StorageUploadResult;
+                    resolve(parsed);
+                } catch (err) {
+                    reject(
+                        new Error(
+                            `storage upload returned non-JSON: ${String((err as Error).message)}`
+                        )
+                    );
+                }
+            } else {
+                reject(
+                    new Error(
+                        `storage upload failed (${xhr.status}): ${xhr.responseText || xhr.statusText}`
+                    )
+                );
+            }
+        };
+
+        xhr.onerror = () => reject(new Error("storage upload network error"));
+        xhr.send(body);
     });
-
-    if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`storage upload failed (${res.status}): ${text || res.statusText}`);
-    }
-    return (await res.json()) as StorageUploadResult;
 }
 
 export const STORAGE_UPLOAD_ENDPOINT = UPLOAD_ENDPOINT;

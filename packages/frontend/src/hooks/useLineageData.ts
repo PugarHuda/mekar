@@ -86,6 +86,20 @@ export function useLineageData(): {
   const nodes: LineageNode[] = [];
   const edges: LineageEdge[] = [];
 
+  // Solidity struct AgentLineage flattened to its readonly TS shape.
+  // Kept local so the parser narrows the result without leaking `any`.
+  type ChainLineage = {
+    parents: readonly bigint[];
+    generation: number;
+    weightsPointer: `0x${string}`;
+    trainingDataMerkle: `0x${string}`;
+    teeAttestation: `0x${string}`;
+    creator: `0x${string}`;
+    createdAt: bigint;
+    alignmentHealth: number;
+    mode: number;
+  };
+
   if (lineageData && totalAgents > 0) {
     for (let i = 0; i < totalAgents; i++) {
       const lineageResult = lineageData[i * 2];
@@ -93,7 +107,7 @@ export function useLineageData(): {
 
       if (lineageResult?.status !== "success" || !lineageResult.result) continue;
 
-      const lineage = lineageResult.result as any;
+      const lineage = lineageResult.result as ChainLineage;
       const id = i + 1;
 
       nodes.push({

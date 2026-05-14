@@ -64,7 +64,22 @@ export function useAgent(agentId: number | undefined): {
     return { agent: null, isLoading, error: error ?? null };
   }
 
-  const lineage = data[0].result as any;
+  // AgentLineage is a tuple struct on chain. wagmi returns it as a typed
+  // readonly object whose keys match the Solidity field names. We narrow
+  // here once so the destructure below is fully typed downstream — no
+  // `as any` and no field name typos slip past tsc.
+  type ChainLineage = {
+    parents: readonly bigint[];
+    generation: number;
+    weightsPointer: `0x${string}`;
+    trainingDataMerkle: `0x${string}`;
+    teeAttestation: `0x${string}`;
+    creator: `0x${string}`;
+    createdAt: bigint;
+    alignmentHealth: number;
+    mode: number;
+  };
+  const lineage = data[0].result as ChainLineage;
   const owner = data[1]?.result as `0x${string}` | undefined;
   const price = (data[2]?.result as bigint | undefined) ?? BigInt(0);
   const descendantsRaw = (data[3]?.result as readonly bigint[] | undefined) ?? [];

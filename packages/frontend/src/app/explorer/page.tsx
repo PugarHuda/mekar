@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
@@ -18,6 +18,27 @@ import {
     CATEGORY_LABELS,
     type AgentCategory,
 } from "@/lib/agentNaming";
+
+/**
+ * Track viewport width via matchMedia. The D3 force graph chokes
+ * on small screens — both because of layout (600px tall + zoom
+ * controls compete with thumb area) and because force simulation
+ * over 50+ nodes is expensive on mid-tier Android. Returning true
+ * here flips the explorer into a list view that scales better.
+ */
+function useIsNarrow(maxWidth = 700): boolean {
+    // SSR-safe default: assume wide. Hydration sets the real value.
+    const [narrow, setNarrow] = useState(false);
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+        const update = () => setNarrow(mq.matches);
+        update();
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
+    }, [maxWidth]);
+    return narrow;
+}
 
 type Filter = "All" | "Genesis" | "Forks" | "Composed";
 const FILTERS: Filter[] = ["All", "Genesis", "Forks", "Composed"];
@@ -41,6 +62,7 @@ export default function ExplorerPage() {
     const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
     const [selected, setSelected] = useState<LineageNode | null>(null);
     const gardenRef = useRef<LineageGardenHandle>(null);
+    const isNarrow = useIsNarrow();
 
     const visible = nodes.filter((n) => {
         // Kind filter (genesis/fork/composed)
@@ -353,6 +375,12 @@ export default function ExplorerPage() {
                                                 ? "An empty garden. Plant the first seed."
                                                 : "No blooms in this filter. Try another petal."}
                                         </div>
+                                    ) : isNarrow ? (
+                                        <MobileLineageList
+                                            nodes={visible}
+                                            onSelect={setSelected}
+                                            selectedId={selected?.id ?? null}
+                                        />
                                     ) : (
                                         <LineageGarden
                                             ref={gardenRef}
@@ -648,6 +676,123 @@ function NotDeployedNotice() {
                 Run the deploy script against 0G Galileo, then update <code>.env</code> with the
                 new addresses.
             </p>
+        </div>
+    );
+}
+
+/**
+ * Phone-shaped list view of the lineage. Each agent renders as a row
+ * with bloom preview, name, capability + gen badges, and the steward
+ * address. Tap → opens the same slideover the desktop garden does.
+ *
+ * We deliberately don't try to render edges here — on a 360px screen the
+ * graph would be unreadable. Users who want the topology can rotate to
+ * landscape or open the desktop view; the list still surfaces every
+ * node, just laid out vertically.
+ */
+function MobileLineageList({
+    nodes,
+    onSelect,
+    selectedId,
+}: {
+    nodes: LineageNode[];
+    onSelect: (n: LineageNode) => void;
+    selectedId: number | null;
+}) {
+    // Sort newest first — mobile users skimming the list usually care
+    // about recent activity over total mass.
+    const sorted = [...nodes].sort((a, b) => b.createdAt - a.createdAt);
+
+    return (
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                padding: 10,
+            }}
+        >
+            {sorted.map((n) => {
+                const parentCount = n.parents.length;
+                const kind: "genesis" | "fork" | "compose" =
+                    parentCount === 0 ? "genesis" : parentCount === 1 ? "fork" : "compose";
+                const name = agentName(n.id, parentCount);
+                const focus = agentFocus(n.id, parentCount);
+                const cat = CATEGORY_LABELS[agentCategory(n.id, parentCount)];
+                const active = selectedId === n.id;
+                return (
+                    <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => onSelect(n)}
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "56px 1fr",
+                            gap: 12,
+                            padding: 12,
+                            alignItems: "center",
+                            background: active ? "var(--gold)" : "var(--surface)",
+                            border: active
+                                ? "1.5px solid var(--cocoa)"
+                                : "1px solid var(--rule)",
+                            borderRadius: "var(--radius)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            color: "var(--ink)",
+                            fontFamily: "inherit",
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: 56,
+                                height: 56,
+                                display: "grid",
+                                placeItems: "center",
+                            }}
+                        >
+                            <Bloom kind={kind} seed={String(n.id)} size={56} sw={1.2} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                            <div
+                                style={{
+                                    fontFamily: "var(--display)",
+                                    fontStyle: "italic",
+                                    fontSize: 18,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {name}
+                            </div>
+                            <div
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 10.5,
+                                    color: active ? "var(--cocoa)" : "var(--ink-soft)",
+                                    marginTop: 3,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.08em",
+                                }}
+                            >
+                                {cat} · {focus}
+                            </div>
+                            <div
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 10,
+                                    color: active ? "var(--cocoa)" : "var(--ink-soft)",
+                                    opacity: 0.7,
+                                    marginTop: 4,
+                                }}
+                            >
+                                #{n.id} · gen {n.generation}
+                                {n.owner && ` · ${shortAddress(n.owner, 4)}`}
+                            </div>
+                        </div>
+                    </button>
+                );
+            })}
         </div>
     );
 }

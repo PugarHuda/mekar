@@ -19,7 +19,11 @@ import { useLineageData } from "@/hooks/useLineageData";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { AGENT_INFT_ABI } from "@/contracts/abis";
 import { ACTIVE_CHAIN, explorerLink } from "@/lib/chains";
-import { uploadToZGStorage, type StorageUploadResult } from "@/lib/storage";
+import {
+    uploadToZGStorage,
+    type StorageUploadResult,
+    type UploadProgress,
+} from "@/lib/storage";
 import {
     agentName,
     agentFocus,
@@ -28,6 +32,7 @@ import {
     type AgentCategory,
 } from "@/lib/agentNaming";
 import { saveAgentMetadata } from "@/lib/agentMetadata";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 type Mode = "genesis" | "fork" | "compose";
@@ -1036,6 +1041,15 @@ function Step2({
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [encrypt, setEncrypt] = useState(false);
+    // Track the "are you sure you want to overwrite the existing upload"
+    // modal. Replaces the old window.confirm() which broke the studio
+    // aesthetic + couldn't render a tidy multi-line body with the
+    // current rootHash inline.
+    const [reuploadConfirmOpen, setReuploadConfirmOpen] = useState(false);
+    // Upload progress feed from storage.ts. Drives a determinate bar
+    // (during the XHR upload phase) and a shifted indeterminate tick
+    // (during the server-side 0G Storage anchoring phase).
+    const [progress, setProgress] = useState<UploadProgress | null>(null);
     // Validation result for the picked file. We surface this before upload
     // so users see "your JSON isn't a manifest" or "this is 0 bytes" before
     // burning a 0G Storage anchor transaction. `null` = no file or unchecked,
@@ -1131,22 +1145,21 @@ function Step2({
     }
 
     async function handleUpload() {
-        // If we already have an upload result, this is a re-upload. Make the
-        // user explicitly confirm — otherwise repeated clicks burn 0G
-        // testnet gas + orphan the previous rootHash, and the user often
-        // doesn't realise only the LAST upload becomes the on-chain pointer.
+        // Re-upload requires explicit confirmation via the custom modal.
+        // Spawning the dialog and bailing out lets the actual upload kick
+        // off only when the user confirms (see doUpload below).
         if (storageUpload) {
-            const ok = window.confirm(
-                "Replace the existing upload?\n\n" +
-                    `Current rootHash:\n${storageUpload.rootHash}\n\n` +
-                    "The previous data stays on 0G Storage but will no longer be " +
-                    "the on-chain pointer. You'll need a fresh AES key too if " +
-                    "encryption is enabled."
-            );
-            if (!ok) return;
+            setReuploadConfirmOpen(true);
+            return;
         }
+        await doUpload();
+    }
+
+    async function doUpload() {
+        setReuploadConfirmOpen(false);
         setUploadError(null);
         setUploading(true);
+        setProgress({ fraction: 0, loaded: 0, total: 0, phase: "encoding" });
         try {
             // If a file is picked, upload it. Otherwise upload a manifest blob
             // built from the dataset note + seed so the on-chain pointer is
@@ -1166,7 +1179,8 @@ function Step2({
             const result = await uploadToZGStorage(
                 payload,
                 `mekar-mint-${seed}`,
-                encrypt ? "aes256" : "none"
+                encrypt ? "aes256" : "none",
+                (p) => setProgress(p)
             );
             setStorageUpload(result);
             toast.success(
@@ -1180,6 +1194,7 @@ function Step2({
             toast.error(msg.slice(0, 200));
         } finally {
             setUploading(false);
+            setProgress(null);
         }
     }
 
@@ -1392,7 +1407,7 @@ function Step2({
                 disabled={uploading || fileCheck?.kind === "err"}
                 className="btn"
                 style={{
-                    marginBottom: 20,
+                    marginBottom: 12,
                     opacity: fileCheck?.kind === "err" ? 0.5 : 1,
                 }}
                 title={
@@ -1404,7 +1419,11 @@ function Step2({
                 {uploading ? (
                     <>
                         <Loader2 className="animate-spin" size={14} style={{ marginRight: 6 }} />
-                        Uploading to 0G Storage…
+                        {progress?.phase === "encoding"
+                            ? "Encoding…"
+                            : progress?.phase === "anchoring"
+                              ? "Anchoring on 0G…"
+                              : "Uploading to 0G Storage…"}
                     </>
                 ) : storageUpload ? (
                     "Re-upload"
@@ -1414,6 +1433,64 @@ function Step2({
                     "Upload to 0G Storage"
                 )}
             </button>
+
+            {/* Progress bar — only renders while uploading. The XHR upload
+                feed gives us real percent; once the bar hits 100% we keep
+                it filled and swap the caption to "Anchoring…" so users
+                understand the gap between upload completion and the
+                resolved JSON response (server is talking to 0G Storage). */}
+            {uploading && progress && (
+                <div style={{ marginBottom: 20 }}>
+                    <div
+                        style={{
+                            position: "relative",
+                            height: 6,
+                            background: "var(--bg-alt)",
+                            border: "1px solid var(--rule)",
+                            borderRadius: 999,
+                            overflow: "hidden",
+                        }}
+                    >
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                width: `${Math.max(2, progress.fraction * 100)}%`,
+                                background:
+                                    progress.phase === "anchoring"
+                                        ? "var(--gold)"
+                                        : "var(--cocoa)",
+                                transition: "width 220ms ease",
+                            }}
+                        />
+                    </div>
+                    <div
+                        style={{
+                            marginTop: 6,
+                            fontFamily: "var(--mono)",
+                            fontSize: 11,
+                            color: "var(--ink-soft)",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                        }}
+                    >
+                        <span>
+                            {progress.phase === "encoding"
+                                ? "Encoding payload…"
+                                : progress.phase === "anchoring"
+                                  ? "0G Storage nodes pinning chunks…"
+                                  : `${(progress.fraction * 100).toFixed(0)}% uploaded`}
+                        </span>
+                        {progress.total > 0 && (
+                            <span>
+                                {(progress.loaded / 1024).toFixed(0)} /{" "}
+                                {(progress.total / 1024).toFixed(0)} KB
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {uploadError && (
                 <div
@@ -1580,6 +1657,42 @@ function Step2({
                     </label>
                 </div>
             )}
+
+            {/* Re-upload confirmation modal. Replaces window.confirm so the
+                rootHash + orphan caveat are legible in the woodcut palette. */}
+            <ConfirmDialog
+                open={reuploadConfirmOpen}
+                title="Replace the existing upload?"
+                tone="danger"
+                confirmLabel="Replace upload"
+                onCancel={() => setReuploadConfirmOpen(false)}
+                onConfirm={() => {
+                    void doUpload();
+                }}
+                body={
+                    <>
+                        <div style={{ marginBottom: 8, color: "var(--ink)" }}>Current rootHash:</div>
+                        <div
+                            style={{
+                                background: "var(--surface)",
+                                border: "1px solid var(--rule)",
+                                borderRadius: 3,
+                                padding: "6px 8px",
+                                marginBottom: 12,
+                                wordBreak: "break-all",
+                                color: "var(--ink)",
+                            }}
+                        >
+                            {storageUpload?.rootHash}
+                        </div>
+                        <div>
+                            The previous data stays on 0G Storage but stops being the on-chain
+                            pointer. Encrypted uploads also generate a fresh AES key — the old
+                            one becomes useless.
+                        </div>
+                    </>
+                }
+            />
         </div>
     );
 }

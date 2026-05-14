@@ -28,6 +28,19 @@ type Props = {
      * users paid successfully but saw an empty log until manual refresh.
      */
     onSettled?: () => void;
+    /**
+     * Optional optimistic insert. Called the moment the tx receipt arrives
+     * (before the RPC scan picks up the RoyaltyPaid event) so the table
+     * shows a pending row immediately. Parents typically pass
+     * useAgentInferenceHistory().addOptimistic.
+     */
+    onOptimistic?: (row: {
+        txHash: `0x${string}`;
+        recipient: `0x${string}`;
+        generation: number;
+        amount: bigint;
+        blockNumber: bigint;
+    }) => void;
 };
 
 const labelStyle: React.CSSProperties = {
@@ -38,7 +51,7 @@ const labelStyle: React.CSSProperties = {
     color: "var(--ink-soft)",
 };
 
-export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
+export function InferencePay({ agentId, inferencePrice, onSettled, onOptimistic }: Props) {
     const { address, isConnected } = useAccount();
     const currentChainId = useChainId();
     const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
@@ -67,13 +80,31 @@ export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
     // Tell the parent to re-scan RoyaltyPaid logs once the receipt lands.
     // We gate on `txHash` so the effect also re-fires for a SECOND payment
     // in the same session (new hash → new settle → onSettled again).
+    // We also fire onOptimistic right here with a synthetic row so the
+    // settlement log shows the payment immediately, even before the RPC
+    // delta scan finishes. The pending row gets replaced by the real one
+    // once the scan picks up the event (dedup by txHash inside the hook).
     useEffect(() => {
-        if (isSuccess && onSettled) onSettled();
-        // onSettled isn't in the deps on purpose: parents typically pass an
-        // inline arrow, and we don't want every render to re-trigger the
-        // refetch. txHash + isSuccess flipping covers the real signal.
+        if (!isSuccess || !txHash || !address) return;
+        if (onOptimistic) {
+            onOptimistic({
+                txHash,
+                recipient: address,
+                // Generation 0 = the direct-owner share. Most visible row to
+                // the user and the only one we can synthesise with certainty
+                // before the scan reads the real event.
+                generation: 0,
+                amount: inferencePrice / 2n,
+                // Synthesise a blockNumber that sorts AFTER the latest
+                // real row in the table. Real value backfills on next scan.
+                blockNumber: BigInt(Date.now()),
+            });
+        }
+        if (onSettled) onSettled();
+        // onSettled / onOptimistic aren't in deps on purpose: parents pass
+        // inline arrows; the txHash + isSuccess pair is the real trigger.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSuccess, txHash]);
+    }, [isSuccess, txHash, address]);
 
     function handlePay() {
         if (!address) {

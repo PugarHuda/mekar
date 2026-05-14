@@ -276,18 +276,28 @@ export function useUserStats(address: `0x${string}` | undefined): UserStats {
  * Aggregates royalty earnings + inference count for a specific agent.
  * Used by the agent detail page to show "lifetime royalty distributed via this agent".
  */
+export type InferenceLogRow = {
+  txHash: `0x${string}`;
+  recipient: `0x${string}`;
+  generation: number;
+  amount: bigint;
+  blockNumber: bigint;
+  /** True for rows added optimistically by InferencePay before the RPC scan
+   *  picks up the real RoyaltyPaid event. We dedupe by txHash, so once the
+   *  real event surfaces it replaces the pending stub. */
+  pending?: boolean;
+};
+
 export function useAgentInferenceHistory(agentId: number | undefined): {
-  inferences: Array<{
-    txHash: `0x${string}`;
-    recipient: `0x${string}`;
-    generation: number;
-    amount: bigint;
-    blockNumber: bigint;
-  }>;
+  inferences: InferenceLogRow[];
   totalDistributed: bigint;
   totalInferences: number;
   isLoading: boolean;
   refetch: () => void;
+  /** Push a pending entry to the top of the table — used by InferencePay
+   *  the moment writeContract returns a hash, so users see the inference
+   *  show up immediately without waiting on the RPC scan. */
+  addOptimistic: (row: Omit<InferenceLogRow, "pending">) => void;
 } {
   const publicClient = usePublicClient();
   // `nonce` is the refetch trigger — bumping it re-runs the effect even
@@ -295,6 +305,9 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
   // of using `refetch` callback semantics (a-la TanStack Query) so we
   // stayed compatible with the existing useEffect-driven shape.
   const [nonce, setNonce] = useState(0);
+  // Optimistic pending rows live in a separate slice so the main effect
+  // doesn't blow them away on every re-scan. Merge happens at return time.
+  const [optimistic, setOptimistic] = useState<InferenceLogRow[]>([]);
   const [state, setState] = useState({
     inferences: [] as Array<{
       txHash: `0x${string}`;
@@ -434,11 +447,30 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
     };
   }, [agentId, publicClient, nonce]);
 
+  // Merge optimistic rows with real ones. If a real RoyaltyPaid event
+  // with the same txHash has landed via the scan, drop the pending stub
+  // so we don't show the same payment twice. Optimistic rows sit on top
+  // (newest) because they're chronologically the latest action.
+  const realTxs = new Set(state.inferences.map((r) => r.txHash));
+  const stillPending = optimistic.filter((r) => !realTxs.has(r.txHash));
+  const merged = [...stillPending, ...state.inferences];
+  const optimisticAmount = stillPending.reduce((s, r) => s + r.amount, BigInt(0));
+  const optimisticTxs = new Set(stillPending.map((r) => r.txHash));
+
   // Stable refetch handle — bumping `nonce` re-runs the scan from
   // `cached.lastBlock + 1`, so a fresh payInference receipt becomes
   // visible without a hard page reload.
   return {
-    ...state,
+    inferences: merged,
+    totalDistributed: state.totalDistributed + optimisticAmount,
+    totalInferences: state.totalInferences + optimisticTxs.size,
+    isLoading: state.isLoading,
     refetch: () => setNonce((n) => n + 1),
+    addOptimistic: (row) =>
+      setOptimistic((prev) => {
+        // Idempotent: ignore if we've already added this hash.
+        if (prev.some((p) => p.txHash === row.txHash)) return prev;
+        return [{ ...row, pending: true }, ...prev];
+      }),
   };
 }

@@ -75,7 +75,7 @@ export default function TrendingPage() {
                     <p
                         style={{
                             color: "var(--ink-soft)",
-                            marginBottom: 40,
+                            marginBottom: 16,
                             fontStyle: "italic",
                             fontFamily: "var(--display)",
                             fontSize: 18,
@@ -83,6 +83,32 @@ export default function TrendingPage() {
                     >
                         {MODES.find((m) => m.id === mode)?.copy}
                     </p>
+
+                    {/* Honesty note — until a real indexer aggregates
+                        RoyaltyPaid events into "top earners" + growth metrics,
+                        the ordering here is procedural (alignment health,
+                        id, createdAt). Saying so up-front beats letting the
+                        user assume these are live royalty rankings. */}
+                    <div
+                        style={{
+                            padding: "10px 14px",
+                            border: "1px solid var(--rule)",
+                            background: "var(--bg-alt)",
+                            borderRadius: 4,
+                            fontFamily: "var(--mono)",
+                            fontSize: 11.5,
+                            color: "var(--ink-soft)",
+                            marginBottom: 40,
+                            maxWidth: "70ch",
+                        }}
+                    >
+                        <span style={{ color: "var(--cocoa)", fontWeight: 600 }}>
+                            UI demo · indexer Phase 2:
+                        </span>{" "}
+                        rankings are derived from alignment health + token order until a
+                        full RoyaltyPaid log aggregator ships. The agent counts above are
+                        real on-chain numbers.
+                    </div>
 
                     {/* Stats strip */}
                     <section
