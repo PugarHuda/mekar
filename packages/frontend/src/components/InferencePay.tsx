@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import {
     useAccount,
+    useChainId,
+    useSwitchChain,
     useWriteContract,
     useWaitForTransactionReceipt,
     useReadContract,
@@ -12,7 +14,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { CONTRACT_ADDRESSES } from "@/contracts/addresses";
 import { ROYALTY_VAULT_ABI } from "@/contracts/abis";
-import { explorerLink } from "@/lib/chains";
+import { ACTIVE_CHAIN, explorerLink } from "@/lib/chains";
 import { formatOG } from "@/lib/utils";
 import { Loader2, ExternalLink } from "lucide-react";
 
@@ -38,6 +40,13 @@ const labelStyle: React.CSSProperties = {
 
 export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
     const { address, isConnected } = useAccount();
+    const currentChainId = useChainId();
+    const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+    // Pre-empt failed tx by checking the wallet is on the right chain
+    // BEFORE writeContract fires. Without this, RainbowKit shows a generic
+    // error popup after gas estimation fails, which is much more confusing
+    // than a clear "switch network" affordance.
+    const isWrongChain = isConnected && currentChainId !== ACTIVE_CHAIN.id;
     const [prompt, setPrompt] = useState("Hello, agent!");
 
     const { data: balance } = useBalance({ address });
@@ -234,40 +243,60 @@ export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
                 </div>
             )}
 
-            <button
-                type="button"
-                onClick={handlePay}
-                disabled={!isConnected || isPending || isConfirming || insufficientBalance}
-                className="btn"
-                style={{
-                    width: "100%",
-                    justifyContent: "center",
-                    opacity:
-                        !isConnected || isPending || isConfirming || insufficientBalance
-                            ? 0.55
-                            : 1,
-                    cursor:
-                        !isConnected || isPending || isConfirming || insufficientBalance
-                            ? "not-allowed"
-                            : "pointer",
-                }}
-            >
-                {(isPending || isConfirming) && (
-                    <Loader2
-                        className="animate-spin"
-                        style={{ width: 14, height: 14, marginRight: 8 }}
-                    />
-                )}
-                {!isConnected
-                    ? "Connect a wallet"
-                    : insufficientBalance
-                      ? "Insufficient balance"
-                      : isPending
-                        ? "Confirming…"
-                        : isConfirming
-                          ? "Mining the bloom…"
-                          : "Pay & run inference →"}
-            </button>
+            {isWrongChain ? (
+                <button
+                    type="button"
+                    onClick={() => switchChain({ chainId: ACTIVE_CHAIN.id })}
+                    disabled={isSwitchingChain}
+                    className="btn"
+                    style={{
+                        width: "100%",
+                        justifyContent: "center",
+                        background: "var(--coral, #f5b7a0)",
+                        color: "var(--cocoa)",
+                        borderColor: "var(--cocoa)",
+                    }}
+                >
+                    {isSwitchingChain
+                        ? "Switching…"
+                        : `Switch to ${ACTIVE_CHAIN.name} to pay`}
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={handlePay}
+                    disabled={!isConnected || isPending || isConfirming || insufficientBalance}
+                    className="btn"
+                    style={{
+                        width: "100%",
+                        justifyContent: "center",
+                        opacity:
+                            !isConnected || isPending || isConfirming || insufficientBalance
+                                ? 0.55
+                                : 1,
+                        cursor:
+                            !isConnected || isPending || isConfirming || insufficientBalance
+                                ? "not-allowed"
+                                : "pointer",
+                    }}
+                >
+                    {(isPending || isConfirming) && (
+                        <Loader2
+                            className="animate-spin"
+                            style={{ width: 14, height: 14, marginRight: 8 }}
+                        />
+                    )}
+                    {!isConnected
+                        ? "Connect a wallet"
+                        : insufficientBalance
+                          ? "Insufficient balance"
+                          : isPending
+                            ? "Confirming…"
+                            : isConfirming
+                              ? "Mining the bloom…"
+                              : "Pay & run inference →"}
+                </button>
+            )}
 
             {txHash && (
                 <div

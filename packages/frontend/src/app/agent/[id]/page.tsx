@@ -768,9 +768,34 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                         style={{
                                             fontSize: "clamp(32px, 3.6vw, 48px)",
                                             marginTop: 8,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 14,
+                                            flexWrap: "wrap",
                                         }}
                                     >
                                         Recent <em>inferences.</em>
+                                        {/* Tiny inline "refreshing" pip — shows up
+                                            during the post-payment delta scan so the
+                                            user knows the table is being re-fetched
+                                            and not just stuck on a cached snapshot. */}
+                                        {history.isLoading && history.inferences.length > 0 && (
+                                            <span
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    fontSize: 11,
+                                                    fontFamily: "var(--mono)",
+                                                    letterSpacing: "0.16em",
+                                                    textTransform: "uppercase",
+                                                    color: "var(--ink-soft)",
+                                                }}
+                                            >
+                                                <Loader2 className="animate-spin" size={11} />
+                                                refreshing
+                                            </span>
+                                        )}
                                     </h2>
                                 </div>
 

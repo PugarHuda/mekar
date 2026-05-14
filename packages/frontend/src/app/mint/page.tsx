@@ -5,6 +5,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
     useAccount,
+    useChainId,
+    useSwitchChain,
     useWaitForTransactionReceipt,
     useWriteContract,
 } from "wagmi";
@@ -16,7 +18,7 @@ import { Bloom } from "@/components/Bloom";
 import { useLineageData } from "@/hooks/useLineageData";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { AGENT_INFT_ABI } from "@/contracts/abis";
-import { explorerLink } from "@/lib/chains";
+import { ACTIVE_CHAIN, explorerLink } from "@/lib/chains";
 import { uploadToZGStorage, type StorageUploadResult } from "@/lib/storage";
 import {
     agentName,
@@ -137,6 +139,13 @@ function MintPageInner() {
     const category = categories[0] ?? "general";
 
     const { address } = useAccount();
+    const currentChainId = useChainId();
+    const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+    // Match InferencePay's pre-flight chain check. A wrong-network mint is
+    // particularly expensive UX-wise because the form has 3 steps before
+    // the tx fires — losing all that state to a generic wallet error is
+    // jarring. Block at submit, offer the network switch inline.
+    const isWrongChain = !!address && currentChainId !== ACTIVE_CHAIN.id;
     const { nodes, totalAgents, refetch: refetchLineage } = useLineageData();
 
     const { writeContract, data: txHash, isPending } = useWriteContract();
@@ -541,29 +550,51 @@ function MintPageInner() {
                                             gap: 6,
                                         }}
                                     >
-                                        <button
-                                            type="button"
-                                            onClick={handleMint}
-                                            disabled={
-                                                !address ||
-                                                !isDeployed ||
-                                                isPending ||
-                                                !!step3Gate
-                                            }
-                                            className="btn"
-                                            title={
-                                                !address
-                                                    ? "Connect a wallet first"
-                                                    : step3Gate ?? undefined
-                                            }
-                                        >
-                                            {isPending
-                                                ? "Confirming…"
-                                                : step3Gate && mode === "genesis" && !royaltyValid
-                                                  ? `Royalty ${royaltySum}% / 100%`
-                                                  : "Mint bloom →"}
-                                        </button>
-                                        {(step3Gate || !address) && (
+                                        {isWrongChain ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    switchChain({ chainId: ACTIVE_CHAIN.id })
+                                                }
+                                                disabled={isSwitchingChain}
+                                                className="btn"
+                                                style={{
+                                                    background: "var(--coral, #f5b7a0)",
+                                                    color: "var(--cocoa)",
+                                                    borderColor: "var(--cocoa)",
+                                                }}
+                                            >
+                                                {isSwitchingChain
+                                                    ? "Switching…"
+                                                    : `Switch to ${ACTIVE_CHAIN.name}`}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={handleMint}
+                                                disabled={
+                                                    !address ||
+                                                    !isDeployed ||
+                                                    isPending ||
+                                                    !!step3Gate
+                                                }
+                                                className="btn"
+                                                title={
+                                                    !address
+                                                        ? "Connect a wallet first"
+                                                        : step3Gate ?? undefined
+                                                }
+                                            >
+                                                {isPending
+                                                    ? "Confirming…"
+                                                    : step3Gate &&
+                                                        mode === "genesis" &&
+                                                        !royaltyValid
+                                                      ? `Royalty ${royaltySum}% / 100%`
+                                                      : "Mint bloom →"}
+                                            </button>
+                                        )}
+                                        {(step3Gate || !address || isWrongChain) && (
                                             <div
                                                 style={{
                                                     fontFamily: "var(--mono)",
@@ -575,7 +606,9 @@ function MintPageInner() {
                                             >
                                                 {!address
                                                     ? "Connect a wallet first."
-                                                    : step3Gate}
+                                                    : isWrongChain
+                                                      ? `Currently on chain ${currentChainId} — Mekar lives on ${ACTIVE_CHAIN.name} (${ACTIVE_CHAIN.id}).`
+                                                      : step3Gate}
                                             </div>
                                         )}
                                     </div>

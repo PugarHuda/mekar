@@ -379,7 +379,7 @@ export function CodeBloom({
         return all;
     }, [
         style, seed, cx, cy, stemX0, stemY0, stemCx1, stemCy1, stemCx2, stemCy2, stemX1, stemY1,
-        gold, pink, coral, forest, green, ink,
+        gold, coral, forest, green, ink,
     ]);
 
     const fallerConfigs = useMemo(() => {

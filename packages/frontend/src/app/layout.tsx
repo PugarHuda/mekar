@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Manrope } from "next/font/google";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import "./globals.css";
 
 const display = Cormorant_Garamond({
@@ -93,7 +94,7 @@ export default function RootLayout({
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased min-h-screen">
         <Providers>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
           <Toaster richColors position="top-right" />
         </Providers>
       </body>
