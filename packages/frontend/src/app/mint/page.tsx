@@ -262,7 +262,61 @@ function MintPageInner() {
         );
     }
 
+    /**
+     * Per-step gate. Returns `null` if the user may advance from `s`,
+     * otherwise a short reason string suitable for both a disabled-button
+     * tooltip and an inline helper message.
+     *
+     * The previous "Next →" button was unconditional — users could fly
+     * through every step with empty fields and only hit the mint tx
+     * revert at the end. That left the storage upload and the mint
+     * funnel feeling untrustworthy, especially because picking 0 parents
+     * for a fork would silently fall back to genesis behaviour on chain.
+     */
+    function gateForStep(s: number): string | null {
+        if (s === 1) {
+            if (mode === "fork" && parentId == null) {
+                return "Pick the parent bloom to fork from.";
+            }
+            if (mode === "compose" && parentIds.length < 2) {
+                return "Pick at least 2 parents to compose.";
+            }
+            return null;
+        }
+        if (s === 2) {
+            // We don't force an upload here — non-Strict modes can mint with
+            // the deterministic stub pointer for demo/testing. But we do
+            // block advance during an in-flight upload so users don't race
+            // past a half-finished tx and then later confuse themselves
+            // about which rootHash got anchored.
+            return null;
+        }
+        if (s === 3) {
+            if (name.trim().length < 3) return "Name needs at least 3 characters.";
+            if (categories.length === 0) return "Pick at least one capability tag.";
+            if (mode === "genesis" && !royaltyValid) {
+                return `Royalty must sum to 100% (current: ${royaltySum}%).`;
+            }
+            return null;
+        }
+        return null;
+    }
+
+    const step1Gate = gateForStep(1);
+    const step2Gate = gateForStep(2);
+    const step3Gate = gateForStep(3);
+    const currentGate =
+        step === 1 ? step1Gate : step === 2 ? step2Gate : step === 3 ? step3Gate : null;
+
     function handleMint() {
+        // Final guard — even if the user somehow bypasses the disabled
+        // button (extension, paste-and-click), refuse to fire writeContract
+        // with empty/invalid state.
+        const finalGate = gateForStep(3);
+        if (finalGate) {
+            toast.error(finalGate);
+            return;
+        }
         setStep(4);
         if (mode === "genesis") handleMintGenesis();
         else if (mode === "fork") handleMintFork();
@@ -430,37 +484,92 @@ function MintPageInner() {
                                     ← Back
                                 </button>
                                 {step < 3 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setStep((s) => s + 1)}
-                                        className="btn"
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "flex-end",
+                                            gap: 6,
+                                        }}
                                     >
-                                        Next →
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (currentGate) {
+                                                    toast.error(currentGate);
+                                                    return;
+                                                }
+                                                setStep((s) => s + 1);
+                                            }}
+                                            className="btn"
+                                            disabled={!!currentGate}
+                                            title={currentGate ?? undefined}
+                                            style={{ opacity: currentGate ? 0.5 : 1 }}
+                                        >
+                                            Next →
+                                        </button>
+                                        {currentGate && (
+                                            <div
+                                                style={{
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 11,
+                                                    color: "var(--rose, #c25a4a)",
+                                                    maxWidth: 320,
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                {currentGate}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                                 {step === 3 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleMint}
-                                        disabled={
-                                            !address ||
-                                            !isDeployed ||
-                                            isPending ||
-                                            (mode === "genesis" && !royaltyValid)
-                                        }
-                                        className="btn"
-                                        title={
-                                            mode === "genesis" && !royaltyValid
-                                                ? `Royalty must sum to 100% (current: ${royaltySum}%)`
-                                                : undefined
-                                        }
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            alignItems: "flex-end",
+                                            gap: 6,
+                                        }}
                                     >
-                                        {isPending
-                                            ? "Confirming…"
-                                            : mode === "genesis" && !royaltyValid
-                                              ? `Royalty ${royaltySum}% / 100%`
-                                              : "Mint bloom →"}
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleMint}
+                                            disabled={
+                                                !address ||
+                                                !isDeployed ||
+                                                isPending ||
+                                                !!step3Gate
+                                            }
+                                            className="btn"
+                                            title={
+                                                !address
+                                                    ? "Connect a wallet first"
+                                                    : step3Gate ?? undefined
+                                            }
+                                        >
+                                            {isPending
+                                                ? "Confirming…"
+                                                : step3Gate && mode === "genesis" && !royaltyValid
+                                                  ? `Royalty ${royaltySum}% / 100%`
+                                                  : "Mint bloom →"}
+                                        </button>
+                                        {(step3Gate || !address) && (
+                                            <div
+                                                style={{
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 11,
+                                                    color: "var(--rose, #c25a4a)",
+                                                    maxWidth: 320,
+                                                    textAlign: "right",
+                                                }}
+                                            >
+                                                {!address
+                                                    ? "Connect a wallet first."
+                                                    : step3Gate}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -906,6 +1015,20 @@ function Step2({
     }
 
     async function handleUpload() {
+        // If we already have an upload result, this is a re-upload. Make the
+        // user explicitly confirm — otherwise repeated clicks burn 0G
+        // testnet gas + orphan the previous rootHash, and the user often
+        // doesn't realise only the LAST upload becomes the on-chain pointer.
+        if (storageUpload) {
+            const ok = window.confirm(
+                "Replace the existing upload?\n\n" +
+                    `Current rootHash:\n${storageUpload.rootHash}\n\n` +
+                    "The previous data stays on 0G Storage but will no longer be " +
+                    "the on-chain pointer. You'll need a fresh AES key too if " +
+                    "encryption is enabled."
+            );
+            if (!ok) return;
+        }
         setUploadError(null);
         setUploading(true);
         try {
@@ -949,11 +1072,60 @@ function Step2({
             <h2 style={{ fontSize: 32, marginBottom: 8 }}>
                 Pin the <em>weights.</em>
             </h2>
-            <p style={{ color: "var(--ink-soft)", marginBottom: 28 }}>
+            <p style={{ color: "var(--ink-soft)", marginBottom: 16 }}>
                 Upload your model weights (or a manifest if weights live elsewhere) to 0G Storage.
                 The returned root hash anchors as your INFT&apos;s <code>weightsPointer</code>{" "}
                 on chain. Skip this step and we&apos;ll mint with a deterministic stub instead.
             </p>
+
+            {/* Ownership clarification — answers "kalau aku upload, itu punya siapa?".
+                Common confusion: people think the upload itself binds ownership.
+                On 0G Storage the rootHash is anonymous + public; the INFT is the
+                thing that asserts "this rootHash is mine" via on-chain mint. */}
+            <div
+                style={{
+                    padding: "12px 14px",
+                    border: "1px solid var(--rule)",
+                    background: "var(--bg-alt)",
+                    borderRadius: 6,
+                    marginBottom: 28,
+                    fontSize: 12.5,
+                    color: "var(--ink-soft)",
+                    lineHeight: 1.55,
+                    fontFamily: "var(--mono)",
+                }}
+            >
+                <div
+                    style={{
+                        fontSize: 10.5,
+                        letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: "var(--cocoa)",
+                        marginBottom: 6,
+                        fontWeight: 600,
+                    }}
+                >
+                    Who owns what
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    <li>
+                        <strong>INFT ownership</strong> = wallet that signs the mint tx in
+                        Step 3. That is the on-chain Steward.
+                    </li>
+                    <li>
+                        <strong>0G Storage rootHash</strong> is anonymous + globally
+                        readable. Anyone with the hash can fetch the bytes.
+                    </li>
+                    <li>
+                        <strong>Encryption</strong> (toggle below) gates the bytes behind
+                        an AES-256 key. Only key-holders can decrypt — protect the key.
+                    </li>
+                    <li>
+                        Re-upload replaces the on-chain pointer; the previous data stays
+                        on storage but becomes orphaned.
+                    </li>
+                </ul>
+            </div>
 
             <Field label="Training data summary">
                 <input
