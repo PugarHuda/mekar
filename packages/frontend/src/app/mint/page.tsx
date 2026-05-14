@@ -113,6 +113,11 @@ function MintPageInner() {
     // Real 0G Storage upload state — replaces the keccak256 stub. Once a file
     // is uploaded the returned rootHash is what we send on-chain.
     const [storageUpload, setStorageUpload] = useState<StorageUploadResult | null>(null);
+    // Acknowledgment that the user is OK minting with a deterministic stub
+    // pointer instead of a real 0G Storage anchor. Required to clear Step 2
+    // when no upload happened — fixes the previous "Next button works on
+    // an empty Step 2" complaint.
+    const [skipUploadAck, setSkipUploadAck] = useState(false);
 
     // Tunable royalty schema (Genesis only — forks + composes inherit).
     const [royalty, setRoyalty] = useState<RoyaltyConfig>(DEFAULT_ROYALTY);
@@ -284,11 +289,13 @@ function MintPageInner() {
             return null;
         }
         if (s === 2) {
-            // We don't force an upload here — non-Strict modes can mint with
-            // the deterministic stub pointer for demo/testing. But we do
-            // block advance during an in-flight upload so users don't race
-            // past a half-finished tx and then later confuse themselves
-            // about which rootHash got anchored.
+            // Either the user uploaded a real anchor, or they explicitly
+            // checked the "use stub pointer (demo)" box. Without one of those
+            // we'd be silently minting an INFT whose weightsPointer is a
+            // keccak256 of nothing — confusing for everyone downstream.
+            if (!storageUpload && !skipUploadAck) {
+                return "Upload weights to 0G Storage, or tick the acknowledgment to mint with a stub pointer.";
+            }
             return null;
         }
         if (s === 3) {
@@ -437,6 +444,8 @@ function MintPageInner() {
                                     storageUpload={storageUpload}
                                     setStorageUpload={setStorageUpload}
                                     seed={seed}
+                                    skipUploadAck={skipUploadAck}
+                                    setSkipUploadAck={setSkipUploadAck}
                                 />
                             )}
                             {step === 3 && (
@@ -979,17 +988,91 @@ function Step2({
     storageUpload,
     setStorageUpload,
     seed,
+    skipUploadAck,
+    setSkipUploadAck,
 }: {
     datasetNote: string;
     setDatasetNote: (v: string) => void;
     storageUpload: StorageUploadResult | null;
     setStorageUpload: (r: StorageUploadResult | null) => void;
     seed: string;
+    skipUploadAck: boolean;
+    setSkipUploadAck: (v: boolean) => void;
 }) {
     const [file, setFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [encrypt, setEncrypt] = useState(false);
+    // Validation result for the picked file. We surface this before upload
+    // so users see "your JSON isn't a manifest" or "this is 0 bytes" before
+    // burning a 0G Storage anchor transaction. `null` = no file or unchecked,
+    // `kind:"ok"` = passed, `kind:"warn"` = unusual but allowed,
+    // `kind:"err"` = blocked.
+    type FileCheck = { kind: "ok" | "warn" | "err"; msg: string };
+    const [fileCheck, setFileCheck] = useState<FileCheck | null>(null);
+
+    /**
+     * Inspects a freshly-picked file:
+     *   - hard-blocks 0-byte files
+     *   - hard-blocks files > 2 GB (browser upload sanity, not protocol)
+     *   - if .json, tries to parse and check for `kind: "mekar-agent-manifest"`
+     *   - otherwise accepts common weight formats with a friendly note
+     * Warnings still allow advance, only "err" disables the upload button.
+     */
+    async function checkFile(f: File): Promise<FileCheck> {
+        if (f.size === 0) {
+            return { kind: "err", msg: "File is 0 bytes — pick a real file." };
+        }
+        if (f.size > 2 * 1024 * 1024 * 1024) {
+            return {
+                kind: "err",
+                msg: "File > 2 GB. Upload via SDK directly for large weights; this UI is for manifests + small shards.",
+            };
+        }
+        const ext = f.name.toLowerCase().split(".").pop() ?? "";
+        const knownWeight = ["safetensors", "bin", "gguf", "pt", "ckpt", "tar", "zip"];
+        if (ext === "json") {
+            try {
+                const text = await f.text();
+                const parsed = JSON.parse(text);
+                if (parsed && typeof parsed === "object" && parsed.kind === "mekar-agent-manifest") {
+                    return {
+                        kind: "ok",
+                        msg: `Valid Mekar manifest — model: ${parsed.model?.params ?? "?"} · ${parsed.weights?.length ?? 0} weight file(s)`,
+                    };
+                }
+                return {
+                    kind: "warn",
+                    msg: "JSON parses but isn't a Mekar manifest (kind=\"mekar-agent-manifest\"). Will still upload, but readers may not know what to do with it.",
+                };
+            } catch {
+                return { kind: "err", msg: "JSON file is malformed — fix syntax before upload." };
+            }
+        }
+        if (knownWeight.includes(ext)) {
+            return {
+                kind: "ok",
+                msg: `Recognised weight format (.${ext}) · ${(f.size / 1024 / 1024).toFixed(1)} MB`,
+            };
+        }
+        return {
+            kind: "warn",
+            msg: `Unrecognised extension (.${ext || "(none)"}) — Mekar doesn't enforce file type, but consumers usually expect safetensors / bin / gguf / json. Continue if you know what you're doing.`,
+        };
+    }
+
+    async function onPickFile(picked: File | null) {
+        setFile(picked);
+        setFileCheck(null);
+        if (!picked) return;
+        const result = await checkFile(picked);
+        setFileCheck(result);
+        if (result.kind === "err") {
+            toast.error(result.msg);
+        } else if (result.kind === "warn") {
+            toast.message("Upload check", { description: result.msg });
+        }
+    }
 
     // Load a realistic sample manifest from /public/sample-weights/.
     // Lets users test the full upload flow without needing their own model
@@ -1140,7 +1223,8 @@ function Step2({
             <Field label="Weights file (optional)">
                 <input
                     type="file"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    accept=".safetensors,.bin,.gguf,.pt,.ckpt,.tar,.zip,.json"
+                    onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
                     style={{
                         ...inputStyle,
                         padding: "10px 12px",
@@ -1156,9 +1240,43 @@ function Step2({
                     }}
                 >
                     {file
-                        ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB`
-                        : "No file picked — a JSON manifest will be uploaded instead."}
+                        ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB · ${file.type || "unknown type"}`
+                        : "No file picked — a JSON manifest stub will be uploaded instead."}
                 </p>
+                {/* Inline file check result. Colour mirrors validation level so
+                    users see at a glance whether their file passed sanity. */}
+                {fileCheck && (
+                    <div
+                        style={{
+                            marginTop: 8,
+                            padding: "8px 12px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            fontFamily: "var(--mono)",
+                            background:
+                                fileCheck.kind === "err"
+                                    ? "rgba(194, 90, 74, 0.08)"
+                                    : fileCheck.kind === "warn"
+                                      ? "rgba(212, 164, 55, 0.12)"
+                                      : "rgba(76, 138, 122, 0.10)",
+                            border:
+                                fileCheck.kind === "err"
+                                    ? "1px solid rgba(194, 90, 74, 0.45)"
+                                    : fileCheck.kind === "warn"
+                                      ? "1px solid rgba(212, 164, 55, 0.5)"
+                                      : "1px solid rgba(76, 138, 122, 0.45)",
+                            color:
+                                fileCheck.kind === "err"
+                                    ? "#c25a4a"
+                                    : fileCheck.kind === "warn"
+                                      ? "#8a6d1a"
+                                      : "var(--tea, #2e6856)",
+                        }}
+                    >
+                        {fileCheck.kind === "err" ? "✗ " : fileCheck.kind === "warn" ? "⚠ " : "✓ "}
+                        {fileCheck.msg}
+                    </div>
+                )}
                 <div
                     style={{
                         display: "flex",
@@ -1238,9 +1356,17 @@ function Step2({
             <button
                 type="button"
                 onClick={handleUpload}
-                disabled={uploading}
+                disabled={uploading || fileCheck?.kind === "err"}
                 className="btn"
-                style={{ marginBottom: 20 }}
+                style={{
+                    marginBottom: 20,
+                    opacity: fileCheck?.kind === "err" ? 0.5 : 1,
+                }}
+                title={
+                    fileCheck?.kind === "err"
+                        ? "File didn't pass sanity — fix or pick a different file."
+                        : undefined
+                }
             >
                 {uploading ? (
                     <>
@@ -1366,6 +1492,59 @@ function Step2({
                             </p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Skip acknowledgment — only shown when no successful upload yet.
+                Forces the user to make an explicit decision before Step 2's
+                gate clears: either upload, or tick the box to mint with a
+                deterministic stub pointer. Silently advancing on empty Step 2
+                is what produced the "kosong masih bisa next" confusion. */}
+            {!storageUpload && (
+                <div
+                    style={{
+                        marginTop: 24,
+                        padding: "14px 16px",
+                        border: "1.5px dashed var(--rule)",
+                        background: "var(--bg-alt)",
+                        borderRadius: 6,
+                    }}
+                >
+                    <label
+                        style={{
+                            display: "flex",
+                            gap: 10,
+                            cursor: "pointer",
+                            alignItems: "flex-start",
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={skipUploadAck}
+                            onChange={(e) => setSkipUploadAck(e.target.checked)}
+                            style={{ marginTop: 4, accentColor: "var(--cocoa)" }}
+                        />
+                        <span>
+                            <span style={{ fontWeight: 600, fontSize: 13.5 }}>
+                                Skip upload — mint with a stub weightsPointer (demo only)
+                            </span>
+                            <span
+                                style={{
+                                    display: "block",
+                                    marginTop: 4,
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    color: "var(--ink-soft)",
+                                    lineHeight: 1.55,
+                                }}
+                            >
+                                I understand the on-chain <code>weightsPointer</code> will be a
+                                deterministic keccak256 of the seed, NOT a real 0G Storage
+                                rootHash. No actual model bytes will be retrievable. Use only
+                                for demo / testing mint flow.
+                            </span>
+                        </span>
+                    </label>
                 </div>
             )}
         </div>

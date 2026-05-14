@@ -20,6 +20,7 @@ import {
     CATEGORY_LABELS,
 } from "@/lib/agentNaming";
 import { getAgentMetadata } from "@/lib/agentMetadata";
+import { EditMetadataPanel } from "@/components/EditMetadataPanel";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -653,6 +654,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                     sub={`Created ${formatTimeAgo(agent.createdAt)}`}
                                 />
                             </section>
+
+                            {/* Owner-only metadata editor. Renders nothing if
+                                the connected wallet doesn't own this token. */}
+                            <EditMetadataPanel
+                                agentId={agent.id}
+                                ownerAddress={agent.owner ?? agent.creator}
+                            />
 
                             {/* TRY IT */}
                             <section id="try" style={{ marginBottom: 80 }}>

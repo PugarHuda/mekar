@@ -120,6 +120,43 @@ export function InferencePay({ agentId, inferencePrice, onSettled }: Props) {
                 </h3>
             </div>
 
+            {/* "Where does the AI think?" — recurring question. Mekar is the
+                royalty rail, not a model host. We say so up-front so users
+                don't expect a chat response when they pay. */}
+            <div
+                style={{
+                    padding: "11px 13px",
+                    background: "var(--bg-alt)",
+                    border: "1px solid var(--rule)",
+                    borderRadius: 5,
+                    fontFamily: "var(--mono)",
+                    fontSize: 11.5,
+                    color: "var(--ink-soft)",
+                    lineHeight: 1.55,
+                }}
+            >
+                <span
+                    style={{
+                        color: "var(--cocoa)",
+                        fontWeight: 600,
+                        letterSpacing: "0.06em",
+                    }}
+                >
+                    Where does the AI run?
+                </span>{" "}
+                Mekar settles royalty on chain. Actual model inference happens on{" "}
+                <strong>0G Compute (TEE)</strong> when a provider serves this agent&apos;s{" "}
+                <code>weightsPointer</code>. No DSN providers registered on Galileo yet
+                — payment cascades, response is Phase 2. See{" "}
+                <a
+                    href="/docs#status"
+                    style={{ color: "var(--cocoa)", textDecoration: "underline" }}
+                >
+                    /docs § Live vs Phase 2
+                </a>
+                .
+            </div>
+
             <div>
                 <div
                     style={{
