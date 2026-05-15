@@ -1100,6 +1100,10 @@ function Step2({
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [encrypt, setEncrypt] = useState(false);
+    // Live wallet state — Step2 reads it directly so a mid-flow
+    // disconnect immediately disables the upload button (instead of
+    // relying solely on the parent's gate, which can lag a render).
+    const { address: walletAddress, isConnected: walletConnected } = useAccount();
     // Track the "are you sure you want to overwrite the existing upload"
     // modal. Replaces the old window.confirm() which broke the studio
     // aesthetic + couldn't render a tidy multi-line body with the
@@ -1215,28 +1219,27 @@ function Step2({
     }
 
     async function doUpload() {
+        // Defense in depth — the button is already disabled without a
+        // wallet / file, but a stray call (extension, double-click race,
+        // devtools) must still bail. Uploading without a wallet burns
+        // deployer $0G for an anchor nobody can claim.
+        if (!walletConnected || !walletAddress) {
+            toast.error("Connect a wallet before uploading");
+            return;
+        }
+        if (!file) {
+            toast.error("Pick a weights file or sample manifest first");
+            return;
+        }
         setReuploadConfirmOpen(false);
         setUploadError(null);
         setUploading(true);
         setProgress({ fraction: 0, loaded: 0, total: 0, phase: "encoding" });
         try {
-            // If a file is picked, upload it. Otherwise upload a manifest blob
-            // built from the dataset note + seed so the on-chain pointer is
-            // still real (not stub).
-            const payload: Blob | string = file
-                ? file
-                : JSON.stringify(
-                      {
-                          kind: "mekar-agent-manifest",
-                          seed,
-                          datasetNote: datasetNote || "(none)",
-                          createdAt: new Date().toISOString(),
-                      },
-                      null,
-                      2
-                  );
+            // A real file is required (enforced above) — we always upload
+            // actual bytes the user chose, never a synthesised stub.
             const result = await uploadToZGStorage(
-                payload,
+                file,
                 `mekar-mint-${seed}`,
                 encrypt ? "aes256" : "none",
                 (p) => setProgress(p)
@@ -1348,7 +1351,7 @@ function Step2({
                 >
                     {file
                         ? `${file.name} · ${(file.size / 1024).toFixed(1)} KB · ${file.type || "unknown type"}`
-                        : "No file picked — a JSON manifest stub will be uploaded instead."}
+                        : "No file picked — pick one, load a sample, or tick “Skip upload” below to mint with a stub pointer."}
                 </p>
                 {/* Inline file check result. Colour mirrors validation level so
                     users see at a glance whether their file passed sanity. */}
@@ -1460,38 +1463,70 @@ function Step2({
                 </p>
             </Field>
 
-            <button
-                type="button"
-                onClick={handleUpload}
-                disabled={uploading || fileCheck?.kind === "err"}
-                className="btn"
-                style={{
-                    marginBottom: 12,
-                    opacity: fileCheck?.kind === "err" ? 0.5 : 1,
-                }}
-                title={
-                    fileCheck?.kind === "err"
-                        ? "File didn't pass sanity — fix or pick a different file."
-                        : undefined
-                }
-            >
-                {uploading ? (
-                    <>
-                        <Loader2 className="animate-spin" size={14} style={{ marginRight: 6 }} />
-                        {progress?.phase === "encoding"
-                            ? "Encoding…"
-                            : progress?.phase === "anchoring"
-                              ? "Anchoring on 0G…"
-                              : "Uploading to 0G Storage…"}
-                    </>
-                ) : storageUpload ? (
-                    "Re-upload"
-                ) : encrypt ? (
-                    "Encrypt + upload to 0G Storage"
-                ) : (
-                    "Upload to 0G Storage"
-                )}
-            </button>
+            {(() => {
+                // Upload is only allowed when ALL of these hold:
+                //   - a wallet is connected (it pays nothing here, but the
+                //     mint that follows needs it, and we don't want a
+                //     wallet-less visitor burning deployer storage gas)
+                //   - a real file is picked (no synthesised stub uploads)
+                //   - the file passed the sanity check
+                const noWallet = !walletConnected || !walletAddress;
+                const noFile = !file;
+                const badFile = fileCheck?.kind === "err";
+                const blockedReason = noWallet
+                    ? "Connect a wallet first."
+                    : noFile
+                      ? "Pick a weights file or load a sample manifest first."
+                      : badFile
+                        ? "File didn't pass the sanity check — fix or pick another."
+                        : null;
+                const disabled = uploading || !!blockedReason;
+                return (
+                    <div style={{ marginBottom: 12 }}>
+                        <button
+                            type="button"
+                            onClick={handleUpload}
+                            disabled={disabled}
+                            className="btn"
+                            style={{ opacity: blockedReason ? 0.5 : 1 }}
+                            title={blockedReason ?? undefined}
+                        >
+                            {uploading ? (
+                                <>
+                                    <Loader2
+                                        className="animate-spin"
+                                        size={14}
+                                        style={{ marginRight: 6 }}
+                                    />
+                                    {progress?.phase === "encoding"
+                                        ? "Encoding…"
+                                        : progress?.phase === "anchoring"
+                                          ? "Anchoring on 0G…"
+                                          : "Uploading to 0G Storage…"}
+                                </>
+                            ) : storageUpload ? (
+                                "Re-upload"
+                            ) : encrypt ? (
+                                "Encrypt + upload to 0G Storage"
+                            ) : (
+                                "Upload to 0G Storage"
+                            )}
+                        </button>
+                        {blockedReason && !uploading && (
+                            <div
+                                style={{
+                                    marginTop: 6,
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    color: "var(--rose, #c25a4a)",
+                                }}
+                            >
+                                {blockedReason}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* Progress bar — only renders while uploading. The XHR upload
                 feed gives us real percent; once the bar hits 100% we keep
