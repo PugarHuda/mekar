@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Manrope } from "next/font/google";
+import { cookies } from "next/headers";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import "./globals.css";
 
 const display = Cormorant_Garamond({
@@ -87,14 +89,23 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Read pinned locale from cookie so server-rendered HTML uses the
+  // correct <html lang>. Without this, the locale only kicks in after
+  // hydration and the first paint flashes EN. Cookie is set by
+  // setLocale() in lib/i18n.ts alongside the localStorage write.
+  const cookieStore = await cookies();
+  const cookieLocale = cookieStore.get("mekar-locale")?.value;
+  const lang: "en" | "id" = cookieLocale === "id" ? "id" : "en";
+
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang={lang} className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased min-h-screen">
         <Providers>
           <ErrorBoundary>{children}</ErrorBoundary>
+          <MobileBottomNav />
           <Toaster richColors position="top-right" />
         </Providers>
       </body>

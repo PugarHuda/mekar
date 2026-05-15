@@ -18,6 +18,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ethers } from "ethers";
 import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk";
+import { rateLimiter } from "@/lib/rateLimit";
+import { checkBotId } from "botid/server";
 
 const RPC_URL =
     process.env.ZG_GALILEO_RPC ?? "https://evmrpc-testnet.0g.ai";
@@ -59,35 +61,15 @@ const UploadSchema = z.object({
 });
 
 /**
- * In-memory token bucket per IP. Vercel Fluid Compute reuses instances
- * across requests, so the bucket survives between calls in the same
- * warm function. On cold start the bucket resets — that's acceptable
- * because cold starts also rate-limit naturally (function init takes
- * seconds). For higher-traffic production this should move to Upstash
- * Redis or Vercel KV, but for the hackathon this catches the obvious
- * abuse pattern (one IP hammering the endpoint in a loop).
+ * Per-IP quota. 6 uploads / minute. Each upload pays ~30 micro-OG on
+ * chain so 6/min ≈ 0.18 OG/hour/IP — an attacker has to rotate IPs
+ * faster than the deployer faucet to outscale the limit.
  *
- * Bucket: 6 uploads per minute per IP. Each upload pays ~30 micro-OG
- * on chain, so 6/min = ~0.18 OG/hour per attacker IP. A real attacker
- * would need to rotate IPs to outscale the deployer faucet.
+ * Backend resolves to Vercel KV when KV_REST_API_URL is set, otherwise
+ * falls back to in-memory. See lib/rateLimit.ts.
  */
 const BUCKET_SIZE = 6;
 const BUCKET_WINDOW_MS = 60_000;
-const ipBucket = new Map<string, { count: number; resetAt: number }>();
-
-function checkRate(ip: string): { allowed: boolean; retryAfterMs?: number } {
-    const now = Date.now();
-    const entry = ipBucket.get(ip);
-    if (!entry || entry.resetAt < now) {
-        ipBucket.set(ip, { count: 1, resetAt: now + BUCKET_WINDOW_MS });
-        return { allowed: true };
-    }
-    if (entry.count >= BUCKET_SIZE) {
-        return { allowed: false, retryAfterMs: entry.resetAt - now };
-    }
-    entry.count++;
-    return { allowed: true };
-}
 
 /**
  * Origin allowlist. Browsers send `Origin` for cross-origin requests
@@ -143,6 +125,26 @@ export async function POST(req: NextRequest) {
         );
     }
 
+    // Vercel BotID — server-side bot fingerprinting. The client-side
+    // `initBotId()` (mounted in app/providers.tsx) emits a one-time
+    // token that Vercel's edge inspects. We block here only if BotID
+    // is confidently a bot; uncertain verdicts pass through to the
+    // rate limiter below. The middleware will short-circuit known bots
+    // before they reach us, this catches anything that slipped past.
+    try {
+        const verdict = await checkBotId();
+        if (verdict.isBot) {
+            return NextResponse.json(
+                { error: "bot detected" },
+                { status: 403 }
+            );
+        }
+    } catch {
+        // BotID not provisioned (no env) → skip the check. Rate limit
+        // + origin check still apply. We don't fail-closed because
+        // local dev typically runs without BotID configured.
+    }
+
     // Rate limit per IP. Vercel attaches the client IP via x-forwarded-for;
     // we fall back to a "shared" bucket if the header is missing so the
     // limit still applies to local dev / unknown sources.
@@ -150,17 +152,17 @@ export async function POST(req: NextRequest) {
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         req.headers.get("x-real-ip") ??
         "shared";
-    const rate = checkRate(ip);
+    const rate = await rateLimiter.check(`upload:${ip}`, BUCKET_SIZE, BUCKET_WINDOW_MS);
     if (!rate.allowed) {
         return NextResponse.json(
             {
                 error: "rate limit — too many uploads",
-                retryAfterSec: Math.ceil((rate.retryAfterMs ?? 0) / 1000),
+                retryAfterSec: Math.ceil(rate.retryAfterMs / 1000),
             },
             {
                 status: 429,
                 headers: {
-                    "Retry-After": String(Math.ceil((rate.retryAfterMs ?? 0) / 1000)),
+                    "Retry-After": String(Math.ceil(rate.retryAfterMs / 1000)),
                 },
             }
         );

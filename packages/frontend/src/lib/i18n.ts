@@ -82,6 +82,12 @@ const listeners = new Set<() => void>();
 
 function readLocale(): Locale {
     if (typeof window === "undefined") return "en";
+    // Cookie wins when present — the server already used it for the
+    // initial <html lang>, so localStorage should follow suit on this
+    // device. localStorage is the fallback for users who blocked the
+    // cookie (privacy mode) or migrated from an older version.
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)mekar-locale=(en|id)/);
+    if (cookieMatch?.[1]) return cookieMatch[1] as Locale;
     const raw = window.localStorage.getItem(STORAGE_KEY);
     return raw === "id" ? "id" : "en";
 }
@@ -104,6 +110,12 @@ function subscribe(cb: () => void): () => void {
 export function setLocale(next: Locale): void {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, next);
+    // Mirror to a cookie so the next server render of layout.tsx can
+    // pick the locale up and set <html lang> correctly — eliminates
+    // the EN-flash-before-ID hydration jitter. 1 year, SameSite=Lax
+    // so it survives normal navigation without being sent on
+    // cross-site requests.
+    document.cookie = `mekar-locale=${next}; max-age=${60 * 60 * 24 * 365}; path=/; SameSite=Lax`;
     cachedLocale = next;
     listeners.forEach((l) => l());
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { captureClient } from "@/lib/sentry";
 
 /**
  * Catches render-phase errors so a bug in one panel doesn't break the
@@ -30,9 +31,10 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     componentDidCatch(err: Error) {
-        // Best-effort error ping to /api/log/error. We don't await, don't
-        // surface failures — if the network is down the user is already
-        // in a degraded state and another fetch failure helps nobody.
+        // Best-effort fan-out to two sinks. Either or both may be
+        // unconfigured; both swallow their own failures so a degraded
+        // backend never makes the broken-render UX worse.
+        const path = typeof window !== "undefined" ? window.location.pathname : undefined;
         try {
             void fetch("/api/log/error", {
                 method: "POST",
@@ -40,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 body: JSON.stringify({
                     message: err.message.slice(0, 500),
                     stack: err.stack?.slice(0, 4_000),
-                    path: typeof window !== "undefined" ? window.location.pathname : undefined,
+                    path,
                     source: "render",
                 }),
             }).catch(() => {
@@ -50,6 +52,14 @@ export class ErrorBoundary extends Component<Props, State> {
             // Even constructing the request can throw (e.g. JSON cycle).
             // Swallow rather than re-enter the boundary.
         }
+        // Sentry direct — no-ops if NEXT_PUBLIC_SENTRY_DSN unset.
+        // Ships richer event data than the server log endpoint can
+        // (stack frames, tags, level).
+        void captureClient({
+            message: err.message,
+            stack: err.stack,
+            tags: { source: "render", path: path ?? "(unknown)" },
+        });
     }
 
     reset = () => this.setState({ err: null });

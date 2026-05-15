@@ -21,6 +21,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimiter } from "@/lib/rateLimit";
+import { captureServer } from "@/lib/sentry";
 
 const LogSchema = z.object({
     message: z.string().min(1).max(500),
@@ -43,21 +45,11 @@ function originAllowed(origin: string | null): boolean {
     return ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin));
 }
 
+// Generous quota — error storms during real bugs shouldn't be silenced,
+// but an attacker spamming the endpoint to flood logs should be.
+// Backed by Vercel KV when env is set; in-memory fallback otherwise.
 const BUCKET_SIZE = 12;
 const BUCKET_WINDOW_MS = 60_000;
-const ipBucket = new Map<string, { count: number; resetAt: number }>();
-
-function checkRate(ip: string): boolean {
-    const now = Date.now();
-    const entry = ipBucket.get(ip);
-    if (!entry || entry.resetAt < now) {
-        ipBucket.set(ip, { count: 1, resetAt: now + BUCKET_WINDOW_MS });
-        return true;
-    }
-    if (entry.count >= BUCKET_SIZE) return false;
-    entry.count++;
-    return true;
-}
 
 export async function POST(req: NextRequest) {
     const origin = req.headers.get("origin") ?? req.headers.get("referer");
@@ -68,7 +60,12 @@ export async function POST(req: NextRequest) {
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
         req.headers.get("x-real-ip") ??
         "shared";
-    if (!checkRate(ip)) {
+    const rate = await rateLimiter.check(
+        `errlog:${ip}`,
+        BUCKET_SIZE,
+        BUCKET_WINDOW_MS
+    );
+    if (!rate.allowed) {
         return NextResponse.json({ error: "rate limited" }, { status: 429 });
     }
 
@@ -87,6 +84,15 @@ export async function POST(req: NextRequest) {
         stack: body.stack?.slice(0, 1_500),
         ip: ip === "shared" ? "shared" : `${ip.slice(0, 6)}…`,
         at: new Date().toISOString(),
+    });
+
+    // Forward to Sentry too when SENTRY_DSN is set (no-op otherwise).
+    // We don't await — observability shouldn't add latency to the
+    // hot path of the boundary.
+    void captureServer({
+        message: body.message,
+        stack: body.stack,
+        tags: { source: body.source ?? "client", path: body.path ?? "(unknown)" },
     });
 
     return NextResponse.json({ ok: true });

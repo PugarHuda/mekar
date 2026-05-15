@@ -62,3 +62,13 @@ h3 {
 [data-rk] {
     --rk-blurs-modalOverlay: 8px;
 }
+
+/* Reserve space below the page so the fixed MobileBottomNav (5 icons,
+   ~64px tall + safe-area inset on iOS) doesn't cover the footer or
+   the last row of any table. Only applied on phones — the desktop
+   nav lives at the top so no offset is needed. */
+@media (max-width: 767px) {
+    body {
+        padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
+    }
+}

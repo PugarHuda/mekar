@@ -1543,7 +1543,7 @@ function Step2({
                         label="Size"
                         value={`${storageUpload.size} bytes`}
                     />
-                    {storageUpload.encryption === "aes256" && storageUpload.aesKey && (
+                    {storageUpload.aesKey && (
                         <div
                             style={{
                                 marginTop: 12,
@@ -1564,7 +1564,9 @@ function Step2({
                                     fontWeight: 600,
                                 }}
                             >
-                                ⚠ AES-256 key — save this, only way to decrypt
+                                {storageUpload.encryption === "aes256-gcm-client"
+                                    ? "⚠ AES-256-GCM key (client-side) — only your browser ever held this"
+                                    : "⚠ AES-256 key — save this, only way to decrypt"}
                             </div>
                             <code
                                 style={{
@@ -1585,8 +1587,25 @@ function Step2({
                                     sel?.addRange(range);
                                 }}
                             >
-                                {storageUpload.aesKey}
+                                key: {storageUpload.aesKey}
                             </code>
+                            {storageUpload.aesIv && (
+                                <code
+                                    style={{
+                                        fontFamily: "var(--mono)",
+                                        fontSize: 11,
+                                        color: "var(--ink)",
+                                        wordBreak: "break-all",
+                                        display: "block",
+                                        background: "var(--surface)",
+                                        padding: "6px 8px",
+                                        borderRadius: 3,
+                                        marginTop: 4,
+                                    }}
+                                >
+                                    iv: {storageUpload.aesIv}
+                                </code>
+                            )}
                             <p
                                 style={{
                                     fontSize: 10.5,
@@ -1596,9 +1615,9 @@ function Step2({
                                     lineHeight: 1.5,
                                 }}
                             >
-                                Click the key to select it. Production swaps this
-                                for an INFT-bound re-encryption oracle so the key
-                                transfers with the token.
+                                {storageUpload.encryption === "aes256-gcm-client"
+                                    ? "Client-side encryption: bytes were AES-256-GCM encrypted in your browser before reaching the server. Save the key + IV — they're the only path back to plaintext."
+                                    : "Click the key to select it. Production swaps this for an INFT-bound re-encryption oracle so the key transfers with the token."}
                             </p>
                         </div>
                     )}
