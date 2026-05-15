@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, lazy, Suspense } from "react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
 import { isDeployed } from "@/contracts/addresses";
 import { explorerLink } from "@/lib/chains";
@@ -11,6 +9,13 @@ import { shortAddress, formatTimeAgo } from "@/lib/utils";
 import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
 import type { LineageGardenHandle } from "@/components/LineageGarden";
 import { Bloom } from "@/components/Bloom";
+import {
+    agentName,
+    agentFocus,
+    agentCategory,
+    CATEGORY_LABELS,
+    type AgentCategory,
+} from "@/lib/agentNaming";
 
 /**
  * LineageGarden pulls in D3 (~the heaviest dep on this route). It's
@@ -24,13 +29,6 @@ import { Bloom } from "@/components/Bloom";
 const LineageGarden = lazy(() =>
     import("@/components/LineageGarden").then((m) => ({ default: m.LineageGarden }))
 );
-import {
-    agentName,
-    agentFocus,
-    agentCategory,
-    CATEGORY_LABELS,
-    type AgentCategory,
-} from "@/lib/agentNaming";
 
 /**
  * Track viewport width via matchMedia. The D3 force graph chokes
@@ -106,7 +104,6 @@ export default function ExplorerPage() {
 
     return (
         <div>
-            <Header />
             <main className="explorer-page" style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container">
                     <header
@@ -441,7 +438,6 @@ export default function ExplorerPage() {
                     )}
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

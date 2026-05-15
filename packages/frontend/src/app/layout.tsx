@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { SiteChrome } from "@/components/SiteChrome";
 import "./globals.css";
 
 const display = Cormorant_Garamond({
@@ -104,7 +105,9 @@ export default async function RootLayout({
     <html lang={lang} className={`${display.variable} ${body.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased min-h-screen">
         <Providers>
-          <ErrorBoundary>{children}</ErrorBoundary>
+          <ErrorBoundary>
+            <SiteChrome>{children}</SiteChrome>
+          </ErrorBoundary>
           <MobileBottomNav />
           <Toaster richColors position="top-right" />
         </Providers>

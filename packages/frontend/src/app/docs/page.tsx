@@ -14,8 +14,6 @@
 
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { DocsSidebar, type DocSection } from "./Sidebar";
 import { ExternalLink } from "lucide-react";
 
@@ -49,7 +47,6 @@ const SECTIONS: DocSection[] = [
 export default function DocsPage() {
     return (
         <div>
-            <Header />
             <main className="docs-page" style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container docs-layout">
                     {/* Sticky left rail. Sidebar.tsx is a Client Component
@@ -553,7 +550,6 @@ done`}</Code>
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

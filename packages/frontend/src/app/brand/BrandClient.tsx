@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Loader2, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
@@ -120,7 +118,6 @@ function svgUrl(variant: string, size?: number, download?: boolean): string {
 export function BrandClient() {
     return (
         <div>
-            <Header />
             <main style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container" style={{ maxWidth: 920 }}>
                     <header style={{ marginBottom: 48 }}>
@@ -207,7 +204,6 @@ export function BrandClient() {
                     </p>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

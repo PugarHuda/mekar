@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
 import { useLineageData } from "@/hooks/useLineageData";
 import { useTrendingData } from "@/hooks/useTrendingData";
@@ -67,7 +65,6 @@ export default function TrendingPage() {
 
     return (
         <div>
-            <Header />
             <main style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container">
                     <header style={{ marginBottom: 48 }}>
@@ -384,7 +381,6 @@ export default function TrendingPage() {
                     )}
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

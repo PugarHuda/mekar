@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useAccount, useReadContract } from "wagmi";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
 import { MEKAR_REGISTRY_ABI } from "@/contracts/abis";
@@ -45,7 +43,6 @@ export default function DashboardPage() {
 
     return (
         <div>
-            <Header />
             <main style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container">
                     <header
@@ -416,7 +413,6 @@ export default function DashboardPage() {
                     )}
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Bloom, BloomLogo } from "@/components/Bloom";
 import { CodeBloom } from "@/components/CodeBloom";
 import { useLineageData } from "@/hooks/useLineageData";
@@ -12,7 +10,6 @@ import { renderBloomSvg, svgToDataUri } from "@/lib/bloom";
 export default function Home() {
     return (
         <div>
-            <Header />
             <Hero />
             <Problem />
             <How />
@@ -21,7 +18,6 @@ export default function Home() {
             <StackChart />
             <FAQ />
             <CTA />
-            <Footer />
         </div>
     );
 }

@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
 import { InferencePay, RegisterProviderButton } from "@/components/InferencePay";
 import { useAgent, modeLabel } from "@/hooks/useAgent";
@@ -73,7 +71,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
     return (
         <div>
-            <Header />
             <main style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container">
                     <div
@@ -946,7 +943,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     )}
                 </div>
             </main>
-            <Footer />
 
             {selectedTx && (
                 <TxModal

@@ -12,8 +12,6 @@ import {
 } from "wagmi";
 import { keccak256, toHex } from "viem";
 import { toast } from "sonner";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
 import { Bloom } from "@/components/Bloom";
 import { useLineageData } from "@/hooks/useLineageData";
 import { CONTRACT_ADDRESSES, isDeployed } from "@/contracts/addresses";
@@ -347,7 +345,6 @@ function MintPageInner() {
 
     return (
         <div>
-            <Header />
             <main style={{ padding: "var(--pad-section) 0" }}>
                 <div className="container" style={{ maxWidth: 1100 }}>
                     <header style={{ marginBottom: 56 }}>
@@ -800,7 +797,6 @@ function MintPageInner() {
                     </>}
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }
