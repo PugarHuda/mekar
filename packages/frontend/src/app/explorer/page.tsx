@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, lazy, Suspense } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
@@ -9,8 +9,21 @@ import { isDeployed } from "@/contracts/addresses";
 import { explorerLink } from "@/lib/chains";
 import { shortAddress, formatTimeAgo } from "@/lib/utils";
 import { Loader2, Search, ExternalLink, Hand, Maximize2 } from "lucide-react";
-import { LineageGarden, type LineageGardenHandle } from "@/components/LineageGarden";
+import type { LineageGardenHandle } from "@/components/LineageGarden";
 import { Bloom } from "@/components/Bloom";
+
+/**
+ * LineageGarden pulls in D3 (~the heaviest dep on this route). It's
+ * lazy-loaded so the chunk only downloads when the graph actually
+ * renders — i.e. on desktop. Mobile shows MobileLineageList instead
+ * and never triggers this import, so phone users skip the entire D3
+ * payload. React.lazy forwards the ref correctly because the module
+ * export is a forwardRef component; we adapt the named export to the
+ * default-export shape lazy expects.
+ */
+const LineageGarden = lazy(() =>
+    import("@/components/LineageGarden").then((m) => ({ default: m.LineageGarden }))
+);
 import {
     agentName,
     agentFocus,
@@ -382,14 +395,37 @@ export default function ExplorerPage() {
                                             selectedId={selected?.id ?? null}
                                         />
                                     ) : (
-                                        <LineageGarden
-                                            ref={gardenRef}
-                                            nodes={visible}
-                                            edges={visibleEdges}
-                                            onSelect={setSelected}
-                                            selectedId={selected?.id ?? null}
-                                            height={600}
-                                        />
+                                        <Suspense
+                                            fallback={
+                                                <div
+                                                    style={{
+                                                        height: 600,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        gap: 10,
+                                                        color: "var(--ink-soft)",
+                                                        fontFamily: "var(--mono)",
+                                                        fontSize: 13,
+                                                    }}
+                                                >
+                                                    <Loader2
+                                                        className="animate-spin"
+                                                        size={16}
+                                                    />
+                                                    Loading the garden…
+                                                </div>
+                                            }
+                                        >
+                                            <LineageGarden
+                                                ref={gardenRef}
+                                                nodes={visible}
+                                                edges={visibleEdges}
+                                                onSelect={setSelected}
+                                                selectedId={selected?.id ?? null}
+                                                height={600}
+                                            />
+                                        </Suspense>
                                     )}
                                 </div>
                             </div>

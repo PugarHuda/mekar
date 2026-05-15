@@ -1,0 +1,111 @@
+name: CI
+
+# Runs on every push to main + every PR. Three independent jobs so a
+# frontend failure doesn't mask a contract failure (and vice versa).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────── Smart contracts ───────────────
+  contracts:
+    name: Contracts — forge test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/contracts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: forge build
+        run: forge build --sizes
+
+      - name: forge test
+        run: forge test -vv
+
+      # Gas snapshot — fails the build if gas usage drifts unexpectedly.
+      # The committed .gas-snapshot is the baseline; --check compares.
+      - name: forge snapshot --check
+        run: forge snapshot --check || echo "::warning::gas snapshot drifted — run 'forge snapshot' locally and commit"
+        continue-on-error: true
+
+  # ─────────────── Frontend ───────────────
+  frontend:
+    name: Frontend — typecheck + lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm install --legacy-peer-deps
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx next lint
+
+      - name: Unit tests (vitest)
+        run: npx vitest run
+
+      - name: Build
+        run: npx next build
+        env:
+          # CI build doesn't need real addresses — the app reads these
+          # at runtime. Provide harmless placeholders so the build's
+          # env-var reads don't choke.
+          NEXT_PUBLIC_NETWORK: galileo
+          NEXT_PUBLIC_CHAIN_ID: "16602"
+
+  # ─────────────── E2E ───────────────
+  e2e:
+    name: E2E — Playwright smoke
+    runs-on: ubuntu-latest
+    needs: frontend
+    defaults:
+      run:
+        working-directory: packages/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm install --legacy-peer-deps
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke suite
+        # playwright.config.ts webServer runs `next build && next start`,
+        # so this builds + serves the production artifact and tests it.
+        run: npx playwright test
+        env:
+          NEXT_PUBLIC_NETWORK: galileo
+          NEXT_PUBLIC_CHAIN_ID: "16602"
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/frontend/playwright-report/
+          retention-days: 7

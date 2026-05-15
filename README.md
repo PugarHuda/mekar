@@ -1,5 +1,6 @@
 # 🌳 MEKAR
 
+[![CI](https://github.com/PugarHuda/mekar/actions/workflows/ci.yml/badge.svg)](https://github.com/PugarHuda/mekar/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/live-mekar.vercel.app-d4a437)](https://mekar.vercel.app)
 [![Tests](https://img.shields.io/badge/tests-56%20passing-1c3b2f)](packages/contracts/test/)
 [![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3)

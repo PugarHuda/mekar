@@ -32,6 +32,14 @@ export default defineConfig({
             name: "chromium",
             use: { ...devices["Desktop Chrome"] },
         },
+        {
+            // Mobile viewport — verifies the responsive paths: the
+            // explorer list-view fallback (D3 graph is swapped out
+            // below 700px) and the bottom nav. Pixel 7 is a typical
+            // mid-tier Android footprint.
+            name: "mobile",
+            use: { ...devices["Pixel 7"] },
+        },
     ],
     // E2E runs against the PRODUCTION server, not `next dev`. `next dev`
     // compiles each route on first request — the cold compile of a
