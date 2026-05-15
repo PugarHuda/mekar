@@ -139,6 +139,23 @@ export const MEKAR_REGISTRY_ABI = [
     inputs: [{ name: "creator", type: "address" }],
     outputs: [{ name: "", type: "uint256[]" }],
   },
+  {
+    type: "function",
+    name: "updateMetadata",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "agentId", type: "uint256" },
+      { name: "metadataPointer", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getMetadataPointer",
+    stateMutability: "view",
+    inputs: [{ name: "agentId", type: "uint256" }],
+    outputs: [{ name: "", type: "bytes32" }],
+  },
 ] as const;
 
 export const ROYALTY_VAULT_ABI = [

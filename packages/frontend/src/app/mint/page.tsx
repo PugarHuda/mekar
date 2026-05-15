@@ -31,7 +31,7 @@ import {
     CATEGORY_LABELS,
     type AgentCategory,
 } from "@/lib/agentNaming";
-import { saveAgentMetadata } from "@/lib/agentMetadata";
+import { saveAgentMetadata, META_LIMITS } from "@/lib/agentMetadata";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExternalLink, Loader2 } from "lucide-react";
 
@@ -1818,11 +1818,12 @@ function Step3({
                 downstream forks.
             </p>
 
-            <Field label="Bloom name">
+            <Field label={`Bloom name (max ${META_LIMITS.name} chars)`}>
                 <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => setName(e.target.value.slice(0, META_LIMITS.name))}
+                    maxLength={META_LIMITS.name}
                     placeholder="e.g. Jasmine-Indo-7B"
                     style={inputStyle}
                 />
@@ -1860,14 +1861,28 @@ function Step3({
                 </p>
             </Field>
 
-            <Field label="Description">
+            <Field label={`Description (max ${META_LIMITS.description} chars)`}>
                 <textarea
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) =>
+                        setDescription(e.target.value.slice(0, META_LIMITS.description))
+                    }
+                    maxLength={META_LIMITS.description}
                     rows={3}
                     placeholder="What does this agent do?"
                     style={{ ...inputStyle, resize: "vertical" }}
                 />
+                <p
+                    style={{
+                        fontSize: 11,
+                        color: "var(--ink-soft)",
+                        marginTop: 4,
+                        fontFamily: "var(--mono)",
+                        textAlign: "right",
+                    }}
+                >
+                    {description.length} / {META_LIMITS.description}
+                </p>
             </Field>
 
             <Field label="License">

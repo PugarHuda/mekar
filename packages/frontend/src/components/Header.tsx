@@ -7,6 +7,14 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { BloomLogo } from "@/components/Bloom";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { Menu, X, AlertTriangle } from "lucide-react";
+import {
+    setLocale,
+    useLocale,
+    useLocaleBootstrap,
+    useT,
+    SUPPORTED_LOCALES,
+    type Locale,
+} from "@/lib/i18n";
 
 // Primary top-bar nav — kept tight (5 items) so the bar doesn't feel like
 // a sitemap. The brand logo on the left already links Home, and Manifesto
@@ -17,17 +25,22 @@ import { Menu, X, AlertTriangle } from "lucide-react";
 
 type NavItem = {
     href: string;
+    /** Optional translation key — when present, we render t(tKey); when
+     *  absent, the literal `label` is shown. Lets us localize the top NAV
+     *  while leaving Home/Manifesto English-only without forcing every
+     *  static label through the dictionary. */
+    tKey?: "nav.explorer" | "nav.mint" | "nav.trending" | "nav.dashboard" | "nav.docs";
     label: string;
     k: string;
     external?: boolean;
 };
 
 const NAV: NavItem[] = [
-    { href: "/explorer", label: "Explorer", k: "explorer" },
-    { href: "/mint", label: "Mint", k: "mint" },
-    { href: "/trending", label: "Trending", k: "trending" },
-    { href: "/dashboard", label: "Dashboard", k: "dashboard" },
-    { href: "/docs", label: "Docs", k: "docs" },
+    { href: "/explorer", tKey: "nav.explorer", label: "Explorer", k: "explorer" },
+    { href: "/mint", tKey: "nav.mint", label: "Mint", k: "mint" },
+    { href: "/trending", tKey: "nav.trending", label: "Trending", k: "trending" },
+    { href: "/dashboard", tKey: "nav.dashboard", label: "Dashboard", k: "dashboard" },
+    { href: "/docs", tKey: "nav.docs", label: "Docs", k: "docs" },
 ];
 
 // Mobile menu shows everything; phone users get a full sheet so there's
@@ -53,6 +66,10 @@ export function Header() {
     const pathname = usePathname();
     const active = detectActive(pathname ?? "/");
     const [mobileOpen, setMobileOpen] = useState(false);
+    // Hydrate the user's pinned locale on first paint. The Header is
+    // mounted on every page so this is the natural bootstrap point.
+    useLocaleBootstrap();
+    const t = useT();
 
     return (
         <>
@@ -104,7 +121,7 @@ export function Header() {
                                         : "1.5px solid transparent",
                                 }}
                             >
-                                {l.label}
+                                {l.tKey ? t(l.tKey) : l.label}
                                 {l.external && (
                                     <span
                                         aria-hidden
@@ -122,7 +139,11 @@ export function Header() {
                     })}
                 </div>
 
-                <div className="hidden md:inline-flex">
+                <div
+                    className="hidden md:inline-flex"
+                    style={{ alignItems: "center", gap: 8 }}
+                >
+                    <LocaleSwitch />
                     <WalletConnect />
                 </div>
 
@@ -172,7 +193,7 @@ export function Header() {
                                         textDecoration: "none",
                                     }}
                                 >
-                                    {l.label}
+                                    {l.tKey ? t(l.tKey) : l.label}
                                     {l.external && (
                                         <span
                                             aria-hidden
@@ -316,3 +337,48 @@ function WalletConnect({ onAfterAction }: { onAfterAction?: () => void }) {
         </ConnectButton.Custom>
     );
 }
+
+/**
+ * Tiny EN/ID toggle pill. Intentionally not a dropdown — we only
+ * support two locales and a one-tap toggle reads cleaner in the
+ * header. Click cycles to the next locale; the dictionary in
+ * lib/i18n.ts picks up the change via useSyncExternalStore.
+ */
+function LocaleSwitch() {
+    const locale = useLocale();
+    const next: Locale = locale === "en" ? "id" : "en";
+    return (
+        <button
+            type="button"
+            onClick={() => setLocale(next)}
+            title={`Switch to ${next.toUpperCase()}`}
+            aria-label={`Switch language to ${next}`}
+            style={{
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontWeight: 600,
+                padding: "5px 10px",
+                border: "1.5px solid var(--rule)",
+                borderRadius: 999,
+                background: "transparent",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                transition: "all 0.15s",
+            }}
+        >
+            {/* Show the currently-active locale highlighted, the other faded */}
+            <span style={{ color: locale === "en" ? "var(--cocoa)" : "var(--ink-soft)" }}>
+                EN
+            </span>
+            <span style={{ opacity: 0.5, margin: "0 4px" }}>·</span>
+            <span style={{ color: locale === "id" ? "var(--cocoa)" : "var(--ink-soft)" }}>
+                ID
+            </span>
+        </button>
+    );
+}
+
+// Re-export so callers don't need a second import path.
+export { SUPPORTED_LOCALES };

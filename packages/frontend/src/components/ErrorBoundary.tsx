@@ -29,6 +29,29 @@ export class ErrorBoundary extends Component<Props, State> {
         return { err };
     }
 
+    componentDidCatch(err: Error) {
+        // Best-effort error ping to /api/log/error. We don't await, don't
+        // surface failures — if the network is down the user is already
+        // in a degraded state and another fetch failure helps nobody.
+        try {
+            void fetch("/api/log/error", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message: err.message.slice(0, 500),
+                    stack: err.stack?.slice(0, 4_000),
+                    path: typeof window !== "undefined" ? window.location.pathname : undefined,
+                    source: "render",
+                }),
+            }).catch(() => {
+                /* observability is best-effort */
+            });
+        } catch {
+            // Even constructing the request can throw (e.g. JSON cycle).
+            // Swallow rather than re-enter the boundary.
+        }
+    }
+
     reset = () => this.setState({ err: null });
 
     render() {

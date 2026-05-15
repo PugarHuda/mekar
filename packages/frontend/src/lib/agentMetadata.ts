@@ -54,16 +54,56 @@ export function getAgentCategories(id: number): AgentCategory[] | null {
 
 const KEY_PREFIX = "mekar:agent:";
 
+// Per-field caps. Without these a user (or bug) could put a 10 MB
+// description into localStorage and:
+//   (a) blow the 5–10 MB browser quota for that origin, breaking save
+//       for every other agent + RoyaltyPaid log cache on the device
+//   (b) wreck UI layout with an un-wrapping line of garbage
+//   (c) exfiltrate noise to anyone viewing the agent page
+// The caps are generous (room for a real bio) but bounded.
+export const META_LIMITS = {
+    name: 80,
+    description: 2_000,
+    license: 60,
+    categoryTags: 7, // matches the AgentCategory enum count
+} as const;
+
 function isBrowser() {
     return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+/**
+ * Defensively clamp every string field to its declared cap. Even if a
+ * caller forgets to pass `maxLength` on its input, the persisted blob
+ * is safe. Trim whitespace for clean compares.
+ */
+function clampMeta(meta: AgentMeta): AgentMeta {
+    const out: AgentMeta = { ...meta };
+    if (typeof out.name === "string") out.name = out.name.trim().slice(0, META_LIMITS.name);
+    if (typeof out.description === "string")
+        out.description = out.description.slice(0, META_LIMITS.description);
+    if (typeof out.license === "string")
+        out.license = out.license.trim().slice(0, META_LIMITS.license);
+    if (Array.isArray(out.categories))
+        out.categories = out.categories.slice(0, META_LIMITS.categoryTags);
+    return out;
 }
 
 export function saveAgentMetadata(id: number, meta: AgentMeta): void {
     if (!isBrowser()) return;
     try {
         const existing = getAgentMetadata(id) ?? {};
-        const merged: AgentMeta = { ...existing, ...meta };
-        window.localStorage.setItem(KEY_PREFIX + id, JSON.stringify(merged));
+        const merged = clampMeta({ ...existing, ...meta });
+        const serialised = JSON.stringify(merged);
+        // Hard floor on the serialised blob just in case some new field
+        // gets added and forgets to declare a cap above. 16 KB ≫ any
+        // realistic metadata payload.
+        if (serialised.length > 16 * 1024) {
+            // eslint-disable-next-line no-console
+            console.warn(`[mekar] agent meta ${id} exceeded 16KB; not saving`);
+            return;
+        }
+        window.localStorage.setItem(KEY_PREFIX + id, serialised);
     } catch {
         // localStorage full / disabled / SSR — silent, deterministic fallback
         // path still works in agentName / agentFocus / agentCategory.

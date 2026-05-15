@@ -25,12 +25,29 @@ const STORAGE_INDEXER =
     process.env.ZG_GALILEO_STORAGE_INDEXER ??
     "https://indexer-storage-testnet-turbo.0g.ai";
 
+// Hard size cap on the inbound payload. Server-side enforcement protects
+// the deployer wallet — every successful upload pays a small Flow anchor
+// fee, so unbounded uploads = unbounded drain. 50 MB is well past the
+// realistic manifest size (~2 KB JSON) and past a small weight shard
+// (~25 MB) while keeping the function within Vercel's 4.5 MB sync body
+// limit; for larger shards callers should use multi-part upload via SDK
+// directly. Calculated as the base64-encoded size, which inflates raw
+// bytes by ~4/3.
+const MAX_DATA_LENGTH = 50 * 1024 * 1024;
+// Tag must be short — it's hashed into storagePointer for KV-style
+// indexing. Capping it stops "billions of unique tags" griefs and
+// keeps the storage pointer space bounded.
+const MAX_TAG_LENGTH = 200;
+
 const UploadSchema = z.object({
     /** UTF-8 string OR base64-encoded binary. Set encoding="base64" for blobs. */
-    data: z.string().min(1),
+    data: z
+        .string()
+        .min(1, "data must be non-empty")
+        .max(MAX_DATA_LENGTH, `data exceeds ${MAX_DATA_LENGTH} byte cap`),
     encoding: z.enum(["utf8", "base64"]).default("utf8"),
     tier: z.enum(["log", "specialized"]).optional(),
-    tag: z.string().optional(),
+    tag: z.string().max(MAX_TAG_LENGTH).optional(),
     /**
      * Encrypt the payload client-side via the SDK before upload.
      * - "none" (default): payload anchored in plaintext (current behavior)
@@ -40,6 +57,56 @@ const UploadSchema = z.object({
      */
     encryption: z.enum(["none", "aes256"]).default("none"),
 });
+
+/**
+ * In-memory token bucket per IP. Vercel Fluid Compute reuses instances
+ * across requests, so the bucket survives between calls in the same
+ * warm function. On cold start the bucket resets — that's acceptable
+ * because cold starts also rate-limit naturally (function init takes
+ * seconds). For higher-traffic production this should move to Upstash
+ * Redis or Vercel KV, but for the hackathon this catches the obvious
+ * abuse pattern (one IP hammering the endpoint in a loop).
+ *
+ * Bucket: 6 uploads per minute per IP. Each upload pays ~30 micro-OG
+ * on chain, so 6/min = ~0.18 OG/hour per attacker IP. A real attacker
+ * would need to rotate IPs to outscale the deployer faucet.
+ */
+const BUCKET_SIZE = 6;
+const BUCKET_WINDOW_MS = 60_000;
+const ipBucket = new Map<string, { count: number; resetAt: number }>();
+
+function checkRate(ip: string): { allowed: boolean; retryAfterMs?: number } {
+    const now = Date.now();
+    const entry = ipBucket.get(ip);
+    if (!entry || entry.resetAt < now) {
+        ipBucket.set(ip, { count: 1, resetAt: now + BUCKET_WINDOW_MS });
+        return { allowed: true };
+    }
+    if (entry.count >= BUCKET_SIZE) {
+        return { allowed: false, retryAfterMs: entry.resetAt - now };
+    }
+    entry.count++;
+    return { allowed: true };
+}
+
+/**
+ * Origin allowlist. Browsers send `Origin` for cross-origin requests
+ * and `Referer` for same-origin; we accept both. The check rejects
+ * anything that isn't from our deployed app or localhost dev. A bypass
+ * is trivial via curl (no Origin header), but combined with rate
+ * limiting it's still a useful additional friction layer.
+ */
+const ALLOWED_ORIGIN_PATTERNS = [
+    /^https:\/\/mekar\.vercel\.app$/,
+    /^https:\/\/.*\.vercel\.app$/,
+    /^https?:\/\/localhost(:\d+)?$/,
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+];
+
+function originAllowed(origin: string | null): boolean {
+    if (!origin) return true; // No header = curl/server side, can't block here
+    return ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin));
+}
 
 // Cache the Indexer + signer between invocations (Vercel Fluid Compute
 // reuses function instances across concurrent requests, so this saves
@@ -67,6 +134,38 @@ function getIndexer(): Indexer {
 }
 
 export async function POST(req: NextRequest) {
+    // Origin check before anything else — cheapest reject path.
+    const origin = req.headers.get("origin") ?? req.headers.get("referer");
+    if (!originAllowed(origin)) {
+        return NextResponse.json(
+            { error: "origin not allowed" },
+            { status: 403 }
+        );
+    }
+
+    // Rate limit per IP. Vercel attaches the client IP via x-forwarded-for;
+    // we fall back to a "shared" bucket if the header is missing so the
+    // limit still applies to local dev / unknown sources.
+    const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        req.headers.get("x-real-ip") ??
+        "shared";
+    const rate = checkRate(ip);
+    if (!rate.allowed) {
+        return NextResponse.json(
+            {
+                error: "rate limit — too many uploads",
+                retryAfterSec: Math.ceil((rate.retryAfterMs ?? 0) / 1000),
+            },
+            {
+                status: 429,
+                headers: {
+                    "Retry-After": String(Math.ceil((rate.retryAfterMs ?? 0) / 1000)),
+                },
+            }
+        );
+    }
+
     let body: z.infer<typeof UploadSchema>;
     try {
         body = UploadSchema.parse(await req.json());
