@@ -30,6 +30,18 @@ interface RateLimiter {
 
 class MemoryLimiter implements RateLimiter {
     private buckets = new Map<string, { count: number; resetAt: number }>();
+    // Without periodic pruning the map grows by one entry per unique IP
+    // forever — a slow leak on a long-lived warm instance. We sweep
+    // expired entries every `PRUNE_EVERY` checks; O(n) but n is tiny
+    // and it only runs occasionally.
+    private checksSincePrune = 0;
+    private static readonly PRUNE_EVERY = 200;
+
+    private prune(now: number): void {
+        for (const [key, entry] of this.buckets) {
+            if (entry.resetAt < now) this.buckets.delete(key);
+        }
+    }
 
     async check(
         key: string,
@@ -37,6 +49,12 @@ class MemoryLimiter implements RateLimiter {
         windowMs: number
     ): Promise<CheckResult> {
         const now = Date.now();
+
+        if (++this.checksSincePrune >= MemoryLimiter.PRUNE_EVERY) {
+            this.checksSincePrune = 0;
+            this.prune(now);
+        }
+
         const entry = this.buckets.get(key);
         if (!entry || entry.resetAt < now) {
             this.buckets.set(key, { count: 1, resetAt: now + windowMs });

@@ -21,6 +21,7 @@ import { AGENT_INFT_ABI } from "@/contracts/abis";
 import { ACTIVE_CHAIN, explorerLink } from "@/lib/chains";
 import {
     uploadToZGStorage,
+    uploadChunkedToZGStorage,
     type StorageUploadResult,
     type UploadProgress,
 } from "@/lib/storage";
@@ -1255,20 +1256,56 @@ function Step2({
         setUploading(true);
         setProgress({ fraction: 0, loaded: 0, total: 0, phase: "encoding" });
         try {
-            // A real file is required (enforced above) — we always upload
-            // actual bytes the user chose, never a synthesised stub.
-            const result = await uploadToZGStorage(
-                file,
-                `mekar-mint-${seed}`,
-                encrypt ? "aes256" : "none",
-                (p) => setProgress(p)
-            );
-            setStorageUpload(result);
-            toast.success(
-                encrypt
-                    ? "Encrypted + anchored to 0G Storage — save the AES key!"
-                    : "Anchored to 0G Storage"
-            );
+            // Files larger than a single ~32 MB chunk can't go through the
+            // single-shot upload — the server caps the request body at
+            // 50 MB (base64-inflated). Route big files through the chunked
+            // path so a real weight shard doesn't just hard-fail. Chunked
+            // anchors each piece + a manifest; the manifest rootHash is
+            // what we treat as the on-chain weightsPointer.
+            const SINGLE_UPLOAD_LIMIT = 32 * 1024 * 1024;
+            let result: StorageUploadResult;
+            if (file.size > SINGLE_UPLOAD_LIMIT) {
+                if (encrypt) {
+                    toast.message("Large file", {
+                        description:
+                            "Per-chunk encryption for >32 MB uploads is Phase 2 — anchoring unencrypted. Encrypt smaller files, or pre-encrypt before upload.",
+                    });
+                }
+                const chunked = await uploadChunkedToZGStorage(
+                    file,
+                    `mekar-mint-${seed}`,
+                    (p) => setProgress(p)
+                );
+                // Normalise the chunked result into the single-upload
+                // shape the rest of the flow expects. The manifest
+                // rootHash is the single on-chain pointer.
+                result = {
+                    rootHash: chunked.manifestRootHash,
+                    storagePointer: chunked.manifestRootHash,
+                    txHash: chunked.manifestTxHash,
+                    size: chunked.totalBytes,
+                    encryption: "none",
+                };
+                setStorageUpload(result);
+                toast.success(
+                    `Anchored to 0G Storage in ${chunked.chunkCount} chunks`
+                );
+            } else {
+                // A real file is required (enforced above) — we always
+                // upload actual bytes the user chose, never a stub.
+                result = await uploadToZGStorage(
+                    file,
+                    `mekar-mint-${seed}`,
+                    encrypt ? "aes256" : "none",
+                    (p) => setProgress(p)
+                );
+                setStorageUpload(result);
+                toast.success(
+                    encrypt
+                        ? "Encrypted + anchored to 0G Storage — save the AES key!"
+                        : "Anchored to 0G Storage"
+                );
+            }
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             setUploadError(msg);
