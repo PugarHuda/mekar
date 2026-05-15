@@ -174,45 +174,68 @@ export async function GET(req: NextRequest) {
 
     const svg = buildSvg(variant, w, h);
 
+    // `?download=1` flips disposition to `attachment` so the browser
+    // saves the file instead of rendering it inline. Cross-origin / cache
+    // edge cases sometimes ignore the anchor's `download` attribute, but
+    // disposition=attachment is honoured even then.
+    const disposition = searchParams.get("download") === "1" ? "attachment" : "inline";
+
     if (format === "svg") {
         return new NextResponse(svg, {
             headers: {
                 "Content-Type": "image/svg+xml; charset=utf-8",
                 "Cache-Control": "public, max-age=86400, immutable",
-                "Content-Disposition": `inline; filename="mekar-${variant}-${w}x${h}.svg"`,
+                "Content-Disposition": `${disposition}; filename="mekar-${variant}-${w}x${h}.svg"`,
             },
         });
     }
 
-    // PNG path via next/og. ImageResponse accepts JSX, so we wrap the
-    // SVG in a foreignObject-free flexbox so its rasteriser doesn't
-    // hit unsupported elements. Easier: render the SVG inline as the
-    // sole child of the canvas, using an <img src=data:...> trick.
+    // PNG path via next/og. Satori renders the SVG to a raster: we put
+    // the SVG content into an <img src="data:..."> inside the JSX so
+    // next/og doesn't have to parse our wordmark by itself — it just
+    // rasterises the embedded image.
     const dataUri = `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-    return new ImageResponse(
-        (
-            <div
-                style={{
-                    width: w,
-                    height: h,
-                    display: "flex",
-                    alignItems: "stretch",
-                    justifyContent: "stretch",
-                }}
-            >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={dataUri} width={w} height={h} alt="Mekar logo" />
-            </div>
-        ),
-        {
-            width: w,
-            height: h,
+    try {
+        return new ImageResponse(
+            (
+                <div
+                    style={{
+                        width: w,
+                        height: h,
+                        display: "flex",
+                        alignItems: "stretch",
+                        justifyContent: "stretch",
+                    }}
+                >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={dataUri} width={w} height={h} alt="Mekar logo" />
+                </div>
+            ),
+            {
+                width: w,
+                height: h,
+                headers: {
+                    "Content-Disposition": `${disposition}; filename="mekar-${variant}-${w}x${h}.png"`,
+                    "Cache-Control": "public, max-age=86400, immutable",
+                },
+            }
+        );
+    } catch (err) {
+        // If Satori chokes on the embedded SVG (font fetch failed,
+        // unsupported element, etc.), fall back to returning the SVG
+        // directly with a polite header that signals "you asked for PNG
+        // but here's vector instead — your browser will still render
+        // it." Better than a 500 mid-download.
+        const reason = err instanceof Error ? err.message : "image-response failed";
+        return new NextResponse(svg, {
             headers: {
-                "Content-Disposition": `inline; filename="mekar-${variant}-${w}x${h}.png"`,
-                "Cache-Control": "public, max-age=86400, immutable",
+                "Content-Type": "image/svg+xml; charset=utf-8",
+                "Cache-Control": "no-store",
+                "X-Mekar-Logo-Fallback": reason.slice(0, 120),
+                "Content-Disposition": `${disposition}; filename="mekar-${variant}-${w}x${h}.svg"`,
             },
-        }
-    );
+        });
+    }
 }
 
 // Node runtime (not edge) so renderBloomSvg's Buffer base64 path works.

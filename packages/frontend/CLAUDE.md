@@ -19,10 +19,14 @@ and view royalty distribution.
 | Path | Purpose |
 |---|---|
 | `/` | Landing page — pitch + explainer |
-| `/explorer` | Lineage tree visualization (D3 force graph) |
-| `/agent/[id]` | Agent detail + inference payment UI |
-| `/mint` | 3-tab form: Genesis, Fork, Compose |
-| `/dashboard` | User's agents + earnings stats |
+| `/explorer` | Lineage tree (D3 force graph; mobile: list view at <768px) |
+| `/agent/[id]` | Agent detail + inference payment UI + owner edit panel |
+| `/mint` | 3-step form: Genesis, Fork, Compose (with 0G Storage upload) |
+| `/dashboard` | User's agents + earnings stats + sparkline |
+| `/trending` | Leaderboard from real RoyaltyPaid event aggregates |
+| `/docs` | Developer reference — 10 sections, sticky API-docs sidebar |
+| `/brand` | Logo download hub (SVG + PNG variants) |
+| `/slides` | Internal pitch deck (noindex) |
 
 ## Key Files
 

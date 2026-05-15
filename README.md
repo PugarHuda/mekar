@@ -1,7 +1,7 @@
 # 🌳 MEKAR
 
 [![Live Demo](https://img.shields.io/badge/live-mekar.vercel.app-d4a437)](https://mekar.vercel.app)
-[![Tests](https://img.shields.io/badge/tests-33%20passing-1c3b2f)](packages/contracts/test/MEKAR.t.sol)
+[![Tests](https://img.shields.io/badge/tests-56%20passing-1c3b2f)](packages/contracts/test/)
 [![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3)
 
 **AI Genealogy & Royalty Protocol on 0G**
@@ -236,10 +236,14 @@ A 5-layer protection against clone laundering:
 | Page | Path | What it does |
 |---|---|---|
 | Landing | `/` | Project pitch + 0G stack showcase |
-| **Explorer** | `/explorer` | D3 lineage tree of all on-chain agents |
-| **Agent Detail** | `/agent/[id]` | Individual agent + inference payment UI |
-| Mint | `/mint` | Genesis / Fork / Compose flows |
-| Dashboard | `/dashboard` | User's agents + royalty earnings |
+| **Explorer** | `/explorer` | D3 lineage tree (auto-falls back to list view on phones <768px) |
+| **Agent Detail** | `/agent/[id]` | Individual agent + inference payment UI + owner-only metadata editor |
+| Mint | `/mint` | 3-step Genesis / Fork / Compose flow with file validation + 0G Storage upload |
+| Dashboard | `/dashboard` | User's agents + royalty earnings + activity sparkline |
+| Trending | `/trending` | Real-time leaderboard sorted by `RoyaltyPaid` event aggregates |
+| Docs | `/docs` | In-app developer reference (10 sections, API-docs sidebar layout) |
+| Brand | `/brand` | Logo + palette downloads (SVG / PNG, multiple sizes) |
+| Slides | `/slides` | Internal pitch deck (noindex, keyboard nav) |
 
 ## 🎬 Demo Video
 

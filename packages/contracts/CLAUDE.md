@@ -2,17 +2,15 @@
 
 ## Architecture
 
-7 core contracts (MVP focuses on the first 4):
-
 | # | Contract | Status | Purpose |
 |---|---|---|---|
-| 1 | `MekarRegistry.sol` | MVP | Master registry, lineage graph traversal |
-| 2 | `AgentINFT.sol` | MVP | ERC-7857 extension, encrypted weights, parent linkage |
-| 3 | `RoyaltyVault.sol` | MVP | Receive fees, walk lineage, atomic distribution |
-| 4 | `TrainingDataRegistry.sol` | MVP | Merkle root anchor for training data |
-| 5 | `ForkFactory.sol` | Phase 2 | Single-parent fork helper |
-| 6 | `ComposeFactory.sol` | Phase 2 | Multi-parent merge with strategy enum |
-| 7 | `AlignmentAuditor.sol` | Phase 3 | Lineage health scoring |
+| 1 | `MekarRegistry.sol` | Deployed | Master registry, lineage graph traversal, metadata pointer KV |
+| 2 | `AgentINFT.sol` | Deployed | ERC-7857 + mintGenesis/Fork/Compose, alignment field, mode enum |
+| 3 | `RoyaltyVault.sol` | Deployed | Receive fees, walk lineage, atomic BFS distribution, treasury sweep |
+| 4 | `TrainingDataRegistry.sol` | Deployed | Merkle root anchor for training data + contributor splits |
+| 5 | `AlignmentAuditor.sol` | Deployed | Single-auditor allowlist, pushes alignment scores to AgentINFT |
+| 6 | `AlignmentMultiAuditor.sol` | Ready, not deployed | k-of-n threshold auditor (Phase 2 governance upgrade) |
+| 7 | `MekarMultisig.sol` | Ready, not deployed | Generic k-of-n multisig for Ownable contract ownership transfer |
 
 ## Conventions
 
@@ -59,9 +57,20 @@ PROTOCOL_FEE_BPS     = 1000   // 10%
 
 ## Test Coverage
 
-- **25 unit tests, 100% passing**
+- **56 unit tests across 3 suites, 100% passing**
+  - `MEKARTest` — 33 (core protocol: mint genesis/fork/compose,
+    royalty distribution, alignment-weighted payout, burned-ancestor
+    fallback, escrow refund, alignment auth, multi-path dedup,
+    gas-deep settlement)
+  - `AlignmentMultiAuditorTest` — 11 (threshold voting, double-vote
+    revert, withdraw, fresh-proposal per (id, score) pair)
+  - `MekarMultisigTest` — 12 (propose / confirm / execute lifecycle,
+    revoke, value forwarding, target revert propagation, self-only
+    governance, threshold floor on signer removal)
 - Branch coverage on royalty distribution
-- Edge cases: dedup multi-path ancestors, refund timeout, alignment auth
+- Edge cases: dedup multi-path ancestors, refund timeout, alignment
+  auth, Q2/Q4/Q5 fixes (treasury sweep, alignment slash, burned
+  ancestor try/catch)
 
 ## Deployment Notes (0G Galileo)
 

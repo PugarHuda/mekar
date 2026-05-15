@@ -63,12 +63,23 @@ h3 {
     --rk-blurs-modalOverlay: 8px;
 }
 
-/* Reserve space below the page so the fixed MobileBottomNav (5 icons,
-   ~64px tall + safe-area inset on iOS) doesn't cover the footer or
-   the last row of any table. Only applied on phones — the desktop
-   nav lives at the top so no offset is needed. */
+/* MobileBottomNav — phones only.
+   Double-guarded: Tailwind `md:hidden` on the element AND an
+   explicit `display: none` here at min-width 768px. Without the
+   second rule a missing utility class in a dirty build would
+   leak the bar onto desktop. */
+@media (min-width: 768px) {
+    .mekar-mobile-nav {
+        display: none !important;
+    }
+}
+
+/* Reserve space below the page so the fixed nav (5 icons, ~64px +
+   safe-area inset on iOS) doesn't cover the footer or table rows.
+   Phones only; desktop has no bottom nav. */
 @media (max-width: 767px) {
     body {
         padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
     }
 }
+

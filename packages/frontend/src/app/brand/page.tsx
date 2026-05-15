@@ -61,9 +61,15 @@ const VARIANTS: Variant[] = [
     },
 ];
 
-function url(variant: string, format: "svg" | "png", size?: number) {
+function url(
+    variant: string,
+    format: "svg" | "png",
+    size?: number,
+    download?: boolean
+) {
     const params = new URLSearchParams({ variant, format });
     if (size) params.set("size", String(size));
+    if (download) params.set("download", "1");
     return `/api/brand/logo?${params.toString()}`;
 }
 
@@ -173,7 +179,7 @@ export default function BrandPage() {
                                         }}
                                     >
                                         <DownloadLink
-                                            href={url(v.id, "svg")}
+                                            href={url(v.id, "svg", undefined, true)}
                                             file={`mekar-${v.id}.svg`}
                                             primary
                                         >
@@ -182,7 +188,7 @@ export default function BrandPage() {
                                         {v.pngSizes.map((s) => (
                                             <DownloadLink
                                                 key={s}
-                                                href={url(v.id, "png", s)}
+                                                href={url(v.id, "png", s, true)}
                                                 file={`mekar-${v.id}-${s}.png`}
                                             >
                                                 PNG · {s}px

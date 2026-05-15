@@ -48,12 +48,15 @@ PROTOCOL LAYER  (5 contracts shipped)
 
 | Layer | Stack |
 |-------|-------|
-| Smart Contracts | Solidity 0.8.24 + Foundry + OpenZeppelin |
-| Frontend | Next.js 15 + TypeScript + Tailwind + shadcn/ui + wagmi v2 + viem + RainbowKit + D3.js |
-| Backend | Node.js 20 + TypeScript + Express |
+| Smart Contracts | Solidity 0.8.24 + Foundry + OpenZeppelin 5.x |
+| Frontend | Next.js 15 + TypeScript strict + Tailwind + wagmi v2 + viem + RainbowKit + D3 |
+| Storage | Browser WebCrypto AES-256-GCM (client-side encryption before upload) |
+| Backend | Next.js API routes (server-rendered) + Node 20 + same-origin uploads |
 | 0G SDKs | `@0gfoundation/0g-ts-sdk`, `@0glabs/0g-serving-broker` |
-| Test | Foundry (forge test) |
-| Deploy | Vercel (frontend), Railway (backend) |
+| Rate limit | Pluggable adapter — Vercel KV when provisioned, in-memory fallback |
+| Observability | Vercel BotID + lightweight Sentry bridge (direct DSN POST) |
+| Test | Foundry (`forge test`) + Playwright E2E smoke suite |
+| Deploy | Vercel (frontend + API routes), Railway (optional backend) |
 
 ## Repository Structure
 
@@ -138,7 +141,7 @@ pnpm install
 # Compile contracts
 cd packages/contracts && forge build
 
-# Run tests (33 tests, all passing — includes Q2/Q4/Q5 fix coverage)
+# Run tests (56 tests across 3 suites, all passing — MEKAR + AlignmentMultiAuditor + MekarMultisig)
 forge test
 
 # Deploy to 0G Galileo (foundry's chain detection breaks on 16602; use shell)

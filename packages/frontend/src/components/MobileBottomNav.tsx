@@ -12,21 +12,17 @@ import {
 import { useT } from "@/lib/i18n";
 
 /**
- * Bottom-anchored 5-icon nav for mobile.
+ * Bottom-anchored 5-icon nav — phones only.
  *
- * Replaces the hamburger sheet at the same breakpoint the
- * desktop nav hides at (≤ 767px in Tailwind's `md` scheme).
- * Rationale:
- *   - Thumb reach: bottom-anchored taps are noticeably faster
- *     than top-right hamburger taps on phones, per mobile
- *     interaction research and Apple HIG.
- *   - Always-visible: users always know where they are vs
- *     having to open a sheet to find out.
- *   - No JS toggle: the bar is just five Links — no state, no
- *     overlay z-index issues, no body scroll lock.
+ * Visibility is enforced TWICE to make sure desktop never sees it:
+ *   1. Tailwind `md:hidden` class (hidden at 768px and above)
+ *   2. A `@media (min-width: 768px)` rule on the root container
+ *      that sets `display: none` — defensive against any cascade
+ *      that might leak the bar into a desktop view (e.g. broken
+ *      Tailwind purge during a dirty build).
  *
- * Hidden at ≥ 768px (desktop nav owns that range). Implemented
- * via `md:hidden` to mirror the existing pattern in Header.tsx.
+ * Without the second layer, a single `md:hidden` typo elsewhere
+ * could float the bar onto desktop and obscure the footer there.
  */
 
 type Item = {
@@ -50,7 +46,7 @@ export function MobileBottomNav() {
     return (
         <nav
             aria-label="Primary navigation"
-            className="md:hidden"
+            className="mekar-mobile-nav md:hidden"
             style={{
                 position: "fixed",
                 bottom: 0,
@@ -59,8 +55,6 @@ export function MobileBottomNav() {
                 zIndex: 60,
                 background: "var(--surface)",
                 borderTop: "1.5px solid var(--cocoa)",
-                // iOS safe-area inset so the bar doesn't sit on the
-                // home-indicator pill.
                 paddingBottom: "env(safe-area-inset-bottom, 0)",
                 display: "grid",
                 gridTemplateColumns: "repeat(5, 1fr)",
