@@ -32,22 +32,38 @@ const CREAM = "#f4ead8";
 const COCOA = "#4a3424";
 const GOLD = "#b9882c";
 
+// The logo mark in lib/bloom.ts is drawn with **fixed absolute
+// coordinates** (peakR = 16, so the bloom spans ~±18 units once you
+// account for the stroke). The size param only changes the outer
+// viewBox, NOT the path coordinates — which means at size=1024 the
+// bloom only fills 3% of the canvas.
+//
+// Solution: ignore renderBloomSvg's size parameter for download, use
+// a TIGHT viewBox that matches the bloom's natural bounds so the
+// shape fills the canvas regardless of pixel size.
+const BLOOM_BOUNDS = 40; // ±20 units around origin, padded for stroke
+
 /** Strip the outer <svg> wrapper from a renderBloomSvg() result so we
  *  can embed its paths into a different coordinate system. */
-function bloomInner(markPx: number): string {
-    const raw = renderBloomSvg("logo", "logo", { size: markPx, sw: 1.8 });
+function bloomInner(): string {
+    // markPx doesn't matter — the inner paths use fixed coordinates.
+    // We pass 100 so any size-dependent stroke math inside the bloom
+    // resolves predictably.
+    const raw = renderBloomSvg("logo", "logo", { size: 100, sw: 1.8 });
     const m = raw.match(/<svg[^>]*>([\s\S]*)<\/svg>/);
     return m ? m[1] : raw;
 }
 
 function svgMark(size: number): string {
-    // Just the bloom — no rect background, no chrome. Matches what's
-    // in <BloomLogo /> in the header. Transparent canvas so partners
-    // can drop it on any background.
-    const raw = renderBloomSvg("logo", "logo", { size, sw: 1.8 });
-    // Inject xmlns standalone declaration so it round-trips through
-    // editors that expect a proper XML prolog.
-    return `<?xml version="1.0" encoding="UTF-8"?>\n${raw}`;
+    // Tight viewBox so the bloom shape fills the canvas. width/height
+    // give the requested pixel size; browsers + canvas scale the
+    // viewBox content to fit. Transparent — no rect background.
+    const inner = bloomInner();
+    const half = BLOOM_BOUNDS / 2;
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-${half} -${half} ${BLOOM_BOUNDS} ${BLOOM_BOUNDS}" width="${size}" height="${size}">
+    ${inner}
+</svg>`;
 }
 
 function svgWordmark(w: number, h: number): string {
@@ -56,11 +72,13 @@ function svgWordmark(w: number, h: number): string {
     const padding = h * 0.18;
     const bloomCx = padding + markSize / 2;
     const textX = padding + markSize + h * 0.15;
-    const inner = bloomInner(markSize);
+    const inner = bloomInner();
+    // Scale the bloom from its natural ~40-unit bounds to markSize px.
+    const scale = markSize / BLOOM_BOUNDS;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
     <rect width="${w}" height="${h}" fill="${CREAM}"/>
-    <g transform="translate(${bloomCx}, ${cy})">${inner}</g>
+    <g transform="translate(${bloomCx}, ${cy}) scale(${scale})">${inner}</g>
     <text
         x="${textX}"
         y="${cy}"
@@ -94,11 +112,12 @@ function svgSquare(w: number, h: number): string {
     const taglineY = h * (isWide ? 0.86 : 0.84);
     const nameSize = h * (isWide ? 0.16 : 0.2);
     const taglineSize = h * (isWide ? 0.035 : 0.045);
-    const inner = bloomInner(markSize);
+    const inner = bloomInner();
+    const scale = markSize / BLOOM_BOUNDS;
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
     <rect width="${w}" height="${h}" fill="${CREAM}"/>
-    <g transform="translate(${w / 2}, ${bloomCy})">${inner}</g>
+    <g transform="translate(${w / 2}, ${bloomCy}) scale(${scale})">${inner}</g>
     <text
         x="${w / 2}"
         y="${nameY}"
