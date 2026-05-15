@@ -212,9 +212,17 @@ export async function uploadToZGStorage(
         xhr.responseType = "text";
 
         const totalBytes = new Blob([body]).size;
+        // Small bodies (< ~4 KB) often skip xhr.upload.onprogress entirely
+        // because the browser ships them in a single packet. Without this
+        // flag we'd be stuck showing "encoding" until xhr.onload fires
+        // (which can take 10–30s while the server anchors on 0G Storage).
+        // We start by reporting phase: "uploading" right before send(),
+        // then jump to "anchoring" once xhr.onloadstart confirms the
+        // browser has actually handed the body to the network stack.
+        let phaseSwitchedToAnchoring = false;
 
         xhr.upload.onprogress = (e) => {
-            if (!onProgress) return;
+            if (!onProgress || phaseSwitchedToAnchoring) return;
             const loaded = e.loaded;
             const total = e.lengthComputable ? e.total : totalBytes;
             onProgress({
@@ -230,6 +238,7 @@ export async function uploadToZGStorage(
             // emitting a Flow tx. Surface an indeterminate "anchoring" tick
             // so users see something is still happening between 100%
             // upload and the resolved JSON response.
+            phaseSwitchedToAnchoring = true;
             onProgress?.({
                 fraction: 1,
                 loaded: totalBytes,
@@ -238,7 +247,14 @@ export async function uploadToZGStorage(
             });
         };
 
+        // Fallback: if the body is small enough that xhr.upload events
+        // don't fire (or fire out of order), flip to "anchoring" 300 ms
+        // after send. The actual upload of <10 KB to the server is done
+        // by then; everything beyond that is server-side waiting.
+        let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
         xhr.onload = () => {
+            if (fallbackTimer) clearTimeout(fallbackTimer);
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {
                     const parsed = JSON.parse(xhr.responseText) as StorageUploadResult;
@@ -267,8 +283,36 @@ export async function uploadToZGStorage(
             }
         };
 
-        xhr.onerror = () => reject(new Error("storage upload network error"));
+        xhr.onerror = () => {
+            if (fallbackTimer) clearTimeout(fallbackTimer);
+            reject(new Error("storage upload network error"));
+        };
+
+        // Immediately signal that the encoding phase is done and we're
+        // handing off to the network. Without this, very small bodies
+        // (< 4 KB) get stuck showing "Encoding…" because xhr.upload
+        // events sometimes fire too fast to observe.
+        onProgress?.({
+            fraction: 0,
+            loaded: 0,
+            total: totalBytes,
+            phase: "uploading",
+        });
         xhr.send(body);
+
+        // Belt-and-suspenders: if no xhr.upload event has flipped us
+        // to "anchoring" within 400 ms, do it ourselves. For tiny
+        // bodies the actual upload completes well under that window.
+        fallbackTimer = setTimeout(() => {
+            if (phaseSwitchedToAnchoring) return;
+            phaseSwitchedToAnchoring = true;
+            onProgress?.({
+                fraction: 1,
+                loaded: totalBytes,
+                total: totalBytes,
+                phase: "anchoring",
+            });
+        }, 400);
     });
 }
 

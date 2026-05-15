@@ -360,6 +360,64 @@ function MintPageInner() {
                         </p>
                     </header>
 
+                    {/* Wallet gate — every step here writes either to chain
+                        (mint tx) or to 0G Storage (paid by the deployer
+                        wallet on the user's behalf). Both require a
+                        signed identity, and uploading without a wallet
+                        also burns deployer $0G for an anchor the user
+                        can't claim. Gate the whole flow up-front. */}
+                    {!address ? (
+                        <div
+                            style={{
+                                marginBottom: 48,
+                                padding: "32px 28px",
+                                border: "1.5px solid var(--cocoa)",
+                                background: "var(--bg-alt)",
+                                borderRadius: "var(--radius)",
+                                textAlign: "center",
+                            }}
+                        >
+                            <h2
+                                style={{
+                                    fontFamily: "var(--display)",
+                                    fontStyle: "italic",
+                                    fontSize: 32,
+                                    marginBottom: 12,
+                                }}
+                            >
+                                Connect a wallet to mint.
+                            </h2>
+                            <p
+                                style={{
+                                    color: "var(--ink-soft)",
+                                    marginBottom: 20,
+                                    maxWidth: "52ch",
+                                    margin: "0 auto 20px",
+                                }}
+                            >
+                                Minting an INFT writes to the AgentINFT contract on 0G
+                                Galileo, and uploading weights anchors a tx on 0G Storage.
+                                Both need a signing wallet — connect from the header to
+                                begin.
+                            </p>
+                            <p
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 12,
+                                    color: "var(--ink-soft)",
+                                    letterSpacing: "0.08em",
+                                }}
+                            >
+                                Use the &ldquo;Connect&rdquo; button in the top-right of the
+                                page header.
+                            </p>
+                        </div>
+                    ) : null}
+
+                    {/* Everything below is gated on a connected wallet —
+                        the stepper, step bodies, preview aside, all of it.
+                        Closes near the </main> wrap. */}
+                    {address && <>
                     {/* Stepper */}
                     <div
                         style={{
@@ -738,6 +796,7 @@ function MintPageInner() {
                             <RoyaltyBars royalty={mode === "genesis" ? royalty : undefined} />
                         </aside>
                     </div>
+                    </>}
                 </div>
             </main>
             <Footer />
