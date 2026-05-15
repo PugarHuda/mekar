@@ -1113,6 +1113,11 @@ function Step2({
     // (during the XHR upload phase) and a shifted indeterminate tick
     // (during the server-side 0G Storage anchoring phase).
     const [progress, setProgress] = useState<UploadProgress | null>(null);
+    // Seconds spent in the "anchoring" phase. The anchor step is
+    // server-side (sign Flow tx + wait for storage nodes) and can be
+    // genuinely slow on a congested testnet — a live counter tells
+    // the user the request is alive, not frozen.
+    const [anchorSecs, setAnchorSecs] = useState(0);
     // Validation result for the picked file. We surface this before upload
     // so users see "your JSON isn't a manifest" or "this is 0 bytes" before
     // burning a 0G Storage anchor transaction. `null` = no file or unchecked,
@@ -1206,6 +1211,20 @@ function Step2({
             toast.error("Could not load sample manifest");
         }
     }
+
+    // Tick a 1s counter while the upload is in the "anchoring" phase so
+    // the user sees the request is alive. Reset when anchoring ends.
+    useEffect(() => {
+        if (progress?.phase !== "anchoring") {
+            setAnchorSecs(0);
+            return;
+        }
+        const started = Date.now();
+        const id = setInterval(() => {
+            setAnchorSecs(Math.floor((Date.now() - started) / 1000));
+        }, 1_000);
+        return () => clearInterval(id);
+    }, [progress?.phase]);
 
     async function handleUpload() {
         // Re-upload requires explicit confirmation via the custom modal.
@@ -1573,7 +1592,7 @@ function Step2({
                             {progress.phase === "encoding"
                                 ? "Encoding payload…"
                                 : progress.phase === "anchoring"
-                                  ? "0G Storage nodes pinning chunks…"
+                                  ? `0G Storage nodes pinning chunks… ${anchorSecs}s`
                                   : `${(progress.fraction * 100).toFixed(0)}% uploaded`}
                         </span>
                         {progress.total > 0 && (
@@ -1583,6 +1602,30 @@ function Step2({
                             </span>
                         )}
                     </div>
+                    {/* Reassurance once the anchor runs long. The Flow tx +
+                        storage-node pinning is genuinely slow on a busy
+                        Galileo testnet — without this the user assumes a
+                        freeze and reloads, losing the in-flight upload. */}
+                    {progress.phase === "anchoring" && anchorSecs >= 25 && (
+                        <div
+                            style={{
+                                marginTop: 8,
+                                padding: "8px 12px",
+                                background: "rgba(212,164,55,0.12)",
+                                border: "1px solid var(--gold-deep, #b9882c)",
+                                borderRadius: 4,
+                                fontFamily: "var(--mono)",
+                                fontSize: 11,
+                                color: "var(--ink-soft)",
+                                lineHeight: 1.5,
+                            }}
+                        >
+                            Still anchoring — 0G Galileo testnet is congested right now.
+                            This can take up to a couple of minutes. Don&apos;t reload;
+                            the upload is still alive. If you just want to test the mint
+                            flow, cancel and tick &ldquo;Skip upload&rdquo; below instead.
+                        </div>
+                    )}
                 </div>
             )}
 

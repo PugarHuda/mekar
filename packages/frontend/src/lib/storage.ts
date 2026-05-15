@@ -210,6 +210,12 @@ export async function uploadToZGStorage(
         xhr.open("POST", UPLOAD_ENDPOINT, true);
         xhr.setRequestHeader("Content-Type", "application/json");
         xhr.responseType = "text";
+        // Hard timeout so a hung server (0G Storage indexer down,
+        // testnet stall) doesn't leave the UI spinning forever. The
+        // server function itself caps at 300s; we give the request
+        // 280s — slightly under — so the client surfaces a clean
+        // "timed out" instead of waiting for the socket to drop.
+        xhr.timeout = 280_000;
 
         const totalBytes = new Blob([body]).size;
         // Small bodies (< ~4 KB) often skip xhr.upload.onprogress entirely
@@ -286,6 +292,15 @@ export async function uploadToZGStorage(
         xhr.onerror = () => {
             if (fallbackTimer) clearTimeout(fallbackTimer);
             reject(new Error("storage upload network error"));
+        };
+
+        xhr.ontimeout = () => {
+            if (fallbackTimer) clearTimeout(fallbackTimer);
+            reject(
+                new Error(
+                    "0G Storage anchor timed out (280s). Galileo testnet may be congested — retry, or tick \"Skip upload\" to mint with a stub pointer."
+                )
+            );
         };
 
         // Immediately signal that the encoding phase is done and we're

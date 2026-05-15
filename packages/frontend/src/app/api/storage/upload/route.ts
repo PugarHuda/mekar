@@ -267,7 +267,14 @@ export async function POST(req: NextRequest) {
 }
 
 // Vercel function config: Fluid Compute / Node runtime is required because
-// the 0G SDK pulls in fs + crypto from Node. 60s ceiling is plenty for
-// the typical 13–20s upload + Flow contract anchor.
+// the 0G SDK pulls in fs + crypto from Node.
+//
+// maxDuration is 300s (Vercel's current default ceiling). The 0G
+// Storage anchor — sign Flow contract tx + wait for storage nodes to
+// pin the chunks + wait for tx confirmation — is normally 13–20s but
+// on a congested Galileo testnet it can stretch past a minute. The
+// old 60s cap meant the function was being KILLED mid-anchor on slow
+// testnet days, which surfaced to the user as an upload that hung
+// forever. 300s gives the anchor all the room it needs.
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
