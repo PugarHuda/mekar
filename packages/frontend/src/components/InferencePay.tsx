@@ -113,7 +113,12 @@ export function InferencePay({ agentId, inferencePrice, onSettled, onOptimistic 
         }
 
         if (balance && balance.value < inferencePrice) {
-            toast.error(`Need ≥ ${formatOG(inferencePrice)} $0G. Get from faucet.`);
+            // On testnet point users at the faucet; on mainnet there's
+            // no faucet — they need real $0G.
+            toast.error(
+                `Need ≥ ${formatOG(inferencePrice)} $0G` +
+                    (ACTIVE_CHAIN.testnet ? ". Get test $0G from faucet.0g.ai." : ".")
+            );
             return;
         }
 

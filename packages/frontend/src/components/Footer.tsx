@@ -151,9 +151,13 @@ export function Footer() {
                         >
                             {ACTIVE_CHAIN.testnet ? "0G Galileo Explorer" : "0G Explorer"}
                         </FLink>
-                        <FLink href="https://faucet.0g.ai" external>
-                            Testnet faucet
-                        </FLink>
+                        {/* Faucet only matters on testnet — on mainnet
+                            there's no faucet, so the link would mislead. */}
+                        {ACTIVE_CHAIN.testnet && (
+                            <FLink href="https://faucet.0g.ai" external>
+                                Testnet faucet
+                            </FLink>
+                        )}
                         <FLink href="https://docs.0g.ai" external>
                             <BookOpen size={11} style={{ marginRight: 4 }} />
                             0G Docs
