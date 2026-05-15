@@ -29,6 +29,18 @@ const ROYALTY_PAID_EVENT = parseAbiItem(
 
 const SCAN_BLOCK_RANGE = 49_000n; // 0G RPC has a 50k getLogs ceiling
 const SCAN_CONCURRENCY = 4;
+// Cap on how far back the FIRST (uncached) scan reaches. Without it
+// the cold-start scan is O(chain height) — every new visitor pays for
+// the entire history. 1.2M blocks at ~2s/block ≈ the last ~28 days,
+// which is the meaningful "trending" horizon anyway. Subsequent visits
+// scan only the delta from the cached lastBlock, so the full window
+// fills in incrementally without anyone paying the whole cost at once.
+// Override with NEXT_PUBLIC_TRENDING_SCAN_WINDOW for a wider history.
+const TRENDING_SCAN_WINDOW: bigint = (() => {
+    const raw = process.env.NEXT_PUBLIC_TRENDING_SCAN_WINDOW;
+    if (raw && /^\d+$/.test(raw)) return BigInt(raw);
+    return 1_200_000n;
+})();
 const VAULT_DEPLOY_BLOCK: bigint = (() => {
     const raw = process.env.NEXT_PUBLIC_VAULT_DEPLOY_BLOCK;
     if (raw && /^\d+$/.test(raw)) return BigInt(raw);
@@ -116,13 +128,24 @@ export function useTrendingData(): {
                 const latestBlock = await publicClient.getBlockNumber();
                 const cached = readCache();
 
-                // Start from cached lastBlock + 1 if we have it, else from
-                // the vault deploy anchor.
-                const fromBlock = cached
-                    ? BigInt(cached.lastBlock) + 1n
-                    : latestBlock > VAULT_DEPLOY_BLOCK
-                      ? VAULT_DEPLOY_BLOCK
-                      : 0n;
+                // Start from cached lastBlock + 1 if we have it. On a
+                // cold start, begin no earlier than `latestBlock -
+                // TRENDING_SCAN_WINDOW` so the first scan is bounded —
+                // but never before the vault deploy block (no events
+                // exist before it) and never below 0.
+                let fromBlock: bigint;
+                if (cached) {
+                    fromBlock = BigInt(cached.lastBlock) + 1n;
+                } else {
+                    const windowStart =
+                        latestBlock > TRENDING_SCAN_WINDOW
+                            ? latestBlock - TRENDING_SCAN_WINDOW
+                            : 0n;
+                    fromBlock =
+                        windowStart > VAULT_DEPLOY_BLOCK
+                            ? windowStart
+                            : VAULT_DEPLOY_BLOCK;
+                }
 
                 // Hydrate from cache immediately for snappy UX.
                 const agg = new Map<number, TrendingRow>();

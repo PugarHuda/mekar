@@ -307,7 +307,64 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
   const [nonce, setNonce] = useState(0);
   // Optimistic pending rows live in a separate slice so the main effect
   // doesn't blow them away on every re-scan. Merge happens at return time.
-  const [optimistic, setOptimistic] = useState<InferenceLogRow[]>([]);
+  //
+  // Persisted to sessionStorage keyed by agentId: a user who pays, then
+  // navigates away and back before the RPC delta-scan catches the
+  // RoyaltyPaid event would otherwise lose the pending row and see the
+  // table briefly "forget" their payment. sessionStorage (not local)
+  // is right here — the optimism only needs to survive within the tab
+  // session, and the real event supersedes it within seconds anyway.
+  const optimisticKey = agentId ? `mekar:optimistic:agent:${agentId}` : null;
+  const [optimistic, setOptimistic] = useState<InferenceLogRow[]>(() => {
+    if (!optimisticKey || typeof window === "undefined") return [];
+    try {
+      const raw = window.sessionStorage.getItem(optimisticKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as Array<{
+        txHash: `0x${string}`;
+        recipient: `0x${string}`;
+        generation: number;
+        amount: string;
+        blockNumber: string;
+      }>;
+      return parsed.map((r) => ({
+        txHash: r.txHash,
+        recipient: r.recipient,
+        generation: r.generation,
+        amount: BigInt(r.amount),
+        blockNumber: BigInt(r.blockNumber),
+        pending: true as const,
+      }));
+    } catch {
+      return [];
+    }
+  });
+
+  // Mirror optimistic rows into sessionStorage whenever they change.
+  useEffect(() => {
+    if (!optimisticKey || typeof window === "undefined") return;
+    try {
+      if (optimistic.length === 0) {
+        window.sessionStorage.removeItem(optimisticKey);
+      } else {
+        window.sessionStorage.setItem(
+          optimisticKey,
+          JSON.stringify(
+            optimistic.map((r) => ({
+              txHash: r.txHash,
+              recipient: r.recipient,
+              generation: r.generation,
+              amount: r.amount.toString(),
+              blockNumber: r.blockNumber.toString(),
+            }))
+          )
+        );
+      }
+    } catch {
+      // sessionStorage full / disabled — optimism degrades to
+      // in-memory only, which is the pre-persistence behaviour.
+    }
+  }, [optimistic, optimisticKey]);
   const [state, setState] = useState({
     inferences: [] as Array<{
       txHash: `0x${string}`;
@@ -454,6 +511,21 @@ export function useAgentInferenceHistory(agentId: number | undefined): {
   const realTxs = new Set(state.inferences.map((r) => r.txHash));
   const stillPending = optimistic.filter((r) => !realTxs.has(r.txHash));
   const merged = [...stillPending, ...state.inferences];
+
+  // Once a real event supersedes an optimistic row, prune it from the
+  // persisted state so sessionStorage doesn't carry stale stubs into
+  // the next page visit. Runs only when the superseded set is
+  // non-empty, so it doesn't loop.
+  useEffect(() => {
+    if (optimistic.length === 0) return;
+    const superseded = optimistic.some((r) => realTxs.has(r.txHash));
+    if (superseded) {
+      setOptimistic((prev) => prev.filter((r) => !realTxs.has(r.txHash)));
+    }
+    // realTxs is derived from state.inferences; depending on the latter
+    // is the stable signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.inferences]);
   const optimisticAmount = stillPending.reduce((s, r) => s + r.amount, BigInt(0));
   const optimisticTxs = new Set(stillPending.map((r) => r.txHash));
 

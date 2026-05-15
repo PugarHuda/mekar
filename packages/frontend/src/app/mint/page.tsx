@@ -1265,30 +1265,30 @@ function Step2({
             const SINGLE_UPLOAD_LIMIT = 32 * 1024 * 1024;
             let result: StorageUploadResult;
             if (file.size > SINGLE_UPLOAD_LIMIT) {
-                if (encrypt) {
-                    toast.message("Large file", {
-                        description:
-                            "Per-chunk encryption for >32 MB uploads is Phase 2 — anchoring unencrypted. Encrypt smaller files, or pre-encrypt before upload.",
-                    });
-                }
+                // Encrypt-then-chunk: the whole file is AES-256-GCM
+                // encrypted up-front, then the ciphertext is split.
                 const chunked = await uploadChunkedToZGStorage(
                     file,
                     `mekar-mint-${seed}`,
-                    (p) => setProgress(p)
+                    (p) => setProgress(p),
+                    encrypt ? "aes256" : "none"
                 );
                 // Normalise the chunked result into the single-upload
                 // shape the rest of the flow expects. The manifest
-                // rootHash is the single on-chain pointer.
+                // rootHash is the single on-chain pointer; key + IV
+                // (when encrypted) flow through so the UI shows them.
                 result = {
                     rootHash: chunked.manifestRootHash,
                     storagePointer: chunked.manifestRootHash,
                     txHash: chunked.manifestTxHash,
                     size: chunked.totalBytes,
-                    encryption: "none",
+                    encryption: chunked.encryption,
+                    ...(chunked.aesKey ? { aesKey: chunked.aesKey } : {}),
+                    ...(chunked.aesIv ? { aesIv: chunked.aesIv } : {}),
                 };
                 setStorageUpload(result);
                 toast.success(
-                    `Anchored to 0G Storage in ${chunked.chunkCount} chunks`
+                    `${chunked.encryption === "aes256-gcm-client" ? "Encrypted + anchored" : "Anchored"} to 0G Storage in ${chunked.chunkCount} chunks`
                 );
             } else {
                 // A real file is required (enforced above) — we always

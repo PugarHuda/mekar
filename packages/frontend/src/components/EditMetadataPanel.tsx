@@ -72,6 +72,11 @@ export function EditMetadataPanel({ agentId, ownerAddress }: Props) {
     // to 0G Storage, then call MekarRegistry.updateMetadata with the
     // returned rootHash. Two stages so the user sees each step.
     const [anchoring, setAnchoring] = useState(false);
+    // When the manifest upload SUCCEEDS but the updateMetadata tx is
+    // rejected/fails, we hold onto the uploaded rootHash here. The user
+    // can then retry just the tx — no need to re-upload (and re-pay for)
+    // a fresh manifest anchor. Cleared once the tx finally lands.
+    const [pendingRootHash, setPendingRootHash] = useState<`0x${string}` | null>(null);
     const { writeContract, data: anchorTx, isPending: anchorTxPending } = useWriteContract();
     const { isLoading: anchorConfirming, isSuccess: anchorSettled } =
         useWaitForTransactionReceipt({ hash: anchorTx });
@@ -81,11 +86,13 @@ export function EditMetadataPanel({ agentId, ownerAddress }: Props) {
     }, [agentId]);
 
     // Surface a confirmation when the anchor tx lands so the user knows
-    // the on-chain pointer was updated.
+    // the on-chain pointer was updated. Also clear the retry handle —
+    // the tx succeeded, there's nothing left to retry.
     useEffect(() => {
         if (anchorSettled) {
             toast.success("Metadata anchored on chain");
             setAnchoring(false);
+            setPendingRootHash(null);
         }
     }, [anchorSettled]);
 
@@ -158,27 +165,43 @@ export function EditMetadataPanel({ agentId, ownerAddress }: Props) {
                 manifest,
                 `mekar-meta-update-${agentId}-${Date.now()}`
             );
-            // Submit the on-chain update — owner gate is enforced inside
-            // MekarRegistry.updateMetadata. We catch revert via wagmi.
-            writeContract(
-                {
-                    address: CONTRACT_ADDRESSES.MekarRegistry,
-                    abi: MEKAR_REGISTRY_ABI,
-                    functionName: "updateMetadata",
-                    args: [BigInt(agentId), result.rootHash],
-                },
-                {
-                    onError: (e) => {
-                        toast.error(`Anchor tx failed: ${e.message.slice(0, 160)}`);
-                        setAnchoring(false);
-                    },
-                }
-            );
+            // Hold the rootHash so a tx rejection can be retried without
+            // re-uploading (and re-paying for) a new manifest anchor.
+            setPendingRootHash(result.rootHash);
+            submitAnchorTx(result.rootHash);
         } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             toast.error(`Upload failed: ${msg.slice(0, 160)}`);
             setAnchoring(false);
         }
+    }
+
+    /**
+     * Fire the updateMetadata tx for an already-uploaded rootHash.
+     * Split out from anchorOnChain so the retry path can call it
+     * directly without touching 0G Storage again.
+     */
+    function submitAnchorTx(rootHash: `0x${string}`) {
+        setAnchoring(true);
+        writeContract(
+            {
+                address: CONTRACT_ADDRESSES.MekarRegistry,
+                abi: MEKAR_REGISTRY_ABI,
+                functionName: "updateMetadata",
+                args: [BigInt(agentId), rootHash],
+            },
+            {
+                onError: (e) => {
+                    // Upload already succeeded — keep pendingRootHash set
+                    // so the user sees a "Retry tx" affordance instead of
+                    // having to re-upload the manifest from scratch.
+                    toast.error(
+                        `Anchor tx failed: ${e.message.slice(0, 140)} — manifest is uploaded, retry the tx.`
+                    );
+                    setAnchoring(false);
+                },
+            }
+        );
     }
 
     function toggleCat(c: AgentCategory) {
@@ -372,6 +395,45 @@ export function EditMetadataPanel({ agentId, ownerAddress }: Props) {
                                 {anchorTx.slice(0, 12)}…{anchorTx.slice(-8)}
                             </a>
                         </p>
+                    )}
+
+                    {/* Retry affordance — shows when the manifest is
+                        uploaded (pendingRootHash set) but the tx hasn't
+                        landed. Lets the user re-fire just the tx without
+                        paying for another 0G Storage anchor. */}
+                    {pendingRootHash && !anchorSettled && !anchoring && (
+                        <div
+                            style={{
+                                marginTop: 12,
+                                padding: "10px 12px",
+                                background: "rgba(212,164,55,0.12)",
+                                border: "1px solid var(--gold-deep, #b9882c)",
+                                borderRadius: 4,
+                            }}
+                        >
+                            <p
+                                style={{
+                                    fontFamily: "var(--mono)",
+                                    fontSize: 11,
+                                    color: "var(--ink-soft)",
+                                    lineHeight: 1.5,
+                                    marginBottom: 8,
+                                }}
+                            >
+                                Manifest is already on 0G Storage (
+                                {pendingRootHash.slice(0, 10)}…) but the on-chain
+                                update tx didn&apos;t land. Retry the tx — no
+                                re-upload needed.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => submitAnchorTx(pendingRootHash)}
+                                className="btn"
+                                style={{ fontSize: 12 }}
+                            >
+                                Retry anchor tx
+                            </button>
+                        </div>
                     )}
 
                     <p

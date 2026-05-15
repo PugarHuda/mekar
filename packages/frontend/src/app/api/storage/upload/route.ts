@@ -210,13 +210,33 @@ export async function POST(req: NextRequest) {
                   })()
                 : undefined;
 
-        const [result, err] = await indexer.upload(
-            file,
-            RPC_URL,
-            signer,
-            uploadOpts
-        );
-        if (err) throw err;
+        // Retry the anchor with backoff. The 0G Storage indexer +
+        // Flow contract on a congested testnet throws transient errors
+        // (node selection failures, RPC timeouts) that succeed on a
+        // second attempt. Three tries with 2s/4s backoff turns a
+        // flaky-testnet failure into a slightly-slower success instead
+        // of a hard 500. A genuine error (bad payload, no funds) still
+        // fails on the last attempt and propagates.
+        let result: unknown = null;
+        let lastErr: unknown = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            const [r, err] = await indexer.upload(file, RPC_URL, signer, uploadOpts);
+            if (!err) {
+                result = r;
+                lastErr = null;
+                break;
+            }
+            lastErr = err;
+            // eslint-disable-next-line no-console
+            console.warn(
+                `[/api/storage/upload] anchor attempt ${attempt}/3 failed:`,
+                err instanceof Error ? err.message : String(err)
+            );
+            if (attempt < 3) {
+                await new Promise((res) => setTimeout(res, attempt * 2_000));
+            }
+        }
+        if (lastErr || !result) throw lastErr ?? new Error("upload returned no result");
 
         if (Array.isArray((result as { rootHashes?: string[] }).rootHashes)) {
             throw new Error("unexpected sharded upload result for single file");

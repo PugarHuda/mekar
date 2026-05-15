@@ -349,10 +349,34 @@ export type ChunkedUploadResult = {
     /** Anchor tx for the manifest. The chunks each have their own tx
      *  too — captured inside the manifest for traceability. */
     manifestTxHash: `0x${string}`;
+    /** Plaintext byte length of the original file. */
     totalBytes: number;
     chunkCount: number;
     /** Individual chunks for downstream verification. */
     chunks: Array<{ index: number; rootHash: `0x${string}`; txHash: `0x${string}`; size: number }>;
+    /** "none" or "aes256-gcm-client" — whole-file encryption applied
+     *  before chunking. */
+    encryption: "none" | "aes256-gcm-client";
+    /** Present only when encrypted — AES-256 key, hex. The caller must
+     *  persist this; the server never saw it. */
+    aesKey?: `0x${string}`;
+    /** Present only when encrypted — the GCM IV, hex. */
+    aesIv?: `0x${string}`;
+};
+
+/** Shape of the manifest JSON anchored on 0G Storage by the chunked
+ *  upload. Public so the reconstruction helper below can type the
+ *  parsed payload. */
+export type ChunkedManifest = {
+    kind: "mekar-chunked-upload";
+    version: "v2";
+    tag: string | null;
+    /** Plaintext byte length. */
+    totalBytes: number;
+    /** Raw chunk size used to split (ciphertext bytes when encrypted). */
+    chunkBytes: number;
+    encryption: "none" | "aes256-gcm-client";
+    chunks: Array<{ index: number; rootHash: `0x${string}`; size: number }>;
 };
 
 /**
@@ -364,59 +388,62 @@ export type ChunkedUploadResult = {
  * Use this when the source file > 32 MB. For small files prefer
  * `uploadToZGStorage()` directly — one tx instead of N+1.
  *
+ * Encryption: when `encryption: "aes256"`, the WHOLE file is encrypted
+ * once (AES-256-GCM, single key + IV) before being chunked — so the
+ * chunks are ciphertext and the manifest records encryption metadata.
+ * The key + IV come back in the result for the caller to persist;
+ * the server only ever sees ciphertext chunks. Reconstruction via
+ * `reconstructChunkedUpload()` reverses this exactly.
+ *
  * Progress callback fractions are normalised across the whole upload
  * so the UI bar reads from 0 → 1 over the full operation, not per chunk.
  */
 export async function uploadChunkedToZGStorage(
     file: File,
     tag?: string,
-    onProgress?: (p: UploadProgress) => void
+    onProgress?: (p: UploadProgress) => void,
+    encryption: "none" | "aes256" = "none"
 ): Promise<ChunkedUploadResult> {
-    const totalBytes = file.size;
-    if (totalBytes <= CHUNK_BYTES) {
-        // Smaller than a single chunk — let the simple path handle it
-        // and re-wrap the result in the chunked shape so callers can
-        // use one return type regardless.
-        const single = await uploadToZGStorage(file, tag, "none", onProgress);
-        return {
-            manifestRootHash: single.rootHash,
-            manifestTxHash: single.txHash,
-            totalBytes,
-            chunkCount: 1,
-            chunks: [
-                {
-                    index: 0,
-                    rootHash: single.rootHash,
-                    txHash: single.txHash,
-                    size: single.size,
-                },
-            ],
-        };
+    const plaintextBytes = file.size;
+
+    // Whole-file encryption happens up-front so chunking operates on
+    // ciphertext. One key + IV for the entire file (NOT per chunk) so
+    // reconstruction is a simple concat-then-decrypt.
+    let sourceBlob: Blob = file;
+    let clientKey: { key: `0x${string}`; iv: `0x${string}` } | null = null;
+    if (encryption === "aes256") {
+        onProgress?.({ fraction: 0, loaded: 0, total: plaintextBytes, phase: "encoding" });
+        const { ciphertext, iv, keyBytes } = await encryptClientSide(file);
+        sourceBlob = new Blob([ciphertext]);
+        clientKey = { key: toHexLocal(keyBytes), iv: toHexLocal(iv) };
     }
 
-    const chunkCount = Math.ceil(totalBytes / CHUNK_BYTES);
+    // From here on `uploadBytes` is the byte length we actually chunk +
+    // upload (ciphertext length when encrypted, file length otherwise).
+    const uploadBytes = sourceBlob.size;
+    const enc: "none" | "aes256-gcm-client" = clientKey ? "aes256-gcm-client" : "none";
+
+    const chunkCount = Math.ceil(uploadBytes / CHUNK_BYTES);
     const chunks: ChunkedUploadResult["chunks"] = [];
 
     for (let i = 0; i < chunkCount; i++) {
         const start = i * CHUNK_BYTES;
-        const end = Math.min(start + CHUNK_BYTES, totalBytes);
-        const slice = file.slice(start, end);
+        const end = Math.min(start + CHUNK_BYTES, uploadBytes);
+        const slice = sourceBlob.slice(start, end);
+        // Chunks are uploaded with server encryption "none" — when the
+        // file is encrypted, the bytes are ALREADY ciphertext; when it
+        // isn't, plaintext is intended.
         const result = await uploadToZGStorage(
             slice,
             `${tag ?? "untagged"}-chunk-${i + 1}-of-${chunkCount}`,
             "none",
             (p) => {
-                // Map per-chunk progress to a global fraction so the UI
-                // doesn't jump back to 0% on each chunk boundary.
                 if (!onProgress) return;
                 const completedBytes = i * CHUNK_BYTES + p.loaded;
-                const denom = totalBytes;
                 onProgress({
-                    fraction: denom > 0 ? completedBytes / denom : 0,
+                    fraction: uploadBytes > 0 ? completedBytes / uploadBytes : 0,
                     loaded: completedBytes,
-                    total: denom,
-                    // Show "uploading" through every chunk; anchoring
-                    // status applies to the final manifest only.
+                    total: uploadBytes,
                     phase: i === chunkCount - 1 ? p.phase : "uploading",
                 });
             }
@@ -429,20 +456,22 @@ export async function uploadChunkedToZGStorage(
         });
     }
 
-    // Anchor the manifest as a small JSON pointing at every chunk.
-    // Its rootHash is the single on-chain pointer.
-    const manifest = JSON.stringify(
-        {
-            kind: "mekar-chunked-upload",
-            version: "v1",
-            tag: tag ?? null,
-            totalBytes,
-            chunkBytes: CHUNK_BYTES,
-            chunks,
-        },
-        null,
-        0
-    );
+    // Anchor the manifest. v2 adds the `encryption` field; the
+    // reconstruction helper reads it to decide whether to decrypt.
+    const manifest = JSON.stringify({
+        kind: "mekar-chunked-upload",
+        version: "v2",
+        tag: tag ?? null,
+        totalBytes: plaintextBytes,
+        chunkBytes: CHUNK_BYTES,
+        encryption: enc,
+        chunks: chunks.map((c) => ({
+            index: c.index,
+            rootHash: c.rootHash,
+            size: c.size,
+        })),
+    } satisfies ChunkedManifest);
+
     const manifestResult = await uploadToZGStorage(
         manifest,
         `${tag ?? "untagged"}-manifest`,
@@ -450,8 +479,8 @@ export async function uploadChunkedToZGStorage(
         (p) =>
             onProgress?.({
                 fraction: 1,
-                loaded: totalBytes,
-                total: totalBytes,
+                loaded: plaintextBytes,
+                total: plaintextBytes,
                 phase: p.phase === "uploading" ? "uploading" : "anchoring",
             })
     );
@@ -459,8 +488,140 @@ export async function uploadChunkedToZGStorage(
     return {
         manifestRootHash: manifestResult.rootHash,
         manifestTxHash: manifestResult.txHash,
-        totalBytes,
+        totalBytes: plaintextBytes,
         chunkCount,
         chunks,
+        encryption: enc,
+        ...(clientKey ? { aesKey: clientKey.key, aesIv: clientKey.iv } : {}),
     };
+}
+
+/* ─────────────── Download / reconstruction ─────────────── */
+
+const DOWNLOAD_ENDPOINT = (() => {
+    const override = process.env.NEXT_PUBLIC_BACKEND_URL as string | undefined;
+    if (!override) return "/api/storage/download";
+    const isLocalhost = /localhost|127\.0\.0\.1/.test(override);
+    if (isLocalhost && typeof window !== "undefined") {
+        const onLocalhostHost = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+        if (!onLocalhostHost) return "/api/storage/download";
+    }
+    return `${override}/api/storage/download`;
+})();
+
+/**
+ * Fetch a single payload back from 0G Storage by rootHash. Returns the
+ * raw bytes — ciphertext if the upload was encrypted (decryption is
+ * always client-side, never server-side).
+ */
+export async function downloadFromZGStorage(
+    rootHash: `0x${string}`
+): Promise<ArrayBuffer> {
+    const res = await fetch(
+        `${DOWNLOAD_ENDPOINT}?rootHash=${encodeURIComponent(rootHash)}`
+    );
+    if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`download failed (${res.status}): ${text || res.statusText}`);
+    }
+    return res.arrayBuffer();
+}
+
+/**
+ * Decrypt an AES-256-GCM ciphertext produced by `encryptClientSide`
+ * (the same scheme `uploadToZGStorage` and `uploadChunkedToZGStorage`
+ * use). `keyHex` / `ivHex` are the `0x`-prefixed values the upload
+ * returned.
+ */
+export async function decryptClientSide(
+    ciphertext: ArrayBuffer,
+    keyHex: `0x${string}`,
+    ivHex: `0x${string}`
+): Promise<ArrayBuffer> {
+    // Build the byte array on a fresh, concretely-typed ArrayBuffer.
+    // TS 5.7's lib.dom narrows WebCrypto params to ArrayBuffer-backed
+    // views; a bare `new Uint8Array(n)` annotated `: Uint8Array` widens
+    // to `Uint8Array<ArrayBufferLike>` and fails the overload. Allocating
+    // the ArrayBuffer explicitly keeps the type concrete.
+    const hexToBytes = (hex: string): Uint8Array<ArrayBuffer> => {
+        const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
+        const len = clean.length / 2;
+        const buf = new ArrayBuffer(len);
+        const out = new Uint8Array(buf);
+        for (let i = 0; i < len; i++) {
+            out[i] = parseInt(clean.substr(i * 2, 2), 16);
+        }
+        return out;
+    };
+    const key = await crypto.subtle.importKey(
+        "raw",
+        hexToBytes(keyHex),
+        { name: "AES-GCM" },
+        false,
+        ["decrypt"]
+    );
+    return crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: hexToBytes(ivHex) },
+        key,
+        ciphertext
+    );
+}
+
+/**
+ * Full round-trip of the chunked-upload format: fetch the manifest by
+ * its rootHash, fetch every chunk, concatenate in order, and (when the
+ * manifest says so) decrypt with the supplied key + IV.
+ *
+ * This reverses `uploadChunkedToZGStorage` exactly — the chunked write
+ * format is no longer write-only.
+ *
+ * @param manifestRootHash The on-chain weightsPointer of a chunked upload.
+ * @param aesKey/aesIv      Required iff the manifest's encryption is
+ *                          "aes256-gcm-client". Omit for plaintext.
+ */
+export async function reconstructChunkedUpload(
+    manifestRootHash: `0x${string}`,
+    opts?: { aesKey?: `0x${string}`; aesIv?: `0x${string}`; onProgress?: (done: number, total: number) => void }
+): Promise<Blob> {
+    // 1. Manifest.
+    const manifestBytes = await downloadFromZGStorage(manifestRootHash);
+    let manifest: ChunkedManifest;
+    try {
+        manifest = JSON.parse(new TextDecoder().decode(manifestBytes)) as ChunkedManifest;
+    } catch {
+        throw new Error("manifest is not valid JSON — is this a chunked-upload rootHash?");
+    }
+    if (manifest.kind !== "mekar-chunked-upload") {
+        throw new Error(`unexpected manifest kind: ${String(manifest.kind)}`);
+    }
+
+    // 2. Chunks, in index order. The manifest array is already ordered,
+    //    but we sort defensively in case a future writer reorders it.
+    const ordered = [...manifest.chunks].sort((a, b) => a.index - b.index);
+    const parts: ArrayBuffer[] = [];
+    for (let i = 0; i < ordered.length; i++) {
+        parts.push(await downloadFromZGStorage(ordered[i].rootHash));
+        opts?.onProgress?.(i + 1, ordered.length);
+    }
+
+    // 3. Concatenate.
+    const total = parts.reduce((n, p) => n + p.byteLength, 0);
+    const joined = new Uint8Array(total);
+    let offset = 0;
+    for (const p of parts) {
+        joined.set(new Uint8Array(p), offset);
+        offset += p.byteLength;
+    }
+
+    // 4. Decrypt if the manifest says the chunks are ciphertext.
+    if (manifest.encryption === "aes256-gcm-client") {
+        if (!opts?.aesKey || !opts?.aesIv) {
+            throw new Error(
+                "this upload is encrypted — aesKey + aesIv are required to reconstruct it"
+            );
+        }
+        const plain = await decryptClientSide(joined.buffer, opts.aesKey, opts.aesIv);
+        return new Blob([plain]);
+    }
+    return new Blob([joined]);
 }
