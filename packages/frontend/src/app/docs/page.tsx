@@ -152,7 +152,7 @@ export default function DocsPage() {
                             >
                                 chainscan.0g.ai
                             </Link>
-                            . The same code path runs on Galileo testnet —{" "}
+                            . The same code path runs on Galileo testnet too —{" "}
                             <code>ACTIVE_CHAIN</code> switches via the{" "}
                             <code>NEXT_PUBLIC_NETWORK</code> env var.
                         </Note>
@@ -232,18 +232,19 @@ await royaltyVault.payInference(agentId, { value: fee });
                     >
                         <p>
                             Verify your wallet can pay an inference and trigger the royalty
-                            cascade. Need ~0.002 OG on Galileo (
+                            cascade. Need ~0.002 OG of real $0G on Aristotle mainnet — or
+                            run against Galileo testnet with free $0G from the{" "}
                             <Link
                                 href="https://faucet.0g.ai"
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                faucet
+                                0G faucet
                             </Link>
-                            ).
+                            .
                         </p>
                         <Code language="bash">{`RPC=https://evmrpc.0g.ai
-VAULT=0x49eCE891AeA76aad967A83B53DC160328036BABc
+VAULT=0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6
 
 # Read the live price for agent #4 (Carol's compose)
 PRICE=$(cast call $VAULT \\
@@ -275,7 +276,7 @@ cast send $VAULT "payInference(uint256)" 4 \\
                         <Code language="ts">{`import { createWalletClient, createPublicClient, http, parseAbiItem } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-const VAULT = "0x49eCE891AeA76aad967A83B53DC160328036BABc" as const;
+const VAULT = "0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6" as const;
 const account = privateKeyToAccount(process.env.PK as \`0x\${string}\`);
 
 const wallet = createWalletClient({ account, chain: zg, transport: http() });
@@ -309,7 +310,7 @@ app.post("/inference/:agentId", async (req, res) => {
                         <p>
                             Build a leaderboard from <code>RoyaltyPaid</code> events. Same
                             parallel-chunked scan pattern as the frontend&apos;s
-                            <code> useUserStats </code>hook — public Galileo RPC tolerates ~5
+                            <code> useUserStats </code>hook — public 0G RPC tolerates ~5
                             concurrent log fetches.
                         </p>
                         <Code language="ts">{`const event = parseAbiItem(
@@ -387,7 +388,7 @@ const [result, err] = await indexer.upload(
                             <code>cast send</code> hangs on receipt fetch
                         </h3>
                         <p style={pStyle}>
-                            Galileo&apos;s RPC drops receipt fetches occasionally. Use{" "}
+                            0G's RPC occasionally drops receipt fetches occasionally. Use{" "}
                             <code>--async</code>, then poll <code>cast receipt</code> with
                             backoff:
                         </p>
@@ -429,7 +430,7 @@ done`}</Code>
                         title="6. Gas + fee accounting"
                         eyebrow="Operation costs"
                     >
-                        <p>Approximate at 4 gwei on Galileo:</p>
+                        <p>Approximate at 4 gwei on Aristotle:</p>
                         <Table
                             rows={[
                                 ["mintGenesis", "~340k gas · ~0.00136 OG"],

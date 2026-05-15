@@ -157,6 +157,47 @@ send_verify "Registry.setRoyaltyVaultContract" $REGISTRY "setRoyaltyVaultContrac
 send_verify "Registry.setTrainingDataRegistry" $REGISTRY "setTrainingDataRegistry(address)" $TRAINING
 send_verify "AlignmentAuditor.approveAuditor" $AUDITOR "approveAuditor(address)" $DEPLOYER
 
+echo ""
+echo "──────────────────────────────────────────────"
+echo "  Post-deploy self-verification"
+echo "──────────────────────────────────────────────"
+# Call a DISTINGUISHING function on each contract — one that exists
+# ONLY on that contract type. This catches the failure mode that bit
+# the first mainnet run: a deploy silently failed, the address slot
+# ended up holding a different contract, and a generic getter like
+# `agentInft()` (present on BOTH RoyaltyVault and AlignmentAuditor)
+# made a wrong contract look correct. getInferencePrice is unique to
+# RoyaltyVault; totalAgents to MekarRegistry; totalSupply to AgentINFT.
+verify_call() {
+  local label="$1" addr="$2" sig="$3"; shift 3
+  local out
+  out=$(cast call "$addr" "$sig" "$@" --rpc-url $RPC 2>&1)
+  if [[ "$out" == *"revert"* ]] || [[ "$out" == *"rror"* ]] || [ -z "$out" ]; then
+    echo "       ✗ $label — $sig reverted. Wrong contract at $addr?"
+    return 1
+  fi
+  echo "       ✓ $label — $sig → $out"
+  return 0
+}
+VERIFY_OK=1
+verify_call "AgentINFT"     $AGENT_INFT "totalSupply()(uint256)" || VERIFY_OK=0
+verify_call "MekarRegistry" $REGISTRY   "totalAgents()(uint256)" || VERIFY_OK=0
+verify_call "RoyaltyVault"  $VAULT      "getInferencePrice(uint256)(uint256)" 1 || VERIFY_OK=0
+# Registry must point at the REAL vault, not some other contract.
+REG_VAULT=$(cast call $REGISTRY "royaltyVaultContract()(address)" --rpc-url $RPC 2>&1)
+if [ "${REG_VAULT,,}" != "${VAULT,,}" ]; then
+  echo "       ✗ Registry.royaltyVault = $REG_VAULT, expected $VAULT"
+  VERIFY_OK=0
+fi
+if [ "$VERIFY_OK" != "1" ]; then
+  echo ""
+  echo "ERROR: post-deploy verification FAILED. Do NOT trust the"
+  echo "       addresses above — inspect each contract before wiring"
+  echo "       the frontend. See the recovery notes in MAINNET_DEPLOY.md."
+  exit 1
+fi
+echo "       all 5 contracts verified — correct type + wiring"
+
 # Capture the deploy block so the frontend's event-scan hooks start
 # from the right anchor instead of scanning from genesis.
 DEPLOY_BLOCK=$(cast block-number --rpc-url $RPC)
