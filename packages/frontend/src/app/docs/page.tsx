@@ -15,6 +15,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { DocsSidebar, type DocSection } from "./Sidebar";
+import { Code } from "./CodeBlock";
 import { ExternalLink } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ const GUIDE_URL = `${REPO}/blob/main/docs/INTEGRATION_GUIDE.md`;
 const SECTIONS: DocSection[] = [
     { id: "intro", label: "Introduction" },
     { id: "addresses", label: "Contract addresses", eyebrow: "Galileo testnet" },
+    { id: "earn", label: "Earn from your model", eyebrow: "Why Mekar" },
     { id: "quickstart", label: "1 · Hello, Mekar", eyebrow: "cast · CLI" },
     { id: "express-bot", label: "2 · Express bot", eyebrow: "Node · viem" },
     { id: "indexer", label: "3 · Royalty indexer", eyebrow: "Analytics" },
@@ -152,6 +154,72 @@ export default function DocsPage() {
                                 DEPLOY_GUIDE.md
                             </Link>{" "}
                             for the full mainnet checklist.
+                        </Note>
+                    </DocSection>
+
+                    {/* Earn from your model — expands the landing snippet */}
+                    <DocSection
+                        id="earn"
+                        title="Earn from your model"
+                        eyebrow="Why Mekar · for AI creators"
+                    >
+                        <p>
+                            Open source shouldn&apos;t mean unpaid. If you publish a model,
+                            a fine-tune, or a LoRA, Mekar turns every downstream use into
+                            a royalty stream that flows back to you — with no platform,
+                            no invoicing, and no middleman taking a cut of your work.
+                        </p>
+
+                        <h3 style={subhStyle}>The three steps</h3>
+                        <Code language="ts">{`// 1. Register your model once — it becomes an ERC-7857 INFT.
+const agentId = await agentINFT.mintGenesis(
+  weightsPointer,   // 0G Storage rootHash of your weights
+  trainingMerkle,   // Merkle root of your training data
+  teeProof,         // TEE attestation hash
+  royaltySchema,    // your split — 50/25/15/7/3 by default
+);
+
+// 2. Anyone who uses the agent pays through the vault:
+await royaltyVault.payInference(agentId, { value: fee });
+
+// 3. The fee cascades on-chain, in one atomic tx:
+//      50% → you (direct owner)
+//      25% → gen-1 parents you forked from
+//      15% → gen-2 ancestors
+//       7% → gen-3+ (capped at depth 10)
+//       3% → training-data contributors
+//    Dust + any unpayable share sweeps to the protocol treasury.`}</Code>
+
+                        <h3 style={subhStyle}>What this means for you</h3>
+                        <ul style={listStyle}>
+                            <li>
+                                <strong>Forks pay you back.</strong> When someone
+                                fine-tunes your model, their agent lists yours as a
+                                parent. Every inference on the fork sends a gen-1 share
+                                up to you — automatically, forever.
+                            </li>
+                            <li>
+                                <strong>No account, no platform.</strong> Royalty lands
+                                in the wallet that minted the agent. Mekar is a contract,
+                                not a marketplace — it never holds or gates your earnings.
+                            </li>
+                            <li>
+                                <strong>You set the split.</strong> The royalty schema is
+                                a mint-time parameter. Want training-data contributors to
+                                get more than 3%? Configure it when you mint genesis.
+                            </li>
+                            <li>
+                                <strong>Alignment protects the rail.</strong> An agent
+                                slashed for bias drift earns a reduced share — so a
+                                misaligned fork can&apos;t dilute honest ancestors.
+                            </li>
+                        </ul>
+
+                        <Note>
+                            The royalty cascade is <strong>live on chain today</strong> —
+                            see the settlement proof in section 8. What&apos;s Phase 2 is
+                            the inference compute itself (0G Compute TEE) — Mekar settles
+                            the payment rail regardless of who runs the model.
                         </Note>
                     </DocSection>
 
@@ -567,6 +635,14 @@ function DocSection({
     eyebrow: string;
     children: React.ReactNode;
 }) {
+    // Locate this section in SECTIONS so we can render GitBook-style
+    // prev/next links at the bottom. The order in SECTIONS is the
+    // canonical reading order; "more" is the terminal section so it
+    // has a prev but no next.
+    const idx = SECTIONS.findIndex((s) => s.id === id);
+    const prev = idx > 0 ? SECTIONS[idx - 1] : null;
+    const next = idx >= 0 && idx < SECTIONS.length - 1 ? SECTIONS[idx + 1] : null;
+
     return (
         <section
             id={id}
@@ -590,42 +666,74 @@ function DocSection({
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {children}
             </div>
+
+            {/* GitBook-style prev/next pager. Anchors jump within the
+                single-page docs; the sidebar's IntersectionObserver
+                keeps the active highlight in sync. */}
+            {(prev || next) && (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginTop: 32,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    {prev ? (
+                        <a href={`#${prev.id}`} style={pagerStyle}>
+                            <span style={pagerHintStyle}>← Previous</span>
+                            <span style={pagerLabelStyle}>{prev.label}</span>
+                        </a>
+                    ) : (
+                        <span />
+                    )}
+                    {next ? (
+                        <a
+                            href={`#${next.id}`}
+                            style={{ ...pagerStyle, textAlign: "right", alignItems: "flex-end" }}
+                        >
+                            <span style={pagerHintStyle}>Next →</span>
+                            <span style={pagerLabelStyle}>{next.label}</span>
+                        </a>
+                    ) : (
+                        <span />
+                    )}
+                </div>
+            )}
         </section>
     );
 }
 
-function Code({ children, language }: { children: string; language?: string }) {
-    return (
-        <pre
-            style={{
-                background: "var(--bg-alt)",
-                border: "1px solid var(--rule)",
-                borderRadius: 6,
-                padding: "16px 18px",
-                overflowX: "auto",
-                fontFamily: "var(--mono)",
-                fontSize: 12.5,
-                lineHeight: 1.55,
-                color: "var(--ink)",
-            }}
-        >
-            {language && (
-                <div
-                    style={{
-                        fontSize: 10,
-                        letterSpacing: "0.16em",
-                        textTransform: "uppercase",
-                        color: "var(--ink-soft)",
-                        marginBottom: 8,
-                    }}
-                >
-                    {language}
-                </div>
-            )}
-            <code style={{ fontFamily: "inherit", whiteSpace: "pre" }}>{children}</code>
-        </pre>
-    );
-}
+const pagerStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    padding: "12px 16px",
+    border: "1px solid var(--rule)",
+    borderRadius: 6,
+    textDecoration: "none",
+    background: "var(--surface)",
+    minWidth: 160,
+    transition: "border-color 120ms ease",
+};
+const pagerHintStyle: React.CSSProperties = {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+    color: "var(--ink-soft)",
+};
+const pagerLabelStyle: React.CSSProperties = {
+    fontFamily: "var(--display)",
+    fontStyle: "italic",
+    fontSize: 17,
+    color: "var(--cocoa)",
+};
+
+// `Code` is imported from ./CodeBlock — a client component, because
+// the copy-to-clipboard button needs browser APIs the server page
+// can't run. See the import near the top of this file.
 
 function Table({ rows }: { rows: [string, string][] }) {
     return (

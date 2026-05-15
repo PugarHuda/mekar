@@ -16,6 +16,7 @@ export default function Home() {
             <StatsStrip />
             <ExplorerPreview />
             <StackChart />
+            <DeveloperSnippet />
             <FAQ />
             <CTA />
         </div>
@@ -693,6 +694,91 @@ function StackChart() {
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/* ─────────────── Developer snippet — "earn from your model" ─────────────── */
+
+/**
+ * The concrete pitch: an open-source AI creator earns royalty with
+ * one contract call, no platform, no invoicing. Landing page shows
+ * the snippet; /docs has the full integration recipe.
+ */
+function DeveloperSnippet() {
+    const code = `// 1. Register your open-source model once — it becomes an INFT.
+const agentId = await agentINFT.mintGenesis(
+  weightsPointer,   // 0G Storage rootHash of your weights
+  trainingMerkle,   // Merkle root of your training data
+  teeProof,         // TEE attestation hash
+  royaltySchema,    // your split: 50/25/15/7/3 by default
+);
+
+// 2. Anyone — a Discord bot, a dApp, another model —
+//    pays to use it through one call:
+await royaltyVault.payInference(agentId, { value: fee });
+
+// 3. Royalty cascades to YOU automatically, on-chain,
+//    every single inference. Fork it? The forker pays too,
+//    and a share flows back up to you as the ancestor.
+//    No platform cut. No invoicing. No middleman.`;
+
+    return (
+        <section className="how" id="earn" style={{ borderTop: "1px solid var(--rule)" }}>
+            <div className="container">
+                <div style={{ maxWidth: "62ch", marginBottom: 32 }}>
+                    <span className="eyebrow">For builders</span>
+                    <h2>
+                        Get paid for your <em>open-source AI.</em>
+                    </h2>
+                    <p style={{ color: "var(--ink-soft)", marginTop: 12 }}>
+                        Open source shouldn&apos;t mean unpaid. Register your model on
+                        Mekar and every downstream use — every inference, every fork —
+                        routes royalty back to you. Three calls, zero infrastructure.
+                    </p>
+                </div>
+
+                <pre
+                    style={{
+                        background: "var(--surface)",
+                        border: "1.5px solid var(--cocoa)",
+                        borderRadius: "var(--radius)",
+                        padding: "22px 26px",
+                        fontFamily: "var(--mono)",
+                        fontSize: 13,
+                        lineHeight: 1.65,
+                        color: "var(--ink)",
+                        overflowX: "auto",
+                        whiteSpace: "pre",
+                        margin: 0,
+                    }}
+                >
+                    {code}
+                </pre>
+
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 14,
+                        marginTop: 22,
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                    }}
+                >
+                    <Link href="/docs#earn" className="btn">
+                        Full integration recipe →
+                    </Link>
+                    <span
+                        style={{
+                            fontFamily: "var(--mono)",
+                            fontSize: 12,
+                            color: "var(--ink-soft)",
+                        }}
+                    >
+                        ERC-7857 INFT · same contract any project reads
+                    </span>
                 </div>
             </div>
         </section>
