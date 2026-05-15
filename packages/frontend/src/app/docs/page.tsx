@@ -165,10 +165,14 @@ export default function DocsPage() {
                         eyebrow="Why Mekar · for AI creators"
                     >
                         <p>
-                            Open source shouldn&apos;t mean unpaid. If you publish a model,
-                            a fine-tune, or a LoRA, Mekar turns every downstream use into
-                            a royalty stream that flows back to you — with no platform,
-                            no invoicing, and no middleman taking a cut of your work.
+                            Whether your model is open-source or proprietary, if it gets
+                            used you should get paid. Publish a base model, a fine-tune,
+                            or a LoRA — Mekar turns every downstream use into a royalty
+                            stream that flows back to you, with no platform, no invoicing,
+                            and no middleman taking a cut. Proprietary weights stay
+                            private: register in <strong>Strict mode</strong> and the
+                            weights are AES-encrypted on 0G Storage — only the royalty
+                            rail is public, never the model itself.
                         </p>
 
                         <h3 style={subhStyle}>The three steps</h3>

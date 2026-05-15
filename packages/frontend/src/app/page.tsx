@@ -703,17 +703,19 @@ function StackChart() {
 /* ─────────────── Developer snippet — "earn from your model" ─────────────── */
 
 /**
- * The concrete pitch: an open-source AI creator earns royalty with
- * one contract call, no platform, no invoicing. Landing page shows
- * the snippet; /docs has the full integration recipe.
+ * The concrete pitch: any AI creator — open OR proprietary — earns
+ * royalty with one contract call, no platform, no invoicing. Landing
+ * page shows the snippet; /docs has the full integration recipe.
  */
 function DeveloperSnippet() {
-    const code = `// 1. Register your open-source model once — it becomes an INFT.
+    const code = `// 1. Register your model once — it becomes an INFT.
+//    Open weights or proprietary: pick the mode at mint.
 const agentId = await agentINFT.mintGenesis(
-  weightsPointer,   // 0G Storage rootHash of your weights
+  weightsPointer,   // 0G Storage rootHash (encrypted for Strict mode)
   trainingMerkle,   // Merkle root of your training data
   teeProof,         // TEE attestation hash
   royaltySchema,    // your split: 50/25/15/7/3 by default
+  mode,             // Strict (encrypted) · Voluntary (open) · AuditOnly
 );
 
 // 2. Anyone — a Discord bot, a dApp, another model —
@@ -731,12 +733,13 @@ await royaltyVault.payInference(agentId, { value: fee });
                 <div style={{ maxWidth: "62ch", marginBottom: 32 }}>
                     <span className="eyebrow">For builders</span>
                     <h2>
-                        Get paid for your <em>open-source AI.</em>
+                        Get paid when your <em>AI model is used.</em>
                     </h2>
                     <p style={{ color: "var(--ink-soft)", marginTop: 12 }}>
-                        Open source shouldn&apos;t mean unpaid. Register your model on
-                        Mekar and every downstream use — every inference, every fork —
-                        routes royalty back to you. Three calls, zero infrastructure.
+                        Open-source or proprietary — your weights stay yours (encrypt
+                        them in Strict mode). Register your model on Mekar and every
+                        downstream use — every inference, every fork — routes royalty
+                        back to you. Three calls, zero infrastructure.
                     </p>
                 </div>
 
