@@ -33,13 +33,13 @@ const GUIDE_URL = `${REPO}/blob/main/docs/INTEGRATION_GUIDE.md`;
 // as a secondary line under the section title in the sidebar.
 const SECTIONS: DocSection[] = [
     { id: "intro", label: "Introduction" },
-    { id: "addresses", label: "Contract addresses", eyebrow: "Galileo testnet" },
+    { id: "addresses", label: "Contract addresses", eyebrow: "Aristotle mainnet" },
     { id: "earn", label: "Earn from your model", eyebrow: "Why Mekar" },
     { id: "quickstart", label: "1 · Hello, Mekar", eyebrow: "cast · CLI" },
     { id: "express-bot", label: "2 · Express bot", eyebrow: "Node · viem" },
     { id: "indexer", label: "3 · Royalty indexer", eyebrow: "Analytics" },
     { id: "encryption", label: "4 · Encrypt weights", eyebrow: "AES-256 · SDK" },
-    { id: "errors", label: "5 · Error patterns", eyebrow: "Galileo gotchas" },
+    { id: "errors", label: "5 · Error patterns", eyebrow: "Network gotchas" },
     { id: "gas", label: "6 · Gas & fees", eyebrow: "Cost table" },
     { id: "safety", label: "7 · Safety & limits", eyebrow: "DoS · gas bounds" },
     { id: "status", label: "8 · Live vs Phase 2", eyebrow: "Honesty audit" },
@@ -134,7 +134,7 @@ export default function DocsPage() {
                             rows={[
                                 ["AgentINFT (ERC-7857)", "0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4"],
                                 ["MekarRegistry", "0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6"],
-                                ["RoyaltyVault", "0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3"],
+                                ["RoyaltyVault", "0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6"],
                                 ["AlignmentAuditor", "0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8"],
                                 [
                                     "TrainingDataRegistry",
@@ -242,7 +242,7 @@ await royaltyVault.payInference(agentId, { value: fee });
                             </Link>
                             ).
                         </p>
-                        <Code language="bash">{`RPC=https://evmrpc-testnet.0g.ai
+                        <Code language="bash">{`RPC=https://evmrpc.0g.ai
 VAULT=0x49eCE891AeA76aad967A83B53DC160328036BABc
 
 # Read the live price for agent #4 (Carol's compose)
@@ -359,7 +359,7 @@ crypto.getRandomValues(aesKey);
 
 const [result, err] = await indexer.upload(
   new MemData(Array.from(buf)),
-  "https://evmrpc-testnet.0g.ai",
+  "https://evmrpc.0g.ai",
   signer,
   { encryption: { type: "aes256", key: aesKey } }
 );
@@ -377,7 +377,7 @@ const [result, err] = await indexer.upload(
                     <DocSection
                         id="errors"
                         title="5. Error patterns that actually work"
-                        eyebrow="Galileo · gotchas"
+                        eyebrow="Network · gotchas"
                     >
                         <p>
                             Three patterns we've hardened through actual development pain.
@@ -544,7 +544,7 @@ done`}</Code>
                     >
                         <Status
                             live={[
-                                "0G Chain (16602) — 5 contracts deployed + wired",
+                                "0G Chain (16661) — 5 contracts deployed + wired",
                                 "INFT / ERC-7857 — mint/fork/compose flows tested + live",
                                 "0G Storage Log — real Indexer.upload, anchored on Flow contract",
                                 "AES-256 encryption at upload — SDK-direct, key returned to caller",

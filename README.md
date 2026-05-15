@@ -258,7 +258,7 @@ A 5-layer protection against clone laundering:
 |---|---|---|
 | **MekarRegistry** | `0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6` | [view ↗](https://chainscan.0g.ai/address/0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6) |
 | **AgentINFT** (ERC-7857) | `0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4` | [view ↗](https://chainscan.0g.ai/address/0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4) |
-| **RoyaltyVault** | `0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3` | [view ↗](https://chainscan.0g.ai/address/0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3) |
+| **RoyaltyVault** | `0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6` | [view ↗](https://chainscan.0g.ai/address/0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6) |
 | **AlignmentAuditor** | `0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8` | [view ↗](https://chainscan.0g.ai/address/0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8) |
 | **TrainingDataRegistry** | `0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46` | [view ↗](https://chainscan.0g.ai/address/0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46) |
 

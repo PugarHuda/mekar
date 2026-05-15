@@ -56,55 +56,74 @@ fi
 
 # Helper: deploy + verify code present.
 deploy_verified() {
+  # IMPORTANT: this function sets the GLOBAL `DEPLOYED_ADDR` and does
+  # NOT echo the address. The earlier version had callers capture the
+  # address via `$(deploy_verified ... | tail -1)` — that runs the
+  # function in a SUBSHELL, which (a) swallows every progress line and
+  # (b) means a `forge create` whose own verification misreports
+  # "contract was not deployed" still left the script believing the
+  # deploy failed, OR a FAIL message got captured as if it were an
+  # address. Setting a global from the current shell avoids the
+  # subshell entirely; the caller checks the return code.
   local label="$1"; local contract="$2"; shift 2
+  DEPLOYED_ADDR=""
   echo "[deploy] $label …"
   local out
   out=$(forge create --rpc-url $RPC \
         --private-key $DEPLOYER_PRIVATE_KEY \
         --evm-version cancun --legacy --broadcast \
         $contract --constructor-args "$@" 2>&1)
-  local addr txh
+  local addr
   addr=$(echo "$out" | grep "Deployed to:" | grep -oE '0x[a-fA-F0-9]{40}')
-  txh=$(echo "$out" | grep "Transaction hash:" | grep -oE '0x[a-fA-F0-9]{64}')
-  if [ -z "$addr" ] || [ -z "$txh" ]; then
-    echo "       FAIL: could not parse deploy output"; echo "$out"; return 1
+  # `forge create` sometimes prints "Deployed to:" but then its own
+  # post-deploy code check is too impatient and exits non-zero with
+  # "contract was not deployed" even though the tx WAS mined. So we
+  # don't trust forge's exit code — we re-verify the code ourselves
+  # below, with a longer backoff.
+  if [ -z "$addr" ]; then
+    echo "       FAIL: no address in forge output"; echo "$out"; return 1
   fi
   local i code
-  for i in 2 3 4 5 6 8; do
+  for i in 2 3 4 5 6 8 12 16; do
     sleep $i
-    code=$(cast code $addr --rpc-url $RPC 2>&1 | head -c 6)
+    code=$(cast code "$addr" --rpc-url $RPC 2>&1 | head -c 6)
     if [ "$code" != "0x" ] && [[ "$code" =~ ^0x[a-fA-F0-9] ]]; then
-      echo "       $label = $addr (tx $txh)"
-      echo "$addr"; return 0
+      echo "       $label = $addr"
+      DEPLOYED_ADDR="$addr"
+      return 0
     fi
   done
-  echo "       FAIL: $label deployed to $addr but no code after retry"; return 1
+  echo "       FAIL: $label has no code at $addr after retry"; return 1
 }
 
+# Each deploy runs in the CURRENT shell (no subshell), so a failure
+# return aborts the script via `|| exit 1` — and the recovered
+# address is read straight from the global.
+
 # 1. TrainingDataRegistry — deployed FRESH on mainnet (no deps).
-TRAINING=$(deploy_verified "TrainingDataRegistry" \
-  contracts/TrainingDataRegistry.sol:TrainingDataRegistry $DEPLOYER | tail -1)
-[ -z "$TRAINING" ] && exit 1
+deploy_verified "TrainingDataRegistry" \
+  contracts/TrainingDataRegistry.sol:TrainingDataRegistry $DEPLOYER || exit 1
+TRAINING="$DEPLOYED_ADDR"
 
 # 2. AgentINFT
-AGENT_INFT=$(deploy_verified "AgentINFT" \
-  contracts/AgentINFT.sol:AgentINFT $DEPLOYER | tail -1)
-[ -z "$AGENT_INFT" ] && exit 1
+deploy_verified "AgentINFT" \
+  contracts/AgentINFT.sol:AgentINFT $DEPLOYER || exit 1
+AGENT_INFT="$DEPLOYED_ADDR"
 
 # 3. MekarRegistry
-REGISTRY=$(deploy_verified "MekarRegistry" \
-  contracts/MekarRegistry.sol:MekarRegistry $DEPLOYER | tail -1)
-[ -z "$REGISTRY" ] && exit 1
+deploy_verified "MekarRegistry" \
+  contracts/MekarRegistry.sol:MekarRegistry $DEPLOYER || exit 1
+REGISTRY="$DEPLOYED_ADDR"
 
 # 4. RoyaltyVault
-VAULT=$(deploy_verified "RoyaltyVault" \
-  contracts/RoyaltyVault.sol:RoyaltyVault $DEPLOYER $AGENT_INFT $REGISTRY $TRAINING | tail -1)
-[ -z "$VAULT" ] && exit 1
+deploy_verified "RoyaltyVault" \
+  contracts/RoyaltyVault.sol:RoyaltyVault $DEPLOYER $AGENT_INFT $REGISTRY $TRAINING || exit 1
+VAULT="$DEPLOYED_ADDR"
 
 # 5. AlignmentAuditor
-AUDITOR=$(deploy_verified "AlignmentAuditor" \
-  contracts/AlignmentAuditor.sol:AlignmentAuditor $DEPLOYER $AGENT_INFT | tail -1)
-[ -z "$AUDITOR" ] && exit 1
+deploy_verified "AlignmentAuditor" \
+  contracts/AlignmentAuditor.sol:AlignmentAuditor $DEPLOYER $AGENT_INFT || exit 1
+AUDITOR="$DEPLOYED_ADDR"
 
 cd ../..
 

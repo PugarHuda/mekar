@@ -128,7 +128,7 @@ const SLIDES: SlideContent[] = [
         body: (
             <>
                 <Code>
-                    {`USER LAYER\n├── Creator Dashboard\n├── Fine-tuner Studio (Fork / Compose)\n└── End-user UI (Pay & invoke)\n\nPROTOCOL LAYER\n├── MekarRegistry      lineage graph + metadata KV\n├── AgentINFT          ERC-7857 + mode + alignment\n├── RoyaltyVault       atomic BFS distribution\n├── TrainingDataRegistry Merkle root anchor\n└── AlignmentAuditor   drift / bias scoring\n\n0G INFRA\n  Chain (16602) · Storage Log · KV · Compute (TEE)`}
+                    {`USER LAYER\n├── Creator Dashboard\n├── Fine-tuner Studio (Fork / Compose)\n└── End-user UI (Pay & invoke)\n\nPROTOCOL LAYER\n├── MekarRegistry      lineage graph + metadata KV\n├── AgentINFT          ERC-7857 + mode + alignment\n├── RoyaltyVault       atomic BFS distribution\n├── TrainingDataRegistry Merkle root anchor\n└── AlignmentAuditor   drift / bias scoring\n\n0G INFRA\n  Chain (16661) · Storage Log · KV · Compute (TEE)`}
                 </Code>
             </>
         ),
@@ -204,10 +204,10 @@ const SLIDES: SlideContent[] = [
         body: (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 28 }}>
                 <div>
-                    <h3 style={subhStyle}>✓ Live on Galileo</h3>
+                    <h3 style={subhStyle}>✓ Live on Aristotle mainnet</h3>
                     <ul style={ulSmall}>
                         <li>5 contracts deployed + wired</li>
-                        <li>56/56 forge tests pass</li>
+                        <li>59/59 forge tests pass</li>
                         <li>Real 0G Storage upload (AES-GCM, client-side)</li>
                         <li>Multi-wallet cascade seed proven</li>
                         <li>Q1–Q5 honesty fixes shipped (sweep, slash, burn-safe)</li>
