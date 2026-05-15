@@ -55,10 +55,19 @@ test.describe("Mekar — public smoke", () => {
         ).toBeVisible();
     });
 
-    test("mint page loads and shows step 1", async ({ page }) => {
+    test("mint page gates the flow behind a wallet connect", async ({ page }) => {
         await page.goto("/mint");
-        await expect(page.getByText(/what kind of/i).first()).toBeVisible();
-        await expect(page.getByRole("button", { name: /next →/i })).toBeVisible();
+        // The /mint header always renders.
+        await expect(page.getByText(/plant a new bloom/i).first()).toBeVisible();
+        // CI has no wallet, so the flow must be gated — the stepper is
+        // NOT rendered; instead the connect-wallet card is shown. This
+        // is the correct behaviour (uploading / minting without a
+        // wallet would burn deployer gas for an unclaimable anchor).
+        await expect(
+            page.getByText(/connect a wallet to mint/i).first()
+        ).toBeVisible();
+        // The Step-1 stepper text must be absent while wallet-less.
+        await expect(page.getByText(/what kind of/i)).toHaveCount(0);
     });
 
     test("language switch toggles nav labels EN ↔ ID", async ({ page }) => {

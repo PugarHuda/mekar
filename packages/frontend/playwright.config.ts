@@ -33,12 +33,20 @@ export default defineConfig({
             use: { ...devices["Desktop Chrome"] },
         },
     ],
+    // E2E runs against the PRODUCTION server, not `next dev`. `next dev`
+    // compiles each route on first request — the cold compile of a
+    // single route can take 60–90s on this project, which blows past
+    // Playwright's per-test timeout and makes every first-goto flaky.
+    // `next start` serves pre-built pages instantly, so the suite
+    // measures the artifact we actually ship. Requires `next build`
+    // to have run first (the command below chains it).
     webServer: process.env.PLAYWRIGHT_BASE_URL
         ? undefined
         : {
-              command: "npx next dev --port 3000",
+              command: "npx next build && npx next start --port 3000",
               url: "http://localhost:3000",
               reuseExistingServer: !process.env.CI,
-              timeout: 120_000,
+              // Generous: a cold `next build` can take a couple of minutes.
+              timeout: 300_000,
           },
 });
