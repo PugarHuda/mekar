@@ -67,34 +67,34 @@ and frontend UX (D3 explorer, parent picker, dashboard).
 ## 0G Integration Proof
 
 ### Contract Addresses
-> Deployed to **0G Galileo Testnet (chain 16602)** as the active demo network.
-> Mainnet (Aristotle, chain 16661) deployment ready, pending audit.
-> v2 deployment includes Q2/Q4/Q5 honesty fixes (replaces v1).
+> Deployed to **0G Aristotle Mainnet (chain 16661)** — the active network.
+> All five contracts deployed fresh + wired + verified.
+> (Galileo testnet deployment also exists, used during development.)
 
 ```
-AgentINFT (ERC-7857):  0x2B429feAe5d2732fF126F964D5786C0c51A844f3
-MekarRegistry:         0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92
-RoyaltyVault:          0x49eCE891AeA76aad967A83B53DC160328036BABc
-AlignmentAuditor:      0x4C399b1f2DBD4028d39E21A512E90930375910eB
-TrainingDataRegistry:  0xdBE4397f3e4CCafDA7bfbeD264448577249513e8
+AgentINFT (ERC-7857):  0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4
+MekarRegistry:         0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6
+RoyaltyVault:          0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3
+AlignmentAuditor:      0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8
+TrainingDataRegistry:  0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46
 ```
 
-### 0G Explorer Links Showing On-Chain Activity
+### 0G Explorer Links (Aristotle Mainnet)
 ```
-AgentINFT (5 agents minted across 4 distinct wallets):
-https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3
+AgentINFT (ERC-7857 INFT — mint/fork/compose):
+https://chainscan.0g.ai/address/0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4
 
-RoyaltyVault (14 inference settlements; treasury accrual wei-perfect):
-https://chainscan-galileo.0g.ai/address/0x49eCE891AeA76aad967A83B53DC160328036BABc
+MekarRegistry (lineage graph + metadata):
+https://chainscan.0g.ai/address/0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6
 
-AlignmentAuditor (agent #3 slashed to 50% alignment, lowering its parents' share):
-https://chainscan-galileo.0g.ai/address/0x4C399b1f2DBD4028d39E21A512E90930375910eB
+RoyaltyVault (atomic royalty cascade + treasury sweep):
+https://chainscan.0g.ai/address/0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3
 
-Sample settlement (Q1+Q2+Q4+Q5 demonstrated in one tx — stuck-escrow recovery):
-https://chainscan-galileo.0g.ai/tx/0xe99986c000a6f81c3aabe70c843907c0b587f559bb279f9e1c021892a01d96bb
+AlignmentAuditor (alignment-weighted royalty slashing):
+https://chainscan.0g.ai/address/0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8
 
-Q3 storage anchor (rootHash of agent #5 weights uploaded to 0G Storage):
-https://chainscan-galileo.0g.ai/tx/0x973ff6949b0289b197351587d439b393e39891a58a613e8701e798be2e1134b2
+TrainingDataRegistry (Merkle root anchor for training data):
+https://chainscan.0g.ai/address/0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46
 ```
 
 ### Components Integrated (with honesty audit)

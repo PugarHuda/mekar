@@ -141,10 +141,15 @@ export function Footer() {
                         </FLink>
                     </FooterCol>
 
-                    {/* Network */}
+                    {/* Network — explorer link tracks ACTIVE_CHAIN so it
+                        points at chainscan.0g.ai on mainnet, the Galileo
+                        explorer on testnet. */}
                     <FooterCol title="Network">
-                        <FLink href="https://chainscan-galileo.0g.ai" external>
-                            0G Galileo Explorer
+                        <FLink
+                            href={ACTIVE_CHAIN.blockExplorers?.default.url ?? "https://chainscan.0g.ai"}
+                            external
+                        >
+                            {ACTIVE_CHAIN.testnet ? "0G Galileo Explorer" : "0G Explorer"}
                         </FLink>
                         <FLink href="https://faucet.0g.ai" external>
                             Testnet faucet

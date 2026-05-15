@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/PugarHuda/mekar/actions/workflows/ci.yml/badge.svg)](https://github.com/PugarHuda/mekar/actions/workflows/ci.yml)
 [![Live Demo](https://img.shields.io/badge/live-mekar.vercel.app-d4a437)](https://mekar.vercel.app)
-[![Tests](https://img.shields.io/badge/tests-56%20passing-1c3b2f)](packages/contracts/test/)
-[![Network](https://img.shields.io/badge/0G-Galileo%20Testnet%2016602-1c3b2f)](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3)
+[![Tests](https://img.shields.io/badge/tests-59%20passing-1c3b2f)](packages/contracts/test/)
+[![Network](https://img.shields.io/badge/0G-Aristotle%20Mainnet%2016661-1c3b2f)](https://chainscan.0g.ai/address/0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4)
 
 **AI Genealogy & Royalty Protocol on 0G**
 
@@ -250,17 +250,21 @@ A 5-layer protection against clone laundering:
 
 > Demo video link will be added.
 
-## 📊 Live Deployment (0G Galileo Testnet — Chain 16602)
+## 📊 Live Deployment (0G Aristotle Mainnet — Chain 16661)
 
-### Contracts (v2 — with Q2/Q4/Q5 fixes)
+### Contracts
 
 | Contract | Address | Explorer |
 |---|---|---|
-| **MekarRegistry** | `0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92` | [view ↗](https://chainscan-galileo.0g.ai/address/0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92) |
-| **AgentINFT** (ERC-7857) | `0x2B429feAe5d2732fF126F964D5786C0c51A844f3` | [view ↗](https://chainscan-galileo.0g.ai/address/0x2B429feAe5d2732fF126F964D5786C0c51A844f3) |
-| **RoyaltyVault** | `0x49eCE891AeA76aad967A83B53DC160328036BABc` | [view ↗](https://chainscan-galileo.0g.ai/address/0x49eCE891AeA76aad967A83B53DC160328036BABc) |
-| **AlignmentAuditor** | `0x4C399b1f2DBD4028d39E21A512E90930375910eB` | [view ↗](https://chainscan-galileo.0g.ai/address/0x4C399b1f2DBD4028d39E21A512E90930375910eB) |
-| **TrainingDataRegistry** | `0xdBE4397f3e4CCafDA7bfbeD264448577249513e8` | [view ↗](https://chainscan-galileo.0g.ai/address/0xdBE4397f3e4CCafDA7bfbeD264448577249513e8) |
+| **MekarRegistry** | `0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6` | [view ↗](https://chainscan.0g.ai/address/0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6) |
+| **AgentINFT** (ERC-7857) | `0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4` | [view ↗](https://chainscan.0g.ai/address/0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4) |
+| **RoyaltyVault** | `0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3` | [view ↗](https://chainscan.0g.ai/address/0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3) |
+| **AlignmentAuditor** | `0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8` | [view ↗](https://chainscan.0g.ai/address/0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8) |
+| **TrainingDataRegistry** | `0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46` | [view ↗](https://chainscan.0g.ai/address/0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46) |
+
+> Deployed fresh to Aristotle mainnet (chain 16661), all five contracts
+> wired + verified. The Galileo testnet deployment remains available for
+> reference but the live app points at mainnet.
 
 ### Live Lineage (5 Agents across 4 Wallets, 14 Inferences Settled)
 

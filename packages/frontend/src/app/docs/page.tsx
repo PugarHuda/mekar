@@ -129,31 +129,32 @@ export default function DocsPage() {
                     </header>
 
                     {/* Contract addresses */}
-                    <DocSection id="addresses" title="Contract addresses" eyebrow="Galileo testnet · chain 16602">
+                    <DocSection id="addresses" title="Contract addresses" eyebrow="Aristotle mainnet · chain 16661">
                         <Table
                             rows={[
-                                ["AgentINFT (ERC-7857)", "0x2B429feAe5d2732fF126F964D5786C0c51A844f3"],
-                                ["MekarRegistry", "0x5466826BdFcc7f26F03D1E43bAA40E43d7700f92"],
-                                ["RoyaltyVault", "0x49eCE891AeA76aad967A83B53DC160328036BABc"],
-                                ["AlignmentAuditor", "0x4C399b1f2DBD4028d39E21A512E90930375910eB"],
+                                ["AgentINFT (ERC-7857)", "0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4"],
+                                ["MekarRegistry", "0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6"],
+                                ["RoyaltyVault", "0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3"],
+                                ["AlignmentAuditor", "0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8"],
                                 [
                                     "TrainingDataRegistry",
-                                    "0xdBE4397f3e4CCafDA7bfbeD264448577249513e8",
+                                    "0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46",
                                 ],
                             ]}
                         />
                         <Note>
-                            Mainnet (Aristotle, chain 16661) deploy uses the same code path —
-                            <code> ACTIVE_CHAIN </code>switches via the
-                            <code> NEXT_PUBLIC_NETWORK </code>env var. See{" "}
+                            Live on 0G Aristotle mainnet (chain 16661). All five contracts
+                            deployed fresh + wired. Explorer:{" "}
                             <Link
-                                href={`${REPO}/blob/main/docs/DEPLOY_GUIDE.md`}
+                                href="https://chainscan.0g.ai"
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                DEPLOY_GUIDE.md
-                            </Link>{" "}
-                            for the full mainnet checklist.
+                                chainscan.0g.ai
+                            </Link>
+                            . The same code path runs on Galileo testnet —{" "}
+                            <code>ACTIVE_CHAIN</code> switches via the{" "}
+                            <code>NEXT_PUBLIC_NETWORK</code> env var.
                         </Note>
                     </DocSection>
 

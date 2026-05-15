@@ -1,0 +1,16 @@
+{
+  "network": "0G-Aristotle-Mainnet",
+  "chainId": 16661,
+  "deployer": "0xA30930a4b4978b970C61CB7e27c67328471C60b7",
+  "deployedAt": "2026-05-15T00:00:00Z",
+  "deployBlock": 33312000,
+  "evmVersion": "cancun",
+  "solcVersion": "0.8.24",
+  "contracts": {
+    "TrainingDataRegistry": { "address": "0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46" },
+    "AgentINFT": { "address": "0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4" },
+    "MekarRegistry": { "address": "0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6" },
+    "RoyaltyVault": { "address": "0x465291f35A3DC723B81349CBeBB296Cbf57AAAa3" },
+    "AlignmentAuditor": { "address": "0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8" }
+  }
+}
