@@ -18,11 +18,20 @@ jobs:
         working-directory: packages/contracts
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      # packages/contracts/lib/ is gitignored (see .gitignore) — the deps
+      # are re-created here so `forge build` has forge-std + OpenZeppelin.
+      # Pinned to the versions used locally; falls back to the default
+      # branch if a tag is ever unavailable.
+      - name: Install forge dependencies
+        run: |
+          git clone --depth 1 --branch v1.16.1 https://github.com/foundry-rs/forge-std lib/forge-std \
+            || git clone --depth 1 https://github.com/foundry-rs/forge-std lib/forge-std
+          git clone --depth 1 --branch v5.1.0 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts \
+            || git clone --depth 1 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
 
       - name: forge build
         run: forge build --sizes

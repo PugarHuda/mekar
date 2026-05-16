@@ -100,10 +100,11 @@ export default function DocsPage() {
                             <span style={{ color: "var(--ink)", fontWeight: 600 }}>
                                 Integration TL;DR:
                             </span>{" "}
-                            one <code>writeContract({"{"} address: VAULT, fn: "payInference",
-                            args: [agentId], value{"}"})</code>. That single call walks the
-                            lineage, splits royalty across 4 generations, sweeps dust to
-                            treasury — all in one atomic tx.
+                            <code>writeContract({"{"} address: VAULT, fn: "payInference",
+                            args: [agentId], value{"}"})</code> escrows the fee, then{" "}
+                            <code>settleInference</code> walks the lineage, splits royalty
+                            across 4 generations, and sweeps dust to treasury in one
+                            atomic tx.
                         </p>
 
                         <div
@@ -187,7 +188,8 @@ const agentId = await agentINFT.mintGenesis(
 // 2. Anyone who uses the agent pays through the vault:
 await royaltyVault.payInference(agentId, { value: fee });
 
-// 3. The fee cascades on-chain, in one atomic tx:
+// 3. A registered compute provider calls settleInference —
+//    the fee then cascades on-chain in one atomic tx:
 //      50% → you (direct owner)
 //      25% → gen-1 parents you forked from
 //      15% → gen-2 ancestors
@@ -554,7 +556,7 @@ done`}</Code>
                                 "0G Storage Log — real Indexer.upload, anchored on Flow contract",
                                 "AES-256 encryption at upload — SDK-direct, key returned to caller",
                                 "AlignmentAuditor — score scales ancestor royalty (real economic effect)",
-                                "Royalty cascade — atomic, wei-perfect math across 14+ settlements",
+                                "Royalty cascade — atomic, wei-perfect math across 13 mainnet settlements",
                                 "0G Compute Broker SDK — verified callable (see smoke-compute.ts)",
                             ]}
                             phase2={[

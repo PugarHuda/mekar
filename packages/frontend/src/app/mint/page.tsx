@@ -302,6 +302,11 @@ function MintPageInner() {
             return null;
         }
         if (s === 2) {
+            // Training-data provenance is the whole point of Mekar — require
+            // a one-line summary before advancing, not just a weights upload.
+            if (datasetNote.trim().length === 0) {
+                return "Add a one-line training data summary — provenance is required.";
+            }
             // Either the user uploaded a real anchor, or they explicitly
             // checked the "use stub pointer (demo)" box. Without one of those
             // we'd be silently minting an INFT whose weightsPointer is a
@@ -1372,7 +1377,7 @@ function Step2({
                 </ul>
             </div>
 
-            <Field label="Training data summary">
+            <Field label="Training data summary (required)">
                 <input
                     type="text"
                     value={datasetNote}
