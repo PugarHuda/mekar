@@ -5,6 +5,8 @@
 [![Tests](https://img.shields.io/badge/tests-59%20passing-1c3b2f)](packages/contracts/test/)
 [![Network](https://img.shields.io/badge/0G-Aristotle%20Mainnet%2016661-1c3b2f)](https://chainscan.0g.ai/address/0x0e8e941c363dc1C06DD0bC02395B775dE94B48a4)
 
+> 🌐 Language: **English** · [简体中文](README.zh-CN.md)
+
 **AI Genealogy & Royalty Protocol on 0G**
 
 > *Every AI has a lineage. Every inference pays its ancestors.*
