@@ -202,6 +202,20 @@ export const ROYALTY_VAULT_ABI = [
     outputs: [{ name: "", type: "uint256" }],
   },
   {
+    type: "function",
+    name: "providerStake",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "unregisterProvider",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [],
+  },
+  {
     type: "event",
     name: "InferenceRequested",
     inputs: [

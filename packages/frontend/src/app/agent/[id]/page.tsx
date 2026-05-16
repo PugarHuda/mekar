@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { Bloom } from "@/components/Bloom";
-import { InferencePay, RegisterProviderButton } from "@/components/InferencePay";
+import { InferencePay, ProviderPanel } from "@/components/InferencePay";
 import { useAgent, modeLabel } from "@/hooks/useAgent";
 import { useAgentInferenceHistory } from "@/hooks/useUserStats";
 import { useLineageData, type LineageNode } from "@/hooks/useLineageData";
@@ -758,11 +758,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                             agentId={agent.id}
                                             inferencePrice={agent.inferencePrice}
                                             samplePrompt={samplePrompt}
+                                            hasAncestors={agent.parents.length > 0}
                                             onSettled={history.refetch}
                                             onOptimistic={history.addOptimistic}
                                         />
                                         <div style={{ marginTop: 12 }}>
-                                            <RegisterProviderButton />
+                                            <ProviderPanel />
                                         </div>
                                     </div>
                                 </div>
