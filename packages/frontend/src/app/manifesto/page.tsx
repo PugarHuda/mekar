@@ -121,8 +121,8 @@ export default function ManifestoPage() {
 
                         <h2 style={{ marginTop: 56 }}>VII. The garden grows</h2>
                         <p>
-                            This is v0.4, deployed on 0G Galileo testnet for the APAC hackathon.
-                            The mainnet bloom comes when the seeds we&apos;ve planted prove
+                            This is v0.4, deployed on 0G Aristotle mainnet for the APAC
+                            hackathon. The garden grows as the seeds we&apos;ve planted prove
                             their roots.
                         </p>
                         <p

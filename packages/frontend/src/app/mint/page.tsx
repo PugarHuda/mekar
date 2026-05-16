@@ -394,7 +394,7 @@ function MintPageInner() {
                                 }}
                             >
                                 Minting an INFT writes to the AgentINFT contract on 0G
-                                Galileo, and uploading weights anchors a tx on 0G Storage.
+                                Chain, and uploading weights anchors a tx on 0G Storage.
                                 Both need a signing wallet — connect from the header to
                                 begin.
                             </p>
@@ -1112,8 +1112,8 @@ function Step2({
     const [progress, setProgress] = useState<UploadProgress | null>(null);
     // Seconds spent in the "anchoring" phase. The anchor step is
     // server-side (sign Flow tx + wait for storage nodes) and can be
-    // genuinely slow on a congested testnet — a live counter tells
-    // the user the request is alive, not frozen.
+    // genuinely slow when 0G Storage is under load — a live counter
+    // tells the user the request is alive, not frozen.
     const [anchorSecs, setAnchorSecs] = useState(0);
     // Validation result for the picked file. We surface this before upload
     // so users see "your JSON isn't a manifest" or "this is 0 bytes" before
@@ -1636,8 +1636,8 @@ function Step2({
                         )}
                     </div>
                     {/* Reassurance once the anchor runs long. The Flow tx +
-                        storage-node pinning is genuinely slow on a busy
-                        Galileo testnet — without this the user assumes a
+                        storage-node pinning is genuinely slow when 0G Storage
+                        is under load — without this the user assumes a
                         freeze and reloads, losing the in-flight upload. */}
                     {progress.phase === "anchoring" && anchorSecs >= 25 && (
                         <div
@@ -1653,10 +1653,10 @@ function Step2({
                                 lineHeight: 1.5,
                             }}
                         >
-                            Still anchoring — 0G Galileo testnet is congested right now.
-                            This can take up to a couple of minutes. Don&apos;t reload;
-                            the upload is still alive. If you just want to test the mint
-                            flow, cancel and tick &ldquo;Skip upload&rdquo; below instead.
+                            Still anchoring — 0G Storage is taking longer than usual
+                            right now. This can take up to a couple of minutes. Don&apos;t
+                            reload; the upload is still alive. If you just want to test the
+                            mint flow, cancel and tick &ldquo;Skip upload&rdquo; below instead.
                         </div>
                     )}
                 </div>
@@ -2570,7 +2570,7 @@ function Step4({
                     </h2>
                     <p style={{ color: "var(--ink-soft)", maxWidth: "60ch", margin: "0 auto" }}>
                         Sign the transaction in your wallet to register the new bloom on 0G
-                        Galileo. Royalty obligations and lineage are recorded atomically.
+                        Chain. Royalty obligations and lineage are recorded atomically.
                     </p>
                     {(isPending || isConfirming) && (
                         <div style={{ marginTop: 24 }}>

@@ -559,7 +559,7 @@ done`}</Code>
                             ]}
                             phase2={[
                                 "0G Storage Specialized Flow tier — pointer plumbing in place, premium permanence next",
-                                "Real TEE-attested inference via 0G Compute — broker reachable but no DSN services registered on testnet yet",
+                                "Real TEE-attested inference via 0G Compute — broker reachable but no DSN services registered on 0G yet",
                                 "Multi-auditor oracle network — currently single approved auditor",
                                 "0G Storage KV writeback for mutable metadata — localStorage proxy ships today",
                                 "Data Serving Network provider registration — operational layer, post-mainnet",

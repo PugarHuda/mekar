@@ -41,6 +41,13 @@ type Props = {
         amount: bigint;
         blockNumber: bigint;
     }) => void;
+    /**
+     * Capability-matched example prompt (see `agentSamplePrompt`). Pre-fills
+     * the textarea so the demo prompt reflects what THIS agent does — a Code
+     * agent shows a coding task, a Vision agent an image task. Falls back to
+     * a generic greeting when the parent doesn't pass one.
+     */
+    samplePrompt?: string;
 };
 
 const labelStyle: React.CSSProperties = {
@@ -51,7 +58,13 @@ const labelStyle: React.CSSProperties = {
     color: "var(--ink-soft)",
 };
 
-export function InferencePay({ agentId, inferencePrice, onSettled, onOptimistic }: Props) {
+export function InferencePay({
+    agentId,
+    inferencePrice,
+    onSettled,
+    onOptimistic,
+    samplePrompt,
+}: Props) {
     const { address, isConnected } = useAccount();
     const currentChainId = useChainId();
     const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
@@ -60,7 +73,10 @@ export function InferencePay({ agentId, inferencePrice, onSettled, onOptimistic 
     // error popup after gas estimation fails, which is much more confusing
     // than a clear "switch network" affordance.
     const isWrongChain = isConnected && currentChainId !== ACTIVE_CHAIN.id;
-    const [prompt, setPrompt] = useState("Hello, agent!");
+    // Pre-fill with the agent's capability-matched prompt. The parent keys
+    // this component by agentId, so navigating to a different agent
+    // remounts it and re-seeds the textarea with that agent's prompt.
+    const [prompt, setPrompt] = useState(samplePrompt ?? "Hello, agent!");
 
     const { data: balance } = useBalance({ address });
 
@@ -191,7 +207,7 @@ export function InferencePay({ agentId, inferencePrice, onSettled, onOptimistic 
                 </span>{" "}
                 Mekar settles royalty on chain. Actual model inference happens on{" "}
                 <strong>0G Compute (TEE)</strong> when a provider serves this agent&apos;s{" "}
-                <code>weightsPointer</code>. No DSN providers registered on Galileo yet
+                <code>weightsPointer</code>. No DSN providers registered on 0G yet
                 — payment cascades, response is Phase 2. See{" "}
                 <a
                     href="/docs#status"

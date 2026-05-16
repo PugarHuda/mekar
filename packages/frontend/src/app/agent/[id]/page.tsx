@@ -14,6 +14,7 @@ import {
     agentFocus,
     agentCategory,
     agentCategories,
+    agentSamplePrompt,
     kindFromParents,
     CATEGORY_LABELS,
 } from "@/lib/agentNaming";
@@ -38,7 +39,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
     // Real 30-day activity series — replaces the old proceduralSeries
     // placeholder. Buckets RoyaltyPaid events by approximate day using
-    // block-number deltas (Galileo ≈ 1 block/sec, so 86400 blocks = 1 day).
+    // block-number deltas (0G ≈ 1 block/sec, so 86400 blocks = 1 day).
     // No extra RPC required: useAgentInferenceHistory already fetched the
     // events; we just rebucket them client-side.
     //
@@ -68,6 +69,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         }
         return { sparkInferences: counts, sparkAmounts: amounts };
     }, [history.inferences]);
+
+    // Capability-matched demo prompt + primary capability label. Both
+    // the sample card and the InferencePay textarea use this so the
+    // "Try it" experience reflects what this specific agent does.
+    const samplePrompt = agent ? agentSamplePrompt(agent.id, agent.parents.length) : "";
+    const primaryCategory = agent
+        ? CATEGORY_LABELS[agentCategory(agent.id, agent.parents.length)]
+        : "";
 
     return (
         <div>
@@ -712,7 +721,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                 marginBottom: 12,
                                             }}
                                         >
-                                            Sample prompt · UI demo
+                                            {primaryCategory} prompt · UI demo
                                         </div>
                                         <p
                                             style={{
@@ -723,8 +732,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                 margin: 0,
                                             }}
                                         >
-                                            &ldquo;Translate this README into Bahasa Indonesia,
-                                            preserving code blocks.&rdquo;
+                                            &ldquo;{samplePrompt}&rdquo;
                                         </p>
                                         <hr className="divider" style={{ margin: "20px 0" }} />
                                         <div
@@ -734,11 +742,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                                 lineHeight: 1.55,
                                             }}
                                         >
-                                            ▍ Live inference output is wired to 0G Compute on
-                                            mainnet. For Galileo testnet, payment settles on
-                                            chain and routes royalties via{" "}
+                                            ▍ Live inference output via 0G Compute (TEE) is the
+                                            next milestone. Today, payment settles on chain and
+                                            routes royalties to the full lineage via{" "}
                                             <code style={{ fontFamily: "var(--mono)" }}>
-                                                RoyaltyVault.settleInference
+                                                RoyaltyVault.payInference
                                             </code>
                                             . Connect a wallet to try it.
                                         </div>
@@ -746,8 +754,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
                                     <div>
                                         <InferencePay
+                                            key={agent.id}
                                             agentId={agent.id}
                                             inferencePrice={agent.inferencePrice}
+                                            samplePrompt={samplePrompt}
                                             onSettled={history.refetch}
                                             onOptimistic={history.addOptimistic}
                                         />

@@ -128,7 +128,7 @@ export default function ExplorerPage() {
                             </h1>
                             <p style={{ color: "var(--ink-soft)", marginTop: 12, maxWidth: "60ch" }}>
                                 {totalAgents} agents bloomed · {genesisCount} genesis lineages ·
-                                live data from 0G Galileo testnet.
+                                live data from 0G mainnet.
                             </p>
                         </div>
                         <div
@@ -705,7 +705,7 @@ function NotDeployedNotice() {
                 Contracts not deployed yet.
             </h2>
             <p style={{ color: "var(--ink-soft)" }}>
-                Run the deploy script against 0G Galileo, then update <code>.env</code> with the
+                Run the deploy script against 0G Chain, then update <code>.env</code> with the
                 new addresses.
             </p>
         </div>

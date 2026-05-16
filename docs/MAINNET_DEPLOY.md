@@ -71,7 +71,7 @@ prefix — these power the `/api/storage/*` routes):
 
 ```
 ZG_GALILEO_RPC=https://evmrpc.0g.ai
-ZG_GALILEO_STORAGE_INDEXER=https://indexer-storage.0g.ai
+ZG_GALILEO_STORAGE_INDEXER=https://indexer-storage-turbo.0g.ai
 DEPLOYER_PRIVATE_KEY=0x<your mainnet deployer key>
 ```
 

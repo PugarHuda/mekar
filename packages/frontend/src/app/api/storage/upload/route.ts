@@ -21,11 +21,18 @@ import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk";
 import { rateLimiter } from "@/lib/rateLimit";
 import { checkBotId } from "botid/server";
 
+// Server-side 0G endpoints. The env var names keep the legacy "GALILEO"
+// prefix for Vercel-config continuity, but the project runs on Aristotle
+// MAINNET (chain 16661) — so the fallback defaults point at mainnet.
+// `||` (not `??`) is deliberate: a Vercel env var set to an empty string
+// would slip past `??` and route uploads to a dead `new Indexer("")`,
+// which surfaces as an upload that hangs for minutes. `||` falls back on
+// any falsy value, so a blank env value still resolves to mainnet.
 const RPC_URL =
-    process.env.ZG_GALILEO_RPC ?? "https://evmrpc-testnet.0g.ai";
+    process.env.ZG_GALILEO_RPC || "https://evmrpc.0g.ai";
 const STORAGE_INDEXER =
-    process.env.ZG_GALILEO_STORAGE_INDEXER ??
-    "https://indexer-storage-testnet-turbo.0g.ai";
+    process.env.ZG_GALILEO_STORAGE_INDEXER ||
+    "https://indexer-storage-turbo.0g.ai";
 
 // Validation guards (origin allowlist, size cap, schema) live in
 // lib/uploadGuards so they're unit-testable without dragging the 0G
@@ -164,12 +171,12 @@ export async function POST(req: NextRequest) {
                 : undefined;
 
         // Retry the anchor with backoff. The 0G Storage indexer +
-        // Flow contract on a congested testnet throws transient errors
-        // (node selection failures, RPC timeouts) that succeed on a
-        // second attempt. Three tries with 2s/4s backoff turns a
-        // flaky-testnet failure into a slightly-slower success instead
-        // of a hard 500. A genuine error (bad payload, no funds) still
-        // fails on the last attempt and propagates.
+        // Flow contract under load throws transient errors (node
+        // selection failures, RPC timeouts) that succeed on a second
+        // attempt. Three tries with 2s/4s backoff turns a flaky anchor
+        // into a slightly-slower success instead of a hard 500. A
+        // genuine error (bad payload, no funds) still fails on the
+        // last attempt and propagates.
         let result: unknown = null;
         let lastErr: unknown = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -245,9 +252,9 @@ export async function POST(req: NextRequest) {
 // maxDuration is 300s (Vercel's current default ceiling). The 0G
 // Storage anchor — sign Flow contract tx + wait for storage nodes to
 // pin the chunks + wait for tx confirmation — is normally 13–20s but
-// on a congested Galileo testnet it can stretch past a minute. The
-// old 60s cap meant the function was being KILLED mid-anchor on slow
-// testnet days, which surfaced to the user as an upload that hung
-// forever. 300s gives the anchor all the room it needs.
+// under network load it can stretch past a minute. The old 60s cap
+// meant the function was being KILLED mid-anchor on slow days, which
+// surfaced to the user as an upload that hung forever. 300s gives the
+// anchor all the room it needs.
 export const runtime = "nodejs";
 export const maxDuration = 300;

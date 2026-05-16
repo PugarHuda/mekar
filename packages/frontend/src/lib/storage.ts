@@ -298,7 +298,7 @@ export async function uploadToZGStorage(
             if (fallbackTimer) clearTimeout(fallbackTimer);
             reject(
                 new Error(
-                    "0G Storage anchor timed out (280s). Galileo testnet may be congested — retry, or tick \"Skip upload\" to mint with a stub pointer."
+                    "0G Storage anchor timed out (280s). 0G Storage may be under heavy load — retry, or tick \"Skip upload\" to mint with a stub pointer."
                 )
             );
         };

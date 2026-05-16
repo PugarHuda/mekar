@@ -179,7 +179,7 @@ NEXT_PUBLIC_VAULT_DEPLOY_BLOCK=<aristotle deploy block>
 # Server-only — fund this wallet with the amount from Tier A/B/C above.
 DEPLOYER_PRIVATE_KEY=0x<aristotle hot wallet>
 ZG_GALILEO_RPC=https://evmrpc.0g.ai
-ZG_GALILEO_STORAGE_INDEXER=https://indexer-storage.0g.ai
+ZG_GALILEO_STORAGE_INDEXER=https://indexer-storage-turbo.0g.ai
 ```
 
 ---

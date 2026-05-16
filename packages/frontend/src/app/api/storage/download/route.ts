@@ -19,9 +19,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { Indexer } from "@0gfoundation/0g-ts-sdk";
 import { rateLimiter } from "@/lib/rateLimit";
 
+// Mainnet (Aristotle) storage indexer by default — see the note in the
+// upload route. `||` so an empty-string env value also falls back.
 const STORAGE_INDEXER =
-    process.env.ZG_GALILEO_STORAGE_INDEXER ??
-    "https://indexer-storage-testnet-turbo.0g.ai";
+    process.env.ZG_GALILEO_STORAGE_INDEXER ||
+    "https://indexer-storage-turbo.0g.ai";
 
 let _indexer: Indexer | null = null;
 function getIndexer(): Indexer {

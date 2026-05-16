@@ -73,7 +73,7 @@ export default function TrendingPage() {
                             What&apos;s <em>blooming</em> this week.
                         </h1>
                         <p style={{ color: "var(--ink-soft)", marginTop: 12, maxWidth: "60ch" }}>
-                            A leaderboard of agents on 0G Galileo. Switch view to slice by
+                            A leaderboard of agents on 0G mainnet. Switch view to slice by
                             earnings, growth, lineage depth, or freshness.
                         </p>
                     </header>
@@ -130,9 +130,9 @@ export default function TrendingPage() {
                                 <span style={{ color: "var(--cocoa)", fontWeight: 600 }}>
                                     Live aggregation:
                                 </span>{" "}
-                                rankings come from RoyaltyPaid event logs scanned on Galileo
-                                ({trending.length} agents tracked). Total OG and inference
-                                counts are real on-chain numbers.
+                                rankings come from RoyaltyPaid event logs scanned on 0G
+                                mainnet ({trending.length} agents tracked). Total OG and
+                                inference counts are real on-chain numbers.
                             </>
                         ) : (
                             <>

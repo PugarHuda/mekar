@@ -17,7 +17,7 @@
  * The functions below intentionally fall back to `null` on read so
  * the deterministic `agentName` / `agentFocus` / `agentCategory` paths
  * still work for agents minted before this UI shipped (e.g. the demo
- * seed agents on Galileo).
+ * seed agents).
  */
 
 import type { AgentCategory } from "./agentNaming";

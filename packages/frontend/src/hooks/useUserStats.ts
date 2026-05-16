@@ -30,19 +30,18 @@ const SCAN_CONCURRENCY = 5;       // parallel getLogs calls per batch
  * Lower bound for scans — block at which the active RoyaltyVault was
  * deployed on the active network. Read from
  * `NEXT_PUBLIC_VAULT_DEPLOY_BLOCK` so the same code works on both
- * Galileo testnet (~32160000) and Aristotle mainnet (a different number
- * once redeployed). Falls back to the testnet anchor for backward
- * compatibility if the env var is missing.
+ * Aristotle mainnet and Galileo testnet. Falls back to the mainnet
+ * anchor (the project's live network) if the env var is missing.
  *
  * Scanning back from `latestBlock - N` miscounts when settlements are
- * old enough to fall outside that window (Galileo at ~1 block/sec
- * means a 5-day-old settlement is already ~430k blocks behind), so the
+ * old enough to fall outside that window (0G runs at ~1 block/sec, so
+ * a 5-day-old settlement is already ~430k blocks behind), so the
  * anchor must be precise per network.
  */
 const VAULT_V2_DEPLOY_BLOCK: bigint = (() => {
   const raw = process.env.NEXT_PUBLIC_VAULT_DEPLOY_BLOCK;
   if (raw && /^\d+$/.test(raw)) return BigInt(raw);
-  return 32160000n; // Galileo testnet v2 anchor (default)
+  return 33312000n; // Aristotle mainnet RoyaltyVault deploy anchor (default)
 })();
 
 // --------------- localStorage cache for historical event scans ----------
@@ -84,7 +83,7 @@ function cacheWrite<L>(key: string, entry: CacheEntryV1<L>): void {
   }
 }
 
-// Promise.all but with concurrency limit so the public Galileo RPC isn't
+// Promise.all but with concurrency limit so the public 0G RPC isn't
 // hammered with 14 connections in parallel. 5 at a time keeps the parallel
 // speedup (~3-5x) without blowing rate limits.
 async function withConcurrency<T>(
@@ -191,7 +190,7 @@ export function useUserStats(address: `0x${string}` | undefined): UserStats {
           ranges.push({ from: cursor, to });
         }
 
-        // Parallelize. Public Galileo RPC tolerates ~5 concurrent getLogs
+        // Parallelize. Public 0G RPC tolerates ~5 concurrent getLogs
         // without rate-limiting; full 14-chunk sequential scan goes from
         // ~20s → ~5s on a cold load.
         const tasks = ranges.map(

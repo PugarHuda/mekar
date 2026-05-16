@@ -232,3 +232,29 @@ export function agentCategories(id: number, parentCount: number): AgentCategory[
     }
     return [categoryFromFocus(agentFocus(id, parentCount))];
 }
+
+/**
+ * A realistic example prompt per capability. Drives the "Try it" sample
+ * card + pre-fills the inference textarea, so the demo prompt actually
+ * reflects what the agent does — a Code agent shows a coding task, a
+ * Vision agent an image task — instead of the same translation line for
+ * every agent regardless of capability.
+ */
+export const CATEGORY_SAMPLE_PROMPT: Record<AgentCategory, string> = {
+    translate: "Translate this README into Bahasa Indonesia, preserving the code blocks.",
+    code: "Write a Rust function that merges two sorted vectors into one sorted vector.",
+    math: "Prove that the sum of the first n odd numbers equals n squared.",
+    vision: "Describe what is happening in this image and list every object you can see.",
+    retrieval: "Summarise the key findings across these three attached research papers.",
+    reasoning: "A train leaves at 3pm travelling 60 km/h. Walk through when it reaches a stop 90 km away.",
+    general: "Hello, agent — give me a three-line summary of what you do best.",
+};
+
+/**
+ * The example prompt for an agent, matched to its primary capability.
+ * Resolves through `agentCategory()` so it always agrees with the
+ * capability badge rendered in the hero.
+ */
+export function agentSamplePrompt(id: number, parentCount: number): string {
+    return CATEGORY_SAMPLE_PROMPT[agentCategory(id, parentCount)];
+}

@@ -16,7 +16,7 @@ import {
 import { getAgentMetadata } from "@/lib/agentMetadata";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLineageData } from "@/hooks/useLineageData";
-import { explorerLink } from "@/lib/chains";
+import { ACTIVE_CHAIN, explorerLink } from "@/lib/chains";
 import { formatOG, shortAddress } from "@/lib/utils";
 import { ExternalLink } from "lucide-react";
 
@@ -145,8 +145,8 @@ export default function DashboardPage() {
                                 />
                                 <Kpi
                                     label="Network"
-                                    big="Galileo"
-                                    sub="chain 16602"
+                                    big={ACTIVE_CHAIN.testnet ? "Galileo" : "Mainnet"}
+                                    sub={`chain ${ACTIVE_CHAIN.id}`}
                                     italic
                                 />
                             </section>

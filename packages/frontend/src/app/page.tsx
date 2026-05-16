@@ -648,7 +648,7 @@ function StackChart() {
             label: "0G Chain",
             lat: "ramus chain",
             title: "Chain",
-            body: "Galileo testnet (16602) runs the Mekar contracts: Registry, AgentINFT, RoyaltyVault, TrainingDataRegistry.",
+            body: "0G Aristotle mainnet (16661) runs the Mekar contracts: Registry, AgentINFT, RoyaltyVault, TrainingDataRegistry.",
         },
         {
             label: "Alignment",
@@ -802,7 +802,7 @@ function FAQ() {
         },
         {
             q: "Do I have to expose model weights?",
-            a: "No. Weights upload to 0G Storage; the chain stores only the resulting Merkle root + a TEE attestation hash. The testnet demo anchors files on the log tier as-is — production swaps in the Specialized Flow tier with owner-held decryption keys, gated by Strict-mode INFTs.",
+            a: "No. Weights upload to 0G Storage; the chain stores only the resulting Merkle root + a TEE attestation hash. The current build anchors files on the log tier as-is — the Specialized Flow tier with owner-held decryption keys, gated by Strict-mode INFTs, is the next milestone.",
         },
         {
             q: "Can I revoke a fork I disapprove of?",

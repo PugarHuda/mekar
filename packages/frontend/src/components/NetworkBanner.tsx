@@ -1,9 +1,8 @@
 "use client";
 
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
-import { ACTIVE_CHAIN, FAUCET_URL } from "@/lib/chains";
-import { AlertTriangle, ExternalLink, Coins } from "lucide-react";
-import Link from "next/link";
+import { ACTIVE_CHAIN } from "@/lib/chains";
+import { AlertTriangle } from "lucide-react";
 
 /**
  * Renders nothing in the happy path. Surfaces a wrong-network warning
@@ -80,28 +79,5 @@ export function NetworkBanner() {
                 </button>
             </div>
         </div>
-    );
-}
-
-export function FaucetReminder() {
-    return (
-        <Link
-            href={FAUCET_URL}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: "var(--mono)",
-                fontSize: 12,
-                color: "var(--ink-soft)",
-                textDecoration: "none",
-            }}
-        >
-            <Coins size={12} />
-            Need testnet OG? Get from faucet
-            <ExternalLink size={11} />
-        </Link>
     );
 }
