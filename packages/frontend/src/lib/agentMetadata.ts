@@ -113,10 +113,6 @@ export function saveAgentMetadata(id: number, meta: AgentMeta): void {
             return;
         }
         window.localStorage.setItem(KEY_PREFIX + id, serialised);
-        // Anchor the metadata on 0G Storage in the background. The
-        // localStorage write above is the instant working copy; this
-        // never blocks it and never throws into the caller.
-        void anchorMetadataOn0G(id);
     } catch {
         // localStorage full / disabled / SSR — silent, deterministic fallback
         // path still works in agentName / agentFocus / agentCategory.

@@ -30,7 +30,7 @@ import {
     CATEGORY_LABELS,
     type AgentCategory,
 } from "@/lib/agentNaming";
-import { saveAgentMetadata, META_LIMITS } from "@/lib/agentMetadata";
+import { saveAgentMetadata, anchorMetadataOn0G, META_LIMITS } from "@/lib/agentMetadata";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ExternalLink, Loader2 } from "lucide-react";
 
@@ -171,6 +171,11 @@ function MintPageInner() {
             description: description || undefined,
             license,
         });
+        // Anchor the metadata on 0G Storage — fire-and-forget, runs in
+        // the background. Done explicitly here (not inside
+        // saveAgentMetadata) so a plain local save stays a cheap,
+        // network-free write.
+        void anchorMetadataOn0G(newTokenId);
 
         refetchLineage().catch(() => {
             /* silent — pickers will still update on next natural refetch */
