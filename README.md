@@ -183,10 +183,14 @@ pnpm --filter @mekar/backend dev    # → http://localhost:3001 (real 0G Storage
 
 ### 4. Inference & Royalty Distribution
 
-```
-End User → Pay 1 $0G to use Agent #156
+Inference settles in two on-chain steps:
 
-RoyaltyVault.sol distributes atomically:
+```
+1. payInference(agentId) → fee escrowed, InferenceRequested emitted
+2. settleInference(...)  → a registered compute provider settles;
+                           RoyaltyVault distributes the cascade atomically
+
+RoyaltyVault distribution for Agent #156:
 ├── Owner of #156         → 0.50 $0G  (50%)
 ├── Owner of #42 (parent) → 0.125 $0G (12.5%)
 ├── Owner of #78 (parent) → 0.125 $0G (12.5%)
@@ -195,6 +199,10 @@ RoyaltyVault.sol distributes atomically:
 
 Plus: compute provider fee + protocol fee
 ```
+
+The escrow step lets a payment wait for a provider (or refund on
+timeout); `settleInference` is where the royalty cascade fires — every
+ancestor paid in a single atomic transaction.
 
 ---
 
@@ -205,7 +213,7 @@ or live transaction. Nothing in the FAQ is marketing-only.
 
 | FAQ | Claim | Implementation | Evidence |
 |---|---|---|---|
-| Q1 | Royalty cascade on inference (not just resale) | `RoyaltyVault._distributeRoyalty` BFS walk | 12 `RoyaltyPaid` events on mainnet, distributing across 4 wallets |
+| Q1 | Royalty cascade on inference (not just resale) | `RoyaltyVault._distributeRoyalty` BFS walk | 13 `RoyaltyPaid` events on mainnet, distributing across 4 wallets |
 | Q2 | Bounded depth (10), atomic, treasury fallback | Final sweep in `_distributeRoyalty`: `(fee - distributed) → protocolFeesAccrued` | Treasury accrual = expected math, wei-perfect |
 | Q3 | Encrypted weights, hash-only on chain | `Indexer.upload()` → real root → `weightsPointer` | Verified mainnet round-trip — upload → anchor tx → download, bytes identical |
 | Q4 | Alignment audits cut royalty share | Per-ancestor share scaled by `alignmentHealth/10000` | Bob (50%) earns 50% less than Alice (100%) on the same gen tier |
@@ -265,7 +273,7 @@ A 5-layer protection against clone laundering:
 > Deployed fresh to Aristotle mainnet (chain 16661) — all five contracts
 > deployed, wired, and verified on-chain.
 
-### Live Lineage (5 agents, 12 royalty settlements)
+### Live Lineage (5 agents, 13 royalty settlements)
 
 ```
 Genesis #1 (gen 0, deployer, alignment 100%)
@@ -282,8 +290,8 @@ Genesis #5 (gen 0, minted from the live /mint flow)
 | Metric | Value | Source |
 |---|---|---|
 | Agents minted | 5 (`totalSupply`) | `getLineage` on AgentINFT |
-| RoyaltyPaid events | 12 | `RoyaltyPaid` logs on RoyaltyVault |
-| Protocol treasury accrued | 6.975e14 wei | `RoyaltyVault.protocolFeesAccrued()` |
+| RoyaltyPaid events | 13 | `RoyaltyPaid` logs on RoyaltyVault |
+| Protocol treasury accrued | 1.2675e15 wei | `RoyaltyVault.protocolFeesAccrued()` |
 | Alignment penalty | Agent #3 carries 50% health | gen-1 share halved vs a 100% sibling |
 
 The treasury balance is the sum of protocol fee + undistributed deep-gen

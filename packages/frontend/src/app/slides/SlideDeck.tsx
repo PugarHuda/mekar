@@ -110,8 +110,8 @@ const SLIDES: SlideContent[] = [
                     <li>&nbsp;3% → training data contributors</li>
                 </ul>
                 <p style={{ marginTop: 14, fontSize: 15, color: "var(--ink-soft)" }}>
-                    Dust + slashed shares sweep to a protocol treasury. One tx settles
-                    everything.
+                    Dust + slashed shares sweep to a protocol treasury.{" "}
+                    <code>settleInference</code> pays every ancestor in one atomic tx.
                 </p>
             </>
         ),
@@ -152,8 +152,8 @@ const SLIDES: SlideContent[] = [
                     Bob fine-tunes for Indonesian. Mints INFT #2 → parent = #1.
                 </FlowCard>
                 <FlowCard kind="compose" step="Step 3" title="Pay & cascade">
-                    User pays 0.0012 OG → vault splits to #2 (50%) + #1 (25%) + dust to
-                    treasury — all in one tx.
+                    User pays 0.0012 OG. settleInference splits it — #2 (50%), #1
+                    (25%), dust to treasury — in one atomic tx.
                 </FlowCard>
             </div>
         ),
@@ -246,7 +246,8 @@ const SLIDES: SlideContent[] = [
                     </li>
                     <li>
                         <strong>Pay-to-use</strong>: anyone can call{" "}
-                        <code>payInference(id)</code>; cascade auto-settles.
+                        <code>payInference(id)</code>; a registered provider settles
+                        the cascade.
                     </li>
                     <li>
                         <strong>Strict mode</strong> encrypts weights — only key-holders
