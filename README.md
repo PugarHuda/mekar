@@ -270,8 +270,19 @@ A 5-layer protection against clone laundering:
 | **AlignmentAuditor** | `0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8` | [view ↗](https://chainscan.0g.ai/address/0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8) |
 | **TrainingDataRegistry** | `0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46` | [view ↗](https://chainscan.0g.ai/address/0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46) |
 
-> Deployed fresh to Aristotle mainnet (chain 16661) — all five contracts
-> deployed, wired, and verified on-chain.
+> Deployed fresh to Aristotle mainnet (chain 16661) — all five core
+> contracts deployed, wired, and verified on-chain.
+
+### Governance contracts (deployed, ready)
+
+Deployed to mainnet and ready to take protocol ownership. Ownership
+transfer is intentionally **not** done — admin stays on the deployer EOA
+for the hackathon.
+
+| Contract | Address | Config |
+|---|---|---|
+| **MekarMultisig** | `0x1adA8059630332Dc21CE516ad5F83732F9D657bb` | 2-of-3 |
+| **AlignmentMultiAuditor** | `0xC3bCC0f113935C898e418825678d39A68d22541D` | threshold 2 |
 
 ### Live Lineage (5 agents, 13 royalty settlements)
 

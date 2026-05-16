@@ -636,7 +636,7 @@ function StackChart() {
             label: "0G Storage",
             lat: "specialis flos",
             title: "Storage",
-            body: "Encrypted weights live on Specialized Flow with premium permanence. Genealogy events stream into the Log Layer.",
+            body: "Weight manifests anchor on the 0G Storage Log layer today; the encrypted Specialized Flow tier — premium permanence — is the next milestone.",
         },
         {
             label: "0G Compute",
