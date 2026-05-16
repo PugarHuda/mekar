@@ -36,6 +36,15 @@ export type AgentMeta = {
     categories?: AgentCategory[];     // canonical: 1..N capability tags
     description?: string;
     license?: string;
+    /**
+     * 0G Storage rootHash of this metadata blob, set by
+     * `anchorMetadataOn0G` after a save. localStorage is the instant
+     * working copy; this is the decentralized, content-addressed anchor
+     * — proof the metadata lives on 0G Storage, not just one browser.
+     */
+    _0gAnchor?: string;
+    /** Flow-contract tx hash of the metadata anchor. */
+    _0gAnchorTx?: string;
 };
 
 /**
@@ -104,9 +113,60 @@ export function saveAgentMetadata(id: number, meta: AgentMeta): void {
             return;
         }
         window.localStorage.setItem(KEY_PREFIX + id, serialised);
+        // Anchor the metadata on 0G Storage in the background. The
+        // localStorage write above is the instant working copy; this
+        // never blocks it and never throws into the caller.
+        void anchorMetadataOn0G(id);
     } catch {
         // localStorage full / disabled / SSR — silent, deterministic fallback
         // path still works in agentName / agentFocus / agentCategory.
+    }
+}
+
+/**
+ * Anchor an agent's metadata on 0G Storage (Log tier) via the same
+ * `/api/storage/upload` route the weights flow uses — a real, verifiable
+ * 0G Storage write. Fire-and-forget: localStorage stays the instant
+ * working copy; this runs in the background and writes the returned
+ * rootHash back so the UI can prove "metadata anchored on 0G". Any
+ * failure is silent — the localStorage copy is unaffected.
+ */
+export async function anchorMetadataOn0G(id: number): Promise<void> {
+    if (!isBrowser()) return;
+    try {
+        const meta = getAgentMetadata(id);
+        if (!meta) return;
+        // Hash only the content — strip the anchor refs so they don't
+        // recursively feed into their own rootHash.
+        const content: AgentMeta = { ...meta };
+        delete content._0gAnchor;
+        delete content._0gAnchorTx;
+        const payload = JSON.stringify({ kind: "mekar-agent-metadata", tokenId: id, ...content });
+        const res = await fetch("/api/storage/upload", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                data: payload,
+                encoding: "utf8",
+                encryption: "none",
+                tag: `agent-meta-${id}`,
+            }),
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as { rootHash?: string; txHash?: string };
+        if (!json.rootHash) return;
+        // Write the anchor refs straight to storage — NOT via
+        // saveAgentMetadata, which would re-trigger this function.
+        const current = getAgentMetadata(id) ?? {};
+        window.localStorage.setItem(
+            KEY_PREFIX + id,
+            JSON.stringify(
+                clampMeta({ ...current, _0gAnchor: json.rootHash, _0gAnchorTx: json.txHash })
+            )
+        );
+    } catch {
+        // Network / route error — the localStorage copy stays the working
+        // truth; the anchor simply retries on the next save.
     }
 }
 

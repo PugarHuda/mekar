@@ -302,17 +302,18 @@ function MintPageInner() {
             return null;
         }
         if (s === 2) {
-            // Training-data provenance is the whole point of Mekar — require
-            // a one-line summary before advancing, not just a weights upload.
+            // Demo-stub path: ticking "Skip upload" is the explicit
+            // throwaway-demo opt-out — it clears the whole Step 2 gate.
+            // We don't force provenance fields onto a mint that already
+            // declares itself non-real.
+            if (skipUploadAck) return null;
+            // Real mint: the training-data provenance summary is required
+            // (it's the whole point of Mekar) and so is a real anchor.
             if (datasetNote.trim().length === 0) {
                 return "Add a one-line training data summary — provenance is required.";
             }
-            // Either the user uploaded a real anchor, or they explicitly
-            // checked the "use stub pointer (demo)" box. Without one of those
-            // we'd be silently minting an INFT whose weightsPointer is a
-            // keccak256 of nothing — confusing for everyone downstream.
-            if (!storageUpload && !skipUploadAck) {
-                return "Upload weights to 0G Storage, or tick the acknowledgment to mint with a stub pointer.";
+            if (!storageUpload) {
+                return "Upload weights to 0G Storage, or tick “Skip upload” to mint with a stub pointer.";
             }
             return null;
         }

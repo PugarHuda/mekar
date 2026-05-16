@@ -282,6 +282,38 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                                             </div>
                                         );
                                     })()}
+                                    {/* 0G Storage anchor — agent metadata is
+                                        persisted on 0G Storage, not just one
+                                        browser. Set by anchorMetadataOn0G. */}
+                                    {(() => {
+                                        const anchor = getAgentMetadata(agent.id)?._0gAnchor;
+                                        if (!anchor) return null;
+                                        return (
+                                            <div
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    marginTop: 8,
+                                                    marginLeft: 8,
+                                                    padding: "3px 10px",
+                                                    border: "1px solid var(--cocoa)",
+                                                    background: "var(--gold)",
+                                                    borderRadius: 999,
+                                                    fontFamily: "var(--mono)",
+                                                    fontSize: 10.5,
+                                                    color: "var(--cocoa)",
+                                                    letterSpacing: "0.06em",
+                                                }}
+                                                title={`Agent metadata anchored on 0G Storage — rootHash ${anchor}`}
+                                            >
+                                                <span style={{ opacity: 0.7 }}>0G Storage</span>
+                                                <span style={{ fontWeight: 600 }}>
+                                                    metadata anchored
+                                                </span>
+                                            </div>
+                                        );
+                                    })()}
                                     <p
                                         style={{
                                             color: "var(--ink-soft)",

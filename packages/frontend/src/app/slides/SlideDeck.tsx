@@ -206,10 +206,10 @@ const SLIDES: SlideContent[] = [
                 <div>
                     <h3 style={subhStyle}>✓ Live on Aristotle mainnet</h3>
                     <ul style={ulSmall}>
-                        <li>5 contracts deployed + wired</li>
-                        <li>59/59 forge tests pass</li>
-                        <li>Real 0G Storage upload (AES-GCM, client-side)</li>
-                        <li>Multi-wallet cascade seed proven</li>
+                        <li>7 contracts on mainnet (5 core + 2 governance)</li>
+                        <li>59/59 forge tests pass · CI green</li>
+                        <li>Real 0G Storage — weights + agent metadata anchored</li>
+                        <li>Multi-wallet cascade seed + live pay→settle verified</li>
                         <li>Q1–Q5 honesty fixes shipped (sweep, slash, burn-safe)</li>
                     </ul>
                 </div>
@@ -217,9 +217,9 @@ const SLIDES: SlideContent[] = [
                     <h3 style={subhStyle}>○ Phase 2</h3>
                     <ul style={ulSmall}>
                         <li>0G Compute DSN providers register (broker reachable, no providers yet)</li>
-                        <li>MekarMultisig + AlignmentMultiAuditor take ownership</li>
+                        <li>Multisig governance takes ownership of the protocol</li>
                         <li>Specialized Flow tier for paid storage permanence</li>
-                        <li>0G KV writeback as the source of metadata truth</li>
+                        <li>0G Storage KV tier as metadata source-of-truth (anchored on Log today)</li>
                     </ul>
                 </div>
             </div>

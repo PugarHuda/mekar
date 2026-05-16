@@ -12,5 +12,10 @@
     "MekarRegistry": { "address": "0xF24C4B0f45a46E2d761770BA75e147DEb738d3A6" },
     "RoyaltyVault": { "address": "0x55107dB2CB8399fbA7Fdd913fd5a0FBACd7134f6" },
     "AlignmentAuditor": { "address": "0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8" }
+  },
+  "governance": {
+    "_comment": "Deployed on mainnet, ready to take protocol ownership. Ownership transfer is intentionally NOT done — kept on the deployer EOA for the hackathon.",
+    "MekarMultisig": { "address": "0x1adA8059630332Dc21CE516ad5F83732F9D657bb", "config": "2-of-3" },
+    "AlignmentMultiAuditor": { "address": "0xC3bCC0f113935C898e418825678d39A68d22541D", "config": "threshold 2" }
   }
 }
