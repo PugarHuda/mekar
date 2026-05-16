@@ -1387,7 +1387,7 @@ function Step2({
                 />
             </Field>
 
-            <Field label="Weights file (optional)">
+            <Field label="Model weights or manifest">
                 <input
                     type="file"
                     accept=".safetensors,.bin,.gguf,.pt,.ckpt,.tar,.zip,.json"
