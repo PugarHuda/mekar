@@ -60,7 +60,7 @@ MEKAR provides the missing **royalty rail** for AI:
 
 | Module | Usage | Status |
 |---|---|---|
-| **0G Chain** (16602) | 5 smart contracts deployed on Galileo testnet | ✅ Live |
+| **0G Chain** (16661) | 5 smart contracts deployed on Aristotle mainnet | ✅ Live |
 | **0G Storage Log** | Real `Indexer.upload()` — agent weights anchored, returned root used as on-chain `weightsPointer` | ✅ Live |
 | **INFT (ERC-7857)** | Each agent tokenized with mint/fork/compose primitives | ✅ Live |
 | **Alignment Nodes** | Allowlist auditor pushes alignment scores → scales ancestor royalty | ✅ Live (single-auditor for demo) |
@@ -92,7 +92,7 @@ mekar/
 
 - Node.js 20+
 - pnpm 9+
-- A 0G testnet wallet funded via the [faucet](https://faucet.0g.ai)
+- A 0G wallet with $0G for gas — Aristotle mainnet for the live protocol (Galileo testnet + [faucet](https://faucet.0g.ai) works for local experiments)
 
 ### Install
 
@@ -113,23 +113,23 @@ forge build
 forge test
 ```
 
-### Deploy (0G Galileo Testnet)
+### Deploy (0G Aristotle Mainnet)
 
 ```bash
 # Configure .env from .env.example
 cp .env.example .env
-# Add DEPLOYER_PRIVATE_KEY
+# Add DEPLOYER_PRIVATE_KEY (mainnet wallet, >= 0.06 OG for gas)
 
-# Deploy 4 contracts + wire-up + write addresses to env
-bash scripts/deploy-v2-fix.sh
+# Deploy 5 contracts + wire-up + on-chain self-verification
+bash scripts/deploy-mainnet.sh
 
-# Multi-wallet seed: 3 fresh wallets, 4-agent lineage, alignment slash, 3 inferences
-bash scripts/multi-wallet-seed.sh
+# Seed a 4-agent lineage: alignment slash + settled inferences
+bash scripts/seed-mainnet.sh
 ```
 
-> **Galileo gotcha:** `forge script` and `cast send` (blocking) hit
-> intermittent null-response errors. The shell scripts above use the
-> `--async` + receipt-polling pattern that works reliably. See
+> **0G RPC gotcha:** `forge script` and blocking `cast send` hit
+> intermittent null-response errors on 0G. The shell scripts above use
+> the `--async` + receipt-polling pattern that works reliably. See
 > `packages/backend/CLAUDE.md` for details.
 
 ### Run Frontend + Backend (for /mint Q3 upload flow)
@@ -205,9 +205,9 @@ or live transaction. Nothing in the FAQ is marketing-only.
 
 | FAQ | Claim | Implementation | Evidence |
 |---|---|---|---|
-| Q1 | Royalty cascade on inference (not just resale) | `RoyaltyVault._distributeRoyalty` BFS walk | 14 settlements distributing across 4 wallets |
+| Q1 | Royalty cascade on inference (not just resale) | `RoyaltyVault._distributeRoyalty` BFS walk | 12 `RoyaltyPaid` events on mainnet, distributing across 4 wallets |
 | Q2 | Bounded depth (10), atomic, treasury fallback | Final sweep in `_distributeRoyalty`: `(fee - distributed) → protocolFeesAccrued` | Treasury accrual = expected math, wei-perfect |
-| Q3 | Encrypted weights, hash-only on chain | `Indexer.upload()` → real root → `weightsPointer` | Agent #5 — anchor tx + on-chain pointer match |
+| Q3 | Encrypted weights, hash-only on chain | `Indexer.upload()` → real root → `weightsPointer` | Verified mainnet round-trip — upload → anchor tx → download, bytes identical |
 | Q4 | Alignment audits cut royalty share | Per-ancestor share scaled by `alignmentHealth/10000` | Bob (50%) earns 50% less than Alice (100%) on the same gen tier |
 | Q5 | Burned ancestor → treasury fallback | `try/catch` around `ownerOf` and `getParents` in `_distributeAncestorTiers` and `_gatherNextTier` | Unit tests `test_Q5_*` cover both burned and reverting-owner paths |
 
@@ -262,56 +262,49 @@ A 5-layer protection against clone laundering:
 | **AlignmentAuditor** | `0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8` | [view ↗](https://chainscan.0g.ai/address/0x66f6f49B80d4F705AB1b8Fe8E6b2cA51846EBDE8) |
 | **TrainingDataRegistry** | `0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46` | [view ↗](https://chainscan.0g.ai/address/0x3917e0fcb2E865047A0cDAF4CB648DdCA3B4bB46) |
 
-> Deployed fresh to Aristotle mainnet (chain 16661), all five contracts
-> wired + verified. The Galileo testnet deployment remains available for
-> reference but the live app points at mainnet.
+> Deployed fresh to Aristotle mainnet (chain 16661) — all five contracts
+> deployed, wired, and verified on-chain.
 
-### Live Lineage (5 Agents across 4 Wallets, 14 Inferences Settled)
+### Live Lineage (5 agents, 12 royalty settlements)
 
 ```
 Genesis #1 (gen 0, deployer, alignment 100%)
-  ├── Fork #2 (gen 1, alice, alignment 100%)
-  └── Fork #3 (gen 1, bob, alignment 50% ← slashed by AlignmentAuditor)
+  ├── Fork #2 (gen 1, alignment 100%)
+  └── Fork #3 (gen 1, alignment 50% ← slashed by AlignmentAuditor)
         ↓ both parents
-        Compose #4 (gen 2, carol)
-                ↓
-            3 inferences settled — cascade flows to all 4 wallets
+        Compose #4 (gen 2 — royalty cascades to #2, #3 and #1)
 
-Genesis #5 (gen 0, deployer)
-  - weightsPointer = real 0G Storage Merkle root anchored via Indexer.upload()
-  - 3 inferences settled (incl. one recovered from a stuck escrow)
+Genesis #5 (gen 0, minted from the live /mint flow)
 ```
 
 ### On-chain proof
 
-| Round | Settlements | Treasury accrued | Math match |
-|---|---:|---:|---|
-| Multi-wallet seed (#4) | 3 | 6.975e14 wei | ✅ exact wei |
-| Top-up rounds (#2, #3, #5) | 10 | +3e15 wei | ✅ exact wei |
-| Stuck-escrow recovery | 1 | +5.7e14 wei | ✅ exact wei |
-| **Total** | **14** | **4.9675e15 wei** | ✅ |
+| Metric | Value | Source |
+|---|---|---|
+| Agents minted | 5 (`totalSupply`) | `getLineage` on AgentINFT |
+| RoyaltyPaid events | 12 | `RoyaltyPaid` logs on RoyaltyVault |
+| Protocol treasury accrued | 6.975e14 wei | `RoyaltyVault.protocolFeesAccrued()` |
+| Alignment penalty | Agent #3 carries 50% health | gen-1 share halved vs a 100% sibling |
 
-Treasury delta consistently matches the FAQ claim: protocol fee + Q2 sweep
-(undistributed deep-gen) + Q4 alignment slash → all consolidate into the
-treasury. **Misalignment is a real economic penalty**: bob (50% align)
-gets exactly half the gen-1 share alice (100%) gets when their forks are
-referenced as ancestors.
+The treasury balance is the sum of protocol fee + undistributed deep-gen
+share (Q2 sweep) + alignment slash (Q4). **Misalignment is a real
+economic penalty**: agent #3 at 50% alignment earns exactly half the
+gen-1 share that a 100%-aligned sibling earns.
 
-Sample settlement tx: [`0xe999...96bb`](https://chainscan-galileo.0g.ai/tx/0xe99986c000a6f81c3aabe70c843907c0b587f559bb279f9e1c021892a01d96bb)
-(stuck-escrow recovery, also doubles as a clean Q5 fallback example).
+### Q3 — real 0G Storage, verified end-to-end
 
-Q3 evidence — Agent #5 was minted with a real 0G Storage root anchored
-through the SDK:
+A live upload→download round-trip on Aristotle mainnet, through the same
+`@0gfoundation/0g-ts-sdk` `Indexer.upload()` path the `/mint` flow uses:
 
-| Step | Tx |
+| Step | Value |
 |---|---|
-| 0G Flow anchor | [`0x973f...34b2`](https://chainscan-galileo.0g.ai/tx/0x973ff6949b0289b197351587d439b393e39891a58a613e8701e798be2e1134b2) |
-| INFT mint | [`0xfe01...709c`](https://chainscan-galileo.0g.ai/tx/0xfe012939690e97c13cbeb734be0c0edb59b5f7db956f3c66d357e3f8d321709c) |
-| `getLineage(5).weightsPointer` | `0xd056682f7056b0d15309101fd3f98d8051dfd6b4cff3cd739be6bc7a70075fc8` |
+| Payload | 128-byte manifest |
+| 0G Storage rootHash | `0x70422e922abd90e1ec705ce7d58a88d110d9be54926b8abcf1fda6b2e8db19fc` |
+| Flow anchor tx | [`0x475d…b89`](https://chainscan.0g.ai/tx/0x475dd4a7075069b3dc4f013ab6e37379137b797bdf6767b99213850e5f309b89) (mainnet block 33333849) |
+| Download | fetched back via `/api/storage/download`, bytes byte-identical |
 
-The pointer on chain matches the rootHash returned by the storage upload
-to the byte — the data really is on 0G Storage, the contract really
-references it.
+The data really is on 0G Storage, the rootHash anchored through a real
+Flow contract transaction on mainnet, and it round-trips intact.
 
 ---
 

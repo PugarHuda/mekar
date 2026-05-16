@@ -271,7 +271,7 @@ const SLIDES: SlideContent[] = [
         ),
         body: (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
-                <Stat label="Contract tests" value="56 / 56" />
+                <Stat label="Contract tests" value="59 / 59" />
                 <Stat label="Routes prerendered" value="14 / 14" />
                 <Stat label="ESLint / TS errors" value="0" />
                 <Stat label="0G primitives used" value="5" />
